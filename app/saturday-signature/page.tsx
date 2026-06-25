@@ -15,7 +15,7 @@ export default function SaturdaySignature() {
       theNightItems={[
         '4 premium venues — the highest-tier lineup of the week',
         'Two private party vans with music and lights — groups converge at each venue',
-        'Welcome shots on arrival',
+        '2–4 complimentary shots during the night',
         'VIP entry at all stops — no queue, no negotiation at the door',
         'Two dedicated hosts managing the full night',
         'Capped at 24 guests — larger energy than weekday editions, still curated and controlled',

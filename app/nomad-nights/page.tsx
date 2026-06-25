@@ -15,7 +15,7 @@ export default function NomadNights() {
       theNightItems={[
         '4 venues — rooftop, cocktail bar, and club in the mix',
         'Host opens with light introductions: what you do, where you\'re from, how long you\'re in Bangkok',
-        'Welcome shots on arrival',
+        '2–4 complimentary shots during the night',
         'Private party van with music between venues',
         'VIP entry at all stops',
         'Capped at 12 — the right size for conversations that actually go somewhere',

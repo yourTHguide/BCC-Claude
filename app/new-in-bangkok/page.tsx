@@ -15,7 +15,7 @@ export default function NewInBangkok() {
       theNightItems={[
         '4 curated venues across Sukhumvit',
         'Host introduces guests by name and context — personal introductions, not a group address',
-        'Welcome shots on arrival',
+        '2–4 complimentary shots during the night',
         'Private party van with music between venues',
         'VIP entry at all stops',
         'Capped at 12 — intimate enough that everyone actually meets everyone',

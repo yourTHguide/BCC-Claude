@@ -15,7 +15,7 @@ export default function LGBTNight() {
       theNightItems={[
         '4 venues — selected for inclusivity, atmosphere, and quality',
         'Host creates an actively welcoming environment from the first stop',
-        'Welcome shots on arrival',
+        '2–4 complimentary shots during the night',
         'Private party van with music between venues',
         'VIP entry at all stops',
         'Capped at 12 — intimate and genuine, never a mass event',

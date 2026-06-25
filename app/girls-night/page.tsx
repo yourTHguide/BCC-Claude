@@ -15,7 +15,7 @@ export default function GirlsNight() {
       theNightItems={[
         '4 curated venues — selected for atmosphere and safety',
         'Female host leading the night from start to finish',
-        'Welcome shots on arrival',
+        '2–4 complimentary shots during the night',
         'Private party van with music between venues',
         'VIP entry at all stops — no queue',
         'Capped at 12 — intimate enough to feel like your own night out',

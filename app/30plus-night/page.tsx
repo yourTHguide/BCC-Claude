@@ -15,7 +15,7 @@ export default function ThirtyPlusNight() {
       theNightItems={[
         '4 curated venues — premium selection across Sukhumvit',
         'Host facilitates introductions with context: profession, background, time in Bangkok',
-        'Welcome shots on arrival',
+        '2–4 complimentary shots during the night',
         'Private party van with music between venues',
         'VIP entry at all stops',
         'Capped at 12 — conversation-sized group throughout the night',

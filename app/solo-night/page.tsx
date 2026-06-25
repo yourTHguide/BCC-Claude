@@ -15,7 +15,7 @@ export default function SoloNight() {
       theNightItems={[
         '4 curated venues across Sukhumvit',
         'Dedicated host — active introductions from the first stop, not just logistics',
-        'Welcome shots on arrival (from venue partnership)',
+        '2–4 complimentary shots during the night (from venue partnership)',
         'Private party van with music between venues',
         'VIP entry at all stops — no queue',
         'Capped at 12 guests — everyone interacts, nobody gets lost',
