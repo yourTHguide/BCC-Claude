@@ -2,7 +2,7 @@ export default function WhatsIncluded() {
   const items = [
     { label: '4 Curated Venues', desc: 'Handpicked for tonight\'s crowd' },
     { label: 'VIP Entry', desc: 'Skip the queue at every stop' },
-    { label: 'Welcome Shots', desc: 'One round on us to start the night' },
+    { label: '
     { label: 'Private Party Van', desc: 'Music, lights, movement between venues' },
     { label: 'Dedicated Host', desc: 'With you from start to finish' },
     { label: 'Capped Group Size', desc: 'Never too big. Always the right energy.' },

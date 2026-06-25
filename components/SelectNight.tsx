@@ -35,7 +35,7 @@ const nights = [
   },
   {
     day: 'THU',
-    tag: 'WOMEN ONLY · THURSDAY NIGHTS',
+    tag: 'THURSDAY NIGHTS · ALL WELCOME',
     title: 'Girls Night Bangkok',
     tagline: 'Your night. Your crowd. Your rules.',
     price: '฿1,000',
