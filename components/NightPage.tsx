@@ -133,7 +133,7 @@ export default function NightPage({
             letterSpacing: '0.05em',
           }}
         >
-          BCC
+          <img src="/images/Nightlife Thailand LOGO.png" alt="Bangkok Club Crawl" style={{height:"28px",width:"auto",objectFit:"contain"}} />
         </div>
       </nav>
 
