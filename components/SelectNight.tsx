@@ -157,10 +157,13 @@ export default function SelectNight() {
                 justifyContent: 'flex-end',
               }}
             >
-              {/* TODO: Replace bg with real photo + overlay:
-              <img src={`/images/${night.slug}.jpg`} style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover'}} />
+              {/* Real photo + overlay */}
+              <img
+                src={`/images/${night.slug}.jpg`}
+                alt={night.title}
+                style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover',objectPosition:'center'}}
+              />
               <div style={{position:'absolute',inset:0,background:'linear-gradient(to bottom, transparent 0%, rgba(26,0,21,0.95) 100%)'}} />
-              */}
 
               {/* Badge */}
               {night.badge && (

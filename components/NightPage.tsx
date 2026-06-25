@@ -151,13 +151,26 @@ export default function NightPage({
             justifyContent: 'flex-end',
           }}
         >
-          {/* Background placeholder — TODO: replace with real photo */}
+          {/* Real hero photo */}
+          <img
+            src={`/images/${slug}.jpg`}
+            alt={headline}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              objectPosition: 'center',
+            }}
+          />
+          {/* Fallback gradient shown while image loads */}
           <div
             style={{
               position: 'absolute',
               inset: 0,
               background: 'linear-gradient(160deg, #5A0040 0%, #2F002F 50%, #1A0015 100%)',
-              zIndex: 0,
+              zIndex: -1,
             }}
           />
           <div

@@ -13,17 +13,19 @@ export default function Hero() {
         overflow: 'hidden',
       }}
     >
-      {/* Background image placeholder */}
+      {/* Hero background photo */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          background: 'linear-gradient(135deg, #3D0030 0%, #1A0015 50%, #0D000A 100%)',
           zIndex: 0,
         }}
       >
-        {/* TODO: Replace with real BCC crowd photo */}
-        {/* <img src="/images/hero-bg.jpg" style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'center' }} /> */}
+        <img
+          src="/images/hero.jpg"
+          alt="Bangkok Club Crawl"
+          style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top' }}
+        />
       </div>
 
       {/* Gradient overlay */}

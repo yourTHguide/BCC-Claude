@@ -1,20 +1,33 @@
 export default function Hosts() {
   const hosts = [
     {
-      name: 'Ice',
-      role: 'Lead Host & Co-Founder',
-      quote: 'I make sure every person in the group feels like they belong from the first stop.',
-      // TODO: Replace with event-night shot (dark venue, warm lighting, candid)
+      name: 'Boom',
+      role: 'SOCIAL CONNECTOR HOST',
+      quote: 'Nobody stays a stranger for long.',
+      photo: '/images/host-boom.jpg',
+      objectPosition: 'center bottom',
     },
     {
-      name: 'Boom',
-      role: 'Operations Host',
-      quote: 'The night runs smoothly because every detail is handled before you arrive.',
+      name: 'Ice',
+      role: 'ENERGY HOST',
+      quote: 'The room feels it before the music starts.',
+      photo: '/images/host-ice.jpg',
+      objectPosition: 'center top',
     },
     {
       name: 'JJ',
-      role: 'Host',
-      quote: 'My job is to keep the energy moving and make sure no one gets left behind.',
+      role: 'FLOW MANAGER HOST',
+      quote: 'Smooth transitions. The night never drops.',
+      photo: '/images/host-jj.jpg',
+      objectPosition: 'center bottom',
+    },
+    {
+      name: 'Guide',
+      role: 'FOUNDER & HOST',
+      quote: 'Bangkok born. Every venue earned.',
+      photo: '/images/host-guide.jpg',
+      objectPosition: 'center top',
+      isFounder: true,
     },
   ]
 
@@ -67,37 +80,28 @@ export default function Hosts() {
               width: '240px',
               borderRadius: '10px',
               overflow: 'hidden',
+              borderColor: host.isFounder ? 'rgba(234,0,58,0.25)' : undefined,
             }}
           >
-            {/* Photo placeholder */}
+            {/* Host photo */}
             <div
               style={{
                 height: '240px',
+                overflow: 'hidden',
+                position: 'relative',
                 background: 'linear-gradient(160deg, #5A0040 0%, #2F002F 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
               }}
             >
-              {/* TODO: Replace with event-night shot */}
-              <div
+              <img
+                src={host.photo}
+                alt={host.name}
                 style={{
-                  width: '64px',
-                  height: '64px',
-                  borderRadius: '50%',
-                  background: 'rgba(234,0,58,0.20)',
-                  border: '1px solid rgba(234,0,58,0.30)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontFamily: 'Inter, sans-serif',
-                  fontWeight: 600,
-                  fontSize: '20px',
-                  color: 'rgba(255,255,255,0.40)',
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  objectPosition: host.objectPosition,
                 }}
-              >
-                {host.name[0]}
-              </div>
+              />
             </div>
 
             <div style={{ padding: '20px' }}>
