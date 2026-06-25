@@ -33,31 +33,16 @@ export default function Navigation() {
         transition: 'background 0.3s ease, backdrop-filter 0.3s ease',
       }}
     >
-      {/* Logo */}
-      <div
-        style={{
-          fontFamily: 'Inter, sans-serif',
-          fontWeight: 600,
-          fontSize: '20px',
-          color: '#FFFFFF',
-          border: '2px solid #FFFFFF',
-          height: '36px',
-          padding: '0 12px',
-          display: 'flex',
-          alignItems: 'center',
-          letterSpacing: '0.05em',
-        }}
-      >
-        BCC
+      <div style={{ height: '36px', display: 'flex', alignItems: 'center' }}>
+        <img
+          src="/images/Nightlife Thailand LOGO.png"
+          alt="Bangkok Club Crawl"
+          style={{ height: '36px', width: 'auto', objectFit: 'contain' }}
+        />
       </div>
 
-      {/* Desktop links */}
       <div
-        style={{
-          display: 'flex',
-          gap: '32px',
-          alignItems: 'center',
-        }}
+        style={{ display: 'flex', gap: '32px', alignItems: 'center' }}
         className="hidden-mobile"
       >
         {[
