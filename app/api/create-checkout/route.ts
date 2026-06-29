@@ -55,7 +55,8 @@ export async function POST(req: NextRequest) {
         },
       },
 
-      success_url: `${appUrl}/booking-success?session_id={CHECKOUT_SESSION_ID}`,
+      // Include night + qty in success URL so Purchase pixel event can fire accurately
+      success_url: `${appUrl}/booking-success?session_id={CHECKOUT_SESSION_ID}&night=${nightSlug}&qty=${quantity}`,
       cancel_url: `${appUrl}/book?night=${nightSlug}`,
     })
 
