@@ -4,18 +4,59 @@ import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
+declare global {
+  interface Window {
+    fbq?: (...args: unknown[]) => void
+  }
+}
+
+const nightPriceMap: Record<string, number> = {
+  'saturday-signature': 1500,
+  'tgif': 1200,
+  'lgbtplus-night': 1200,
+  'solo-night': 1000,
+  'new-in-bangkok': 1000,
+  'nomad-nights': 1000,
+  'girls-night': 1000,
+  '30plus-night': 1000,
+}
+
+const nightNameMap: Record<string, string> = {
+  'saturday-signature': 'BCC Signature Night',
+  'tgif': 'TGIF Bangkok',
+  'lgbtplus-night': 'LGBT+ Night Bangkok',
+  'solo-night': "Solo Traveler's Night",
+  'new-in-bangkok': 'New in Bangkok Night',
+  'nomad-nights': 'Digital Nomad Crawl',
+  'girls-night': 'Girls Night Bangkok',
+  '30plus-night': '30+ Social Night',
+}
+
 function SuccessContent() {
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('session_id')
+  const nightSlug = searchParams.get('night') ?? ''
+  const qty = parseInt(searchParams.get('qty') ?? '1', 10)
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
 
   useEffect(() => {
     if (sessionId) {
       setStatus('success')
+      // Fire Purchase pixel event on confirmed payment
+      const pricePerTicket = nightPriceMap[nightSlug] ?? 1000
+      const nightName = nightNameMap[nightSlug] ?? 'Bangkok Club Crawl'
+      const totalValue = pricePerTicket * qty
+      window.fbq?.('track', 'Purchase', {
+        value: totalValue,
+        currency: 'THB',
+        content_name: nightName,
+        content_category: 'Nightlife Event',
+        num_items: qty,
+      })
     } else {
       setStatus('error')
     }
-  }, [sessionId])
+  }, [sessionId, nightSlug, qty])
 
   return (
     <div style={{
@@ -35,7 +76,6 @@ function SuccessContent() {
 
       {status === 'success' && (
         <>
-          {/* Checkmark */}
           <div style={{
             width: '72px', height: '72px', borderRadius: '50%',
             background: 'linear-gradient(135deg, #EA003A, #820065)',
@@ -56,7 +96,7 @@ function SuccessContent() {
             fontWeight: 600, fontSize: 'clamp(24px, 6vw, 36px)',
             color: '#fff', marginBottom: '16px', lineHeight: 1.15,
           }}>
-            You're in.<br />Bangkok awaits.
+            You’re in.<br />Bangkok awaits.
           </h1>
 
           <p style={{
@@ -67,32 +107,23 @@ function SuccessContent() {
             Check your email — full details, run of show, dress code, and tips are all in there.
           </p>
 
-          {/* What happens next */}
           <div style={{
             background: 'rgba(255,255,255,0.04)',
             border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: '14px',
-            padding: '24px',
-            maxWidth: '400px',
-            width: '100%',
-            marginBottom: '32px',
-            textAlign: 'left',
+            borderRadius: '14px', padding: '24px',
+            maxWidth: '400px', width: '100%',
+            marginBottom: '32px', textAlign: 'left',
           }}>
             <p style={{
               fontWeight: 600, fontSize: '10px', letterSpacing: '0.2em',
-              textTransform: 'uppercase', color: 'rgba(255,255,255,0.40)',
-              marginBottom: '16px',
+              textTransform: 'uppercase', color: 'rgba(255,255,255,0.40)', marginBottom: '16px',
             }}>WHAT HAPPENS NEXT</p>
-
             {[
               { step: '1', text: 'Check your email for full booking details and reminders.' },
-              { step: '2', text: 'By 7 PM on the day, you\'ll receive a WhatsApp group link with the exact meet-up location.' },
+              { step: '2', text: "By 7 PM on the day, you'll receive a WhatsApp group link with the exact meet-up location." },
               { step: '3', text: 'Show up at 9:30 PM. Your host will be there.' },
             ].map(({ step, text }) => (
-              <div key={step} style={{
-                display: 'flex', gap: '14px', alignItems: 'flex-start',
-                marginBottom: step === '3' ? 0 : '14px',
-              }}>
+              <div key={step} style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', marginBottom: step === '3' ? 0 : '14px' }}>
                 <div style={{
                   width: '24px', height: '24px', borderRadius: '50%',
                   background: 'linear-gradient(135deg, #EA003A, #820065)',
@@ -101,30 +132,21 @@ function SuccessContent() {
                 }}>
                   {step}
                 </div>
-                <p style={{
-                  fontSize: '13px', color: 'rgba(255,255,255,0.65)',
-                  lineHeight: 1.6, margin: 0, paddingTop: '3px',
-                }}>
+                <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.65)', lineHeight: 1.6, margin: 0, paddingTop: '3px' }}>
                   {text}
                 </p>
               </div>
             ))}
           </div>
 
-          {/* Important note */}
           <div style={{
-            background: 'rgba(234,0,58,0.08)',
-            border: '1px solid rgba(234,0,58,0.20)',
-            borderLeft: '3px solid #EA003A',
-            borderRadius: '10px',
-            padding: '16px 20px',
-            maxWidth: '400px',
-            width: '100%',
-            textAlign: 'left',
-            marginBottom: '36px',
+            background: 'rgba(234,0,58,0.08)', border: '1px solid rgba(234,0,58,0.20)',
+            borderLeft: '3px solid #EA003A', borderRadius: '10px',
+            padding: '16px 20px', maxWidth: '400px', width: '100%',
+            textAlign: 'left', marginBottom: '36px',
           }}>
             <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.70)', lineHeight: 1.6, margin: 0 }}>
-              <strong style={{ color: '#fff' }}>Didn't get the email?</strong> Check your spam folder or contact us on WhatsApp at{' '}
+              <strong style={{ color: '#fff' }}>Didn’t get the email?</strong> Check your spam folder or contact us on WhatsApp at{' '}
               <a href="https://wa.me/66660399569" style={{ color: '#EA003A', textDecoration: 'none' }}>
                 (+66) 66-039-9569
               </a>
