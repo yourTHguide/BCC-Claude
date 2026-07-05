@@ -343,6 +343,7 @@ export default function Dashboard() {
   const [allBookings, setAllBookings] = useState<Booking[]>([])
   const [selectedEvent, setSelectedEvent] = useState<EventDate|null>(null)
   const [loading, setLoading] = useState(false)
+  const [resendState, setResendState] = useState<Record<string,'idle'|'sending'|'sent'|'error'>>({})
 
   useEffect(() => { if (sessionStorage.getItem('bcc_auth')==='1') setAuthed(true) }, [])
 
@@ -359,6 +360,26 @@ export default function Dashboard() {
     const { data } = await supabase.from('bookings').select('*').eq('status','confirmed').order('created_at',{ascending:false})
     setAllBookings(data||[])
   }, [])
+
+  async function resendConfirmation(bookingId: string) {
+    setResendState(s => ({ ...s, [bookingId]: 'sending' }))
+    try {
+      const res = await fetch('/api/resend-confirmation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        setResendState(s => ({ ...s, [bookingId]: 'sent' }))
+        setTimeout(() => setResendState(s => ({ ...s, [bookingId]: 'idle' })), 3000)
+      } else {
+        setResendState(s => ({ ...s, [bookingId]: 'error' }))
+      }
+    } catch {
+      setResendState(s => ({ ...s, [bookingId]: 'error' }))
+    }
+  }
 
   useEffect(() => { if (authed) { loadEvents(); loadBookings() } }, [authed, loadEvents, loadBookings])
 
@@ -559,7 +580,14 @@ export default function Dashboard() {
                         {b.promo_code && ` · ${b.promo_code}`}
                       </p>
                     </div>
-                    <div style={{ width:'8px', height:'8px', borderRadius:'50%', background:'#22c55e', flexShrink:0 }} />
+                    <button
+                onClick={() => resendConfirmation(b.id)}
+                disabled={resendState[b.id]==='sending'}
+                style={{ ...S.btn, ...S.btnGhost, height:'30px', padding:'0 12px', fontSize:'12px' }}
+              >
+                {resendState[b.id]==='sending' ? 'Sending…' : resendState[b.id]==='sent' ? '✓ Sent' : resendState[b.id]==='error' ? 'Failed — Retry' : 'Resend Email'}
+              </button>
+              <div style={{ width:'8px', height:'8px', borderRadius:'50%', background:'#22c55e', flexShrink:0 }} />
                   </div>
                 </div>
               )
