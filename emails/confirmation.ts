@@ -162,7 +162,7 @@ export function generateConfirmationEmail({
           <p style="margin:0 0 12px;font-size:11px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.40)">INCLUDED</p>
           <ul style="margin:0;padding:0 0 0 16px;color:rgba(255,255,255,0.65);font-size:13px;line-height:1.9">
             <li>Free transport between venues</li>
-            <li>1–2 complimentary shots</li>
+            <li>2–4 complimentary shots</li>
             <li>Exclusive drink deals</li>
             <li>VIP entry at all stops</li>
             <li>Dedicated host all night</li>
@@ -172,7 +172,7 @@ export function generateConfirmationEmail({
           <p style="margin:0 0 12px;font-size:11px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.40)">NOT INCLUDED</p>
           <ul style="margin:0;padding:0 0 0 16px;color:rgba(255,255,255,0.65);font-size:13px;line-height:1.9">
             <li>Extra drinks</li>
-            <li>Cover charges (0–500 THB)</li>
+            <li>Cover charge <span style="display:inline-block;background:rgba(234,0,58,0.15);color:#EA003A;font-size:9px;font-weight:700;padding:2px 8px;border-radius:999px;margin-left:4px;vertical-align:middle">DJ NIGHTS ONLY</span><br/><span style="font-size:11px;color:rgba(255,255,255,0.40)">Entry is covered for you on all regular nights</span></li>
             <li>Ride home</li>
             <li>1 drink min. at free-entry venues</li>
           </ul>
