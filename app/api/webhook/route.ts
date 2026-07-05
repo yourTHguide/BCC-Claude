@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
     // ── Notify Guide via email (internal alert) ──
     await resend.emails.send({
       from: `BCC Bookings <${process.env.RESEND_FROM}>`,
-      to: process.env.RESEND_FROM!, // sends to bangkokclubcrawl@gmail.com
+      to: process.env.ADMIN_NOTIFY_EMAIL!, // internal alert to founder's inbox
       subject: `New booking: ${meta.night_name} — ${meta.formatted_date} (${quantity} ticket${quantity > 1 ? 's' : ''})`,
       html: `
         <p><strong>New booking received</strong></p>
