@@ -13,7 +13,10 @@ export function generateConfirmationEmail({
   totalPaid: number
   promoCode?: string
 }) {
-  const dateObj = new Date(eventDate)
+  // Parse the YYYY-MM-DD string into LOCAL date components (not new Date(eventDate),
+  // which parses as UTC midnight and can roll the date back a day depending on server TZ)
+  const [dY, dM, dD] = eventDate.split('-').map(Number)
+  const dateObj = new Date(dY, dM - 1, dD)
   const formattedDate = dateObj.toLocaleDateString('en', {
     weekday: 'long',
     day: 'numeric',
