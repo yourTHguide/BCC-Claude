@@ -14,7 +14,10 @@ export async function POST(req: NextRequest) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://bkkclubcrawl.com'
 
     // Format date nicely for Stripe description
-    const dateObj = new Date(eventDate)
+    // Parse the YYYY-MM-DD string into LOCAL date components (not new Date(eventDate),
+    // which parses as UTC midnight and can roll the date back a day depending on server TZ)
+    const [dY, dM, dD] = eventDate.split('-').map(Number)
+    const dateObj = new Date(dY, dM - 1, dD)
     const formattedDate = dateObj.toLocaleDateString('en', {
       weekday: 'long',
       day: 'numeric',
