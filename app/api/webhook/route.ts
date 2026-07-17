@@ -4,7 +4,12 @@ import { getServiceSupabase } from '@/lib/supabase'
 import { Resend } from 'resend'
 import { generateConfirmationEmail } from '@/emails/confirmation'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Lazily instantiated so importing this route doesn't run the Resend
+// constructor during Next.js's build-time "collecting page data" step,
+// which crashed the build when RESEND_API_KEY wasn't available there.
+function getResend() {
+  return new Resend(process.env.RESEND_API_KEY)
+}
 
 export async function POST(req: NextRequest) {
   const body = await req.text()
@@ -87,7 +92,7 @@ export async function POST(req: NextRequest) {
       promoCode: promoCode || undefined,
     })
 
-    const { error: emailError } = await resend.emails.send({
+    const { error: emailError } = await getResend().emails.send({
       from: `Bangkok Club Crawl <${process.env.RESEND_FROM}>`,
       to: guestEmail,
       subject: `You're booked — ${meta.night_name} on ${meta.formatted_date}`,
@@ -99,7 +104,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Notify Guide via email (internal alert) ──
-    await resend.emails.send({
+    await getResend().emails.send({
       from: `BCC Bookings <${process.env.RESEND_FROM}>`,
       to: process.env.ADMIN_NOTIFY_EMAIL!, // internal alert to founder's inbox
       subject: `New booking: ${meta.night_name} — ${meta.formatted_date} (${quantity} ticket${quantity > 1 ? 's' : ''})`,
