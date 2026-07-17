@@ -344,6 +344,10 @@ export default function Dashboard() {
   const [selectedEvent, setSelectedEvent] = useState<EventDate|null>(null)
   const [loading, setLoading] = useState(false)
   const [resendState, setResendState] = useState<Record<string,'idle'|'sending'|'sent'|'error'>>({})
+  const [rescheduleOpen, setRescheduleOpen] = useState<Record<string,boolean>>({})
+  const [rescheduleDate, setRescheduleDate] = useState<Record<string,string>>({})
+  const [cancelConfirm, setCancelConfirm] = useState<Record<string,boolean>>({})
+  const [actionState, setActionState] = useState<Record<string,'idle'|'sending'|'done'|'error'>>({})
 
   useEffect(() => { if (sessionStorage.getItem('bcc_auth')==='1') setAuthed(true) }, [])
 
@@ -378,6 +382,51 @@ export default function Dashboard() {
       }
     } catch {
       setResendState(s => ({ ...s, [bookingId]: 'error' }))
+    }
+  }
+
+  async function rescheduleBooking(bookingId: string) {
+    const newDate = rescheduleDate[bookingId]
+    if (!newDate) return
+    setActionState(s => ({ ...s, [bookingId]: 'sending' }))
+    try {
+      const res = await fetch('/api/reschedule-booking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId, newDate }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        setActionState(s => ({ ...s, [bookingId]: 'done' }))
+        setRescheduleOpen(s => ({ ...s, [bookingId]: false }))
+        loadBookings()
+        setTimeout(() => setActionState(s => ({ ...s, [bookingId]: 'idle' })), 3000)
+      } else {
+        setActionState(s => ({ ...s, [bookingId]: 'error' }))
+      }
+    } catch {
+      setActionState(s => ({ ...s, [bookingId]: 'error' }))
+    }
+  }
+
+  async function cancelBooking(bookingId: string) {
+    setActionState(s => ({ ...s, [bookingId]: 'sending' }))
+    try {
+      const res = await fetch('/api/cancel-booking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        setActionState(s => ({ ...s, [bookingId]: 'done' }))
+        setCancelConfirm(s => ({ ...s, [bookingId]: false }))
+        loadBookings()
+      } else {
+        setActionState(s => ({ ...s, [bookingId]: 'error' }))
+      }
+    } catch {
+      setActionState(s => ({ ...s, [bookingId]: 'error' }))
     }
   }
 
@@ -587,8 +636,62 @@ export default function Dashboard() {
               >
                 {resendState[b.id]==='sending' ? 'Sending…' : resendState[b.id]==='sent' ? '✓ Sent' : resendState[b.id]==='error' ? 'Failed — Retry' : 'Resend Email'}
               </button>
-              <div style={{ width:'8px', height:'8px', borderRadius:'50%', background:'#22c55e', flexShrink:0 }} />
+              <button
+                onClick={() => setRescheduleOpen(s => ({ ...s, [b.id]: !s[b.id] }))}
+                style={{ ...S.btn, ...S.btnGhost, height:'30px', padding:'0 12px', fontSize:'12px' }}
+              >
+                Reschedule
+              </button>
+              <button
+                onClick={() => setCancelConfirm(s => ({ ...s, [b.id]: !s[b.id] }))}
+                style={{ ...S.btn, ...S.btnDanger, height:'30px', padding:'0 12px', fontSize:'12px' }}
+              >
+                Cancel
+              </button>
+                    <div style={{ width:'8px', height:'8px', borderRadius:'50%', background:'#22c55e', flexShrink:0 }} />
                   </div>
+
+                  {rescheduleOpen[b.id] && (
+                    <div style={{ width:'100%', marginTop:'4px', paddingTop:'14px', borderTop:'1px solid rgba(255,255,255,0.06)', display:'flex', flexWrap:'wrap', gap:'10px', alignItems:'center' }}>
+                      <label style={{ ...S.label, marginBottom:0 }}>NEW DATE</label>
+                      <input
+                        type="date"
+                        value={rescheduleDate[b.id] || ''}
+                        onChange={e => setRescheduleDate(s => ({ ...s, [b.id]: e.target.value }))}
+                        style={{ ...S.input, maxWidth:'180px' }}
+                      />
+                      <button
+                        onClick={() => rescheduleBooking(b.id)}
+                        disabled={!rescheduleDate[b.id] || actionState[b.id]==='sending'}
+                        style={{ ...S.btn, ...S.btnRed }}
+                      >
+                        {actionState[b.id]==='sending' ? 'Sending…' : 'Confirm New Date & Notify Guest'}
+                      </button>
+                      <button onClick={() => setRescheduleOpen(s => ({ ...s, [b.id]: false }))} style={{ ...S.btn, ...S.btnGhost }}>
+                        Never mind
+                      </button>
+                      {actionState[b.id]==='error' && <p style={{ color:'#EA003A', fontSize:'12px', margin:0 }}>Failed — try again</p>}
+                    </div>
+                  )}
+
+                  {cancelConfirm[b.id] && (
+                    <div style={{ width:'100%', marginTop:'4px', paddingTop:'14px', borderTop:'1px solid rgba(255,255,255,0.06)', display:'flex', flexWrap:'wrap', gap:'10px', alignItems:'center' }}>
+                      <p style={{ fontSize:'13px', color:'rgba(255,255,255,0.70)', margin:0, flex:'1 1 260px' }}>
+                        Cancel this booking and refund ฿{b.total_paid.toLocaleString()} to {b.guest_name||b.guest_email}? This can't be undone.
+                      </p>
+                      <button
+                        onClick={() => cancelBooking(b.id)}
+                        disabled={actionState[b.id]==='sending'}
+                        style={{ ...S.btn, ...S.btnDanger }}
+                      >
+                        {actionState[b.id]==='sending' ? 'Cancelling…' : 'Confirm Cancel & Refund'}
+                      </button>
+                      <button onClick={() => setCancelConfirm(s => ({ ...s, [b.id]: false }))} style={{ ...S.btn, ...S.btnGhost }}>
+                        Never mind
+                      </button>
+                      {actionState[b.id]==='error' && <p style={{ color:'#EA003A', fontSize:'12px', margin:0 }}>Failed — try again</p>}
+                    </div>
+                  )}
                 </div>
               )
             })}
