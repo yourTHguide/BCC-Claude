@@ -3,7 +3,12 @@ import { getServiceSupabase } from '@/lib/supabase'
 import { Resend } from 'resend'
 import { generateRescheduleEmail } from '@/emails/reschedule'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Lazily instantiated so importing this route doesn't run the Resend
+// constructor during Next.js's build-time "collecting page data" step,
+// which crashed the build when RESEND_API_KEY wasn't available there.
+function getResend() {
+  return new Resend(process.env.RESEND_API_KEY)
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -42,7 +47,6 @@ export async function POST(req: NextRequest) {
       .eq('id', bookingId)
 
     if (updateError) {
-      console.error('Reschedule update error:', updateError)
       return NextResponse.json({ error: 'Failed to update booking' }, { status: 500 })
     }
 
@@ -56,17 +60,14 @@ export async function POST(req: NextRequest) {
         totalPaid: booking.total_paid,
       })
 
-      const { error: emailError } = await resend.emails.send({
+      const { error: emailError } = await getResend().emails.send({
         from: `Bangkok Club Crawl <${process.env.RESEND_FROM}>`,
         to: booking.guest_email,
         subject: `Your booking date has changed — ${booking.night_name}`,
         html: emailHtml,
       })
 
-      if (emailError) {
-        console.error('Resend reschedule email error:', emailError)
-        // Booking is already updated in the DB — don't fail the request over email delivery
-      }
+      if (emailError) console.error('Resend reschedule email error:', emailError)
     }
 
     return NextResponse.json({ success: true })
