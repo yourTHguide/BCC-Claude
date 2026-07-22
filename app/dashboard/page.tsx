@@ -11,6 +11,24 @@ const supabase = createClient(
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
 const DAY_LABELS = ['Mo','Tu','We','Th','Fr','Sa','Su']
 const HOSTS = ['Guide','Ice','Boom','JJ']
+const VERDICT_OPTIONS = ['Pending','Pre-confirmation','Operation Confirmed','Cancelled / Rescheduled','Completed','Reviewed']
+const VERDICT_REQUIRING_CONFIRM = ['Operation Confirmed','Cancelled / Rescheduled']
+const PRE_CONFIRMATION_MESSAGE = "Quick update — we're close to confirming tonight's group. We'll make the final confirmation by 7 PM. If the group stays smaller, we'd like to check which option works best for you: reschedule or refund. If you prefer to reschedule, please send us your preferred alternative date."
+
+// Host fee: flat 1500 for up to 5 show-up guests, +300 per guest beyond 5
+function suggestedHostFee(showUpGuests: number): number {
+  if (showUpGuests <= 5) return 1500
+  return 1500 + (showUpGuests - 5) * 300
+}
+
+interface VenueRoute {
+  venue1?: string
+  venue2?: string
+  venue3?: string
+  venue4?: string
+  backup?: string
+  notes?: string
+}
 
 interface EventDate {
   id: string
@@ -20,6 +38,14 @@ interface EventDate {
   is_open: boolean
   host_assigned: string
   notes: string
+  operation_verdict: string
+  meet_up_location: string | null
+  whatsapp_group_link: string | null
+  venue_route: VenueRoute | null
+  van_or_taxi_contact: string | null
+  special_notes: string | null
+  host_payment_status: string
+  host_fee_final: number | null
 }
 
 interface Booking {
@@ -35,14 +61,17 @@ interface Booking {
   promo_code: string
   source: string
   status: string
+  attendance_status: string
 }
 
 interface OTABooking {
   id: string
   source: string
   guest_name: string
+  guest_email?: string | null
   quantity: number
   total_paid: number
+  attendance_status: string
 }
 
 interface Expense {
@@ -95,6 +124,26 @@ function AuthGate({ onAuth }: { onAuth: () => void }) {
   )
 }
 
+// ── Confirm Modal ───────────────────────────────────────────
+// Generic admin-confirmation dialog used before any sensitive action
+// (sending guest email, marking a verdict, marking host pay as Paid, etc.)
+function ConfirmModal({ title, message, confirmLabel, onConfirm, onCancel }: {
+  title: string, message: string, confirmLabel: string, onConfirm: () => void, onCancel: () => void,
+}) {
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.60)', zIndex:500, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'Inter, sans-serif' }}>
+      <div style={{ ...S.card, width:'100%', maxWidth:'380px', background:'#1A0015', border:'1px solid rgba(234,0,58,0.25)' }}>
+        <h3 style={{ fontWeight:600, fontSize:'16px', color:'#fff', margin:'0 0 10px' }}>{title}</h3>
+        <p style={{ fontSize:'13px', color:'rgba(255,255,255,0.65)', lineHeight:1.6, margin:'0 0 20px' }}>{message}</p>
+        <div style={{ display:'flex', gap:'8px', justifyContent:'flex-end' }}>
+          <button onClick={onCancel} style={{ ...S.btn, ...S.btnGhost }}>Never mind</button>
+          <button onClick={onConfirm} style={{ ...S.btn, ...S.btnRed }}>{confirmLabel}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Day Panel ───────────────────────────────────────────────
 function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () => void, onUpdate: () => void }) {
   const [bookings, setBookings] = useState<Booking[]>([])
@@ -102,9 +151,48 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [addingOTA, setAddingOTA] = useState(false)
   const [addingExp, setAddingExp] = useState(false)
-  const [otaForm, setOtaForm] = useState({ source:'klook', guest_name:'', quantity:1, total_paid:'' })
+  const [otaForm, setOtaForm] = useState({ source:'klook', guest_name:'', guest_email:'', quantity:1, total_paid:'' })
   const [expForm, setExpForm] = useState({ category:'van', description:'', amount:'' })
   const [localEvent, setLocalEvent] = useState(event)
+
+  // ── Operations layer state ──
+  const [confirmModal, setConfirmModal] = useState<{ title:string, message:string, confirmLabel:string, onConfirm:()=>void } | null>(null)
+  const [hostFeeInput, setHostFeeInput] = useState<string>('')
+  const [briefCopyState, setBriefCopyState] = useState<'idle'|'copied'>('idle')
+  const [preConfirmCopyState, setPreConfirmCopyState] = useState<'idle'|'copied'>('idle')
+  const [sendMeetupState, setSendMeetupState] = useState<'idle'|'sending'|'done'|'error'>('idle')
+  const [sendMeetupIssues, setSendMeetupIssues] = useState<string[]>([])
+
+  useEffect(() => {
+    setHostFeeInput(event.host_fee_final != null ? String(event.host_fee_final) : '')
+  }, [event.id, event.host_fee_final])
+
+  const [opsDraft, setOpsDraft] = useState({
+    meet_up_location: event.meet_up_location || '',
+    whatsapp_group_link: event.whatsapp_group_link || '',
+    van_or_taxi_contact: event.van_or_taxi_contact || '',
+    special_notes: event.special_notes || '',
+    venue1: event.venue_route?.venue1 || '',
+    venue2: event.venue_route?.venue2 || '',
+    venue3: event.venue_route?.venue3 || '',
+    venue4: event.venue_route?.venue4 || '',
+    backup: event.venue_route?.backup || '',
+    route_notes: event.venue_route?.notes || '',
+  })
+  useEffect(() => {
+    setOpsDraft({
+      meet_up_location: event.meet_up_location || '',
+      whatsapp_group_link: event.whatsapp_group_link || '',
+      van_or_taxi_contact: event.van_or_taxi_contact || '',
+      special_notes: event.special_notes || '',
+      venue1: event.venue_route?.venue1 || '',
+      venue2: event.venue_route?.venue2 || '',
+      venue3: event.venue_route?.venue3 || '',
+      venue4: event.venue_route?.venue4 || '',
+      backup: event.venue_route?.backup || '',
+      route_notes: event.venue_route?.notes || '',
+    })
+  }, [event.id])
 
   useEffect(() => {
     setLocalEvent(event)
@@ -137,7 +225,7 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
   async function addOTA() {
     await supabase.from('ota_bookings').insert({ event_date: event.event_date, night_slug: event.night_slug, ...otaForm, total_paid: parseInt(otaForm.total_paid)||0 })
     setAddingOTA(false)
-    setOtaForm({ source:'klook', guest_name:'', quantity:1, total_paid:'' })
+    setOtaForm({ source:'klook', guest_name:'', guest_email:'', quantity:1, total_paid:'' })
     loadDetail()
   }
 
@@ -146,6 +234,180 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
     setAddingExp(false)
     setExpForm({ category:'van', description:'', amount:'' })
     loadDetail()
+  }
+
+  // ── Operations layer handlers ──
+  // event_dates has a permissive public UPDATE policy already (see toggleOpen/
+  // updateHost above), so these write directly via the client like the rest
+  // of this panel does — no new API route needed for them.
+  async function saveOpsField(patch: Partial<EventDate>) {
+    await supabase.from('event_dates').update(patch).eq('id', localEvent.id)
+    setLocalEvent(e => ({ ...e, ...patch }))
+    onUpdate()
+  }
+
+  function updateVerdict(verdict: string) {
+    if (VERDICT_REQUIRING_CONFIRM.includes(verdict)) {
+      setConfirmModal({
+        title: verdict === 'Operation Confirmed' ? 'Confirm operation?' : 'Cancel / reschedule this date?',
+        message: verdict === 'Operation Confirmed'
+          ? `Mark ${localEvent.night_name} on ${event.event_date} as Operation Confirmed? This unlocks the "Send Confirmed Meetup" email.`
+          : `Mark ${localEvent.night_name} on ${event.event_date} as Cancelled / Rescheduled? This does not automatically refund or notify guests — use the Bookings tab for that.`,
+        confirmLabel: 'Confirm',
+        onConfirm: () => { saveOpsField({ operation_verdict: verdict }); setConfirmModal(null) },
+      })
+    } else {
+      saveOpsField({ operation_verdict: verdict })
+    }
+  }
+
+  function updateVenueRoute(patch: Partial<VenueRoute>) {
+    const next = { ...(localEvent.venue_route || {}), ...patch }
+    saveOpsField({ venue_route: next })
+  }
+
+  async function updateAttendance(table: 'bookings'|'ota_bookings', id: string, status: string) {
+    const doUpdate = async () => {
+      await fetch('/api/update-attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ table, id, status }),
+      })
+      loadDetail()
+      setConfirmModal(null)
+    }
+    if (status === 'no_show') {
+      setConfirmModal({
+        title: 'Mark as no-show?',
+        message: 'This affects the suggested host fee calculation (based on checked-in guest count).',
+        confirmLabel: 'Mark no-show',
+        onConfirm: doUpdate,
+      })
+    } else {
+      doUpdate()
+    }
+  }
+
+  function saveHostFee() {
+    const val = parseInt(hostFeeInput)
+    saveOpsField({ host_fee_final: isNaN(val) ? null : val, host_payment_status: localEvent.host_payment_status === 'Not calculated' ? 'Calculated' : localEvent.host_payment_status })
+  }
+
+  function useSuggestedFee(suggested: number) {
+    setHostFeeInput(String(suggested))
+    saveOpsField({ host_fee_final: suggested, host_payment_status: localEvent.host_payment_status === 'Not calculated' ? 'Calculated' : localEvent.host_payment_status })
+  }
+
+  function markHostPaid() {
+    setConfirmModal({
+      title: 'Mark host payment as Paid?',
+      message: `Confirm ${localEvent.host_assigned || 'the assigned host'} has been paid ฿${(localEvent.host_fee_final||0).toLocaleString()} for this date.`,
+      confirmLabel: 'Mark Paid',
+      onConfirm: () => { saveOpsField({ host_payment_status: 'Paid' }); setConfirmModal(null) },
+    })
+  }
+
+  function copyPreConfirmMessage() {
+    navigator.clipboard.writeText(PRE_CONFIRMATION_MESSAGE)
+    setPreConfirmCopyState('copied')
+    setTimeout(() => setPreConfirmCopyState('idle'), 2500)
+  }
+
+  function buildHostBriefText(): string {
+    const route = localEvent.venue_route || {}
+    const dateObj2 = new Date(event.event_date + 'T00:00:00')
+    const fmtDate = dateObj2.toLocaleDateString('en', { weekday:'long', day:'numeric', month:'long', year:'numeric' })
+    const guestLines = [
+      ...bookings.map(b => `  - ${b.guest_name||b.guest_email} (${b.quantity} ticket${b.quantity>1?'s':''}) — website — ${b.attendance_status}`),
+      ...otaBookings.map(o => `  - ${o.guest_name||'Guest'} (${o.quantity} ticket${o.quantity>1?'s':''}) — ${o.source} — ${o.attendance_status}`),
+    ]
+    return [
+      `HOST BRIEF — ${localEvent.night_name}`,
+      `Date: ${fmtDate}`,
+      `Meet-up time: 9:30 PM`,
+      `Meet-up location: ${localEvent.meet_up_location || '(not set)'}`,
+      `Assigned host: ${localEvent.host_assigned || '(unassigned)'}`,
+      `Total guests: ${totalGuests}`,
+      ``,
+      `GUEST LIST (${totalGuests}):`,
+      ...(guestLines.length ? guestLines : ['  (no guests yet)']),
+      ``,
+      `WhatsApp group: ${localEvent.whatsapp_group_link || '(not set)'}`,
+      ``,
+      `VENUE ROUTE:`,
+      `  Venue 1 (meet-up): ${route.venue1 || '(not set)'}`,
+      `  Venue 2: ${route.venue2 || '-'}`,
+      `  Venue 3: ${route.venue3 || '-'}`,
+      `  Venue 4: ${route.venue4 || '-'}`,
+      `  Backup venue: ${route.backup || '-'}`,
+      `  Route notes: ${route.notes || '-'}`,
+      ``,
+      `Van/taxi contact: ${localEvent.van_or_taxi_contact || '(not set)'}`,
+      ``,
+      `SPECIAL NOTES: ${localEvent.special_notes || '(none)'}`,
+      ``,
+      `Emergency / Guide contact: WhatsApp https://wa.me/66660399569 · bangkokclubcrawl@gmail.com`,
+    ].join('\n')
+  }
+
+  function copyHostBrief() {
+    navigator.clipboard.writeText(buildHostBriefText())
+    setBriefCopyState('copied')
+    setTimeout(() => setBriefCopyState('idle'), 2500)
+  }
+
+  function downloadHostBrief() {
+    const blob = new Blob([buildHostBriefText()], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `host-brief-${event.event_date}-${event.night_slug}.txt`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function sendMeetupIssuesFor(): string[] {
+    const issues: string[] = []
+    if (localEvent.operation_verdict !== 'Operation Confirmed') issues.push('Operation verdict must be "Operation Confirmed"')
+    if (!localEvent.meet_up_location) issues.push('Meet-up location is not set')
+    if (!localEvent.whatsapp_group_link) issues.push('WhatsApp group link is not set')
+    const confirmedGuestCount = bookings.filter(b=>b.attendance_status!=='no_show').length + otaBookings.filter(o=>o.attendance_status!=='no_show').length
+    if (confirmedGuestCount === 0) issues.push('There are no confirmed guests for this date')
+    return issues
+  }
+
+  function attemptSendConfirmedMeetup() {
+    const issues = sendMeetupIssuesFor()
+    setSendMeetupIssues(issues)
+    if (issues.length > 0) return
+    setConfirmModal({
+      title: 'Send confirmed meetup email?',
+      message: `This emails every confirmed guest for ${localEvent.night_name} on ${event.event_date} with tonight's meet-up location and WhatsApp link. This can't be undone.`,
+      confirmLabel: 'Send email',
+      onConfirm: doSendConfirmedMeetup,
+    })
+  }
+
+  async function doSendConfirmedMeetup() {
+    setConfirmModal(null)
+    setSendMeetupState('sending')
+    try {
+      const res = await fetch('/api/send-confirmed-meetup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId: localEvent.id }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        setSendMeetupState('done')
+        onUpdate()
+      } else {
+        setSendMeetupIssues(data.missing || [data.error || 'Send failed'])
+        setSendMeetupState('error')
+      }
+    } catch {
+      setSendMeetupState('error')
+    }
   }
 
   const webGuests = bookings.reduce((s,b) => s+b.quantity, 0)
@@ -157,6 +419,11 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
   const totalExp = expenses.reduce((s,e) => s+e.amount, 0)
   const profit = totalRev - totalExp
   const minMet = totalGuests >= 5
+  const checkedInGuests = bookings.filter(b=>b.attendance_status==='checked_in').reduce((s,b)=>s+b.quantity,0)
+    + otaBookings.filter(o=>o.attendance_status==='checked_in').reduce((s,o)=>s+o.quantity,0)
+  const suggestedFee = suggestedHostFee(checkedInGuests)
+  const meetupIssues = sendMeetupIssuesFor()
+  const canSendMeetup = meetupIssues.length === 0
 
   const dateObj = new Date(event.event_date + 'T00:00:00')
   const formattedDate = dateObj.toLocaleDateString('en', { weekday:'long', day:'numeric', month:'long' })
@@ -200,6 +467,154 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
             <option value="">Unassigned</option>
             {HOSTS.map(h => <option key={h} value={h}>{h}</option>)}
           </select>
+        </div>
+
+        {/* ── Operations ── */}
+        <div style={{ ...S.card, marginBottom:'16px' }}>
+          <p style={{ ...S.label, marginBottom:'16px' }}>OPERATIONS</p>
+
+          <div style={{ marginBottom:'14px' }}>
+            <label style={S.label}>OPERATION VERDICT</label>
+            <select value={localEvent.operation_verdict} onChange={e => updateVerdict(e.target.value)} style={S.input}>
+              {VERDICT_OPTIONS.map(v => <option key={v} value={v}>{v}</option>)}
+            </select>
+          </div>
+
+          <div style={{ marginBottom:'14px' }}>
+            <label style={S.label}>MEET-UP LOCATION</label>
+            <input
+              value={opsDraft.meet_up_location}
+              onChange={e => setOpsDraft(d => ({ ...d, meet_up_location: e.target.value }))}
+              onBlur={() => saveOpsField({ meet_up_location: opsDraft.meet_up_location })}
+              style={S.input}
+              placeholder="e.g. Havana Social, Sukhumvit Soi 11"
+            />
+          </div>
+
+          <div style={{ marginBottom:'14px' }}>
+            <label style={S.label}>WHATSAPP GROUP LINK</label>
+            <input
+              value={opsDraft.whatsapp_group_link}
+              onChange={e => setOpsDraft(d => ({ ...d, whatsapp_group_link: e.target.value }))}
+              onBlur={() => saveOpsField({ whatsapp_group_link: opsDraft.whatsapp_group_link })}
+              style={S.input}
+              placeholder="https://chat.whatsapp.com/..."
+            />
+          </div>
+
+          <div style={{ marginBottom:'14px' }}>
+            <label style={S.label}>VENUE ROUTE</label>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px' }}>
+              <input value={opsDraft.venue1} onChange={e=>setOpsDraft(d=>({...d,venue1:e.target.value}))} onBlur={()=>updateVenueRoute({venue1:opsDraft.venue1})} style={S.input} placeholder="Venue 1 (meet-up)"/>
+              <input value={opsDraft.venue2} onChange={e=>setOpsDraft(d=>({...d,venue2:e.target.value}))} onBlur={()=>updateVenueRoute({venue2:opsDraft.venue2})} style={S.input} placeholder="Venue 2"/>
+              <input value={opsDraft.venue3} onChange={e=>setOpsDraft(d=>({...d,venue3:e.target.value}))} onBlur={()=>updateVenueRoute({venue3:opsDraft.venue3})} style={S.input} placeholder="Venue 3"/>
+              <input value={opsDraft.venue4} onChange={e=>setOpsDraft(d=>({...d,venue4:e.target.value}))} onBlur={()=>updateVenueRoute({venue4:opsDraft.venue4})} style={S.input} placeholder="Venue 4 (optional)"/>
+              <input value={opsDraft.backup} onChange={e=>setOpsDraft(d=>({...d,backup:e.target.value}))} onBlur={()=>updateVenueRoute({backup:opsDraft.backup})} style={S.input} placeholder="Backup venue (optional)"/>
+              <input value={opsDraft.route_notes} onChange={e=>setOpsDraft(d=>({...d,route_notes:e.target.value}))} onBlur={()=>updateVenueRoute({notes:opsDraft.route_notes})} style={S.input} placeholder="Route notes (optional)"/>
+            </div>
+          </div>
+
+          <div style={{ marginBottom:'14px' }}>
+            <label style={S.label}>VAN / TAXI CONTACT</label>
+            <input
+              value={opsDraft.van_or_taxi_contact}
+              onChange={e => setOpsDraft(d => ({ ...d, van_or_taxi_contact: e.target.value }))}
+              onBlur={() => saveOpsField({ van_or_taxi_contact: opsDraft.van_or_taxi_contact })}
+              style={S.input}
+              placeholder="Name / phone"
+            />
+          </div>
+
+          <div style={{ marginBottom:'16px' }}>
+            <label style={S.label}>SPECIAL NOTES</label>
+            <textarea
+              value={opsDraft.special_notes}
+              onChange={e => setOpsDraft(d => ({ ...d, special_notes: e.target.value }))}
+              onBlur={() => saveOpsField({ special_notes: opsDraft.special_notes })}
+              style={{ ...S.input, height:'70px', padding:'10px 12px', resize:'vertical' as const }}
+              placeholder="Guest issues, dress code warnings, route changes, anything the host should know"
+            />
+          </div>
+
+          {/* Host fee */}
+          <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:'8px', padding:'14px', marginBottom:'16px' }}>
+            <p style={{ ...S.label, marginBottom:'10px' }}>HOST PAYMENT</p>
+            <p style={{ fontSize:'12px', color:'rgba(255,255,255,0.45)', marginBottom:'10px' }}>
+              Suggested fee for {checkedInGuests} checked-in guest{checkedInGuests!==1?'s':''}: <strong style={{color:'#fff'}}>฿{suggestedFee.toLocaleString()}</strong>
+            </p>
+            <div style={{ display:'flex', gap:'8px', marginBottom:'10px' }}>
+              <input type="number" value={hostFeeInput} onChange={e=>setHostFeeInput(e.target.value)} onBlur={saveHostFee} style={{...S.input, flex:1}} placeholder="Final fee (฿)"/>
+              <button onClick={() => useSuggestedFee(suggestedFee)} style={{ ...S.btn, ...S.btnGhost, whiteSpace:'nowrap' }}>Use suggested</button>
+            </div>
+            <div style={{ display:'flex', gap:'8px', alignItems:'center' }}>
+              <select value={localEvent.host_payment_status} onChange={e => saveOpsField({ host_payment_status: e.target.value })} style={{...S.input, flex:1}}>
+                <option value="Not calculated">Not calculated</option>
+                <option value="Calculated">Calculated</option>
+                <option value="Paid">Paid</option>
+              </select>
+              {localEvent.host_payment_status !== 'Paid' && (
+                <button onClick={markHostPaid} style={{ ...S.btn, ...S.btnRed, whiteSpace:'nowrap' }}>Mark Paid</button>
+              )}
+            </div>
+          </div>
+
+          {/* Guest attendance */}
+          <div style={{ marginBottom:'16px' }}>
+            <p style={{ ...S.label, marginBottom:'10px' }}>GUEST ATTENDANCE</p>
+            {bookings.length===0 && otaBookings.length===0 && (
+              <p style={{ fontSize:'13px', color:'rgba(255,255,255,0.35)' }}>No guests yet.</p>
+            )}
+            {bookings.map(b => (
+              <div key={`b-${b.id}`} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:'8px', borderBottom:'1px solid rgba(255,255,255,0.06)', paddingBottom:'8px', marginBottom:'8px' }}>
+                <p style={{ fontSize:'13px', color:'#fff', margin:0, flex:1 }}>{b.guest_name||b.guest_email}</p>
+                <select value={b.attendance_status} onChange={e => updateAttendance('bookings', b.id, e.target.value)} style={{...S.input, height:'30px', fontSize:'12px', width:'130px'}}>
+                  <option value="expected">Expected</option>
+                  <option value="checked_in">Checked in</option>
+                  <option value="no_show">No-show</option>
+                </select>
+              </div>
+            ))}
+            {otaBookings.map(o => (
+              <div key={`o-${o.id}`} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:'8px', borderBottom:'1px solid rgba(255,255,255,0.06)', paddingBottom:'8px', marginBottom:'8px' }}>
+                <p style={{ fontSize:'13px', color:'#fff', margin:0, flex:1 }}>{o.guest_name||'Guest'} <span style={{color:'rgba(255,255,255,0.35)'}}>· {o.source}</span></p>
+                <select value={o.attendance_status} onChange={e => updateAttendance('ota_bookings', o.id, e.target.value)} style={{...S.input, height:'30px', fontSize:'12px', width:'130px'}}>
+                  <option value="expected">Expected</option>
+                  <option value="checked_in">Checked in</option>
+                  <option value="no_show">No-show</option>
+                </select>
+              </div>
+            ))}
+          </div>
+
+          {/* Actions */}
+          <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
+            <div style={{ display:'flex', gap:'8px' }}>
+              <button onClick={copyHostBrief} style={{ ...S.btn, ...S.btnGhost, flex:1 }}>
+                {briefCopyState==='copied' ? '✓ Copied' : 'Copy Host Brief'}
+              </button>
+              <button onClick={downloadHostBrief} style={{ ...S.btn, ...S.btnGhost, flex:1 }}>Download .txt</button>
+            </div>
+
+            <button onClick={copyPreConfirmMessage} style={{ ...S.btn, ...S.btnGhost }}>
+              {preConfirmCopyState==='copied' ? '✓ Copied' : 'Copy Pre-confirmation Message'}
+            </button>
+
+            <button
+              onClick={attemptSendConfirmedMeetup}
+              disabled={sendMeetupState==='sending'}
+              style={{ ...S.btn, ...S.btnRed }}
+            >
+              {sendMeetupState==='sending' ? 'Sending…' : sendMeetupState==='done' ? '✓ Sent' : 'Send Confirmed Meetup'}
+            </button>
+            {!canSendMeetup && meetupIssues.length > 0 && sendMeetupIssues.length > 0 && (
+              <div style={{ background:'rgba(234,0,58,0.08)', border:'1px solid rgba(234,0,58,0.20)', borderRadius:'8px', padding:'10px 12px' }}>
+                <p style={{ fontSize:'12px', color:'#EA003A', margin:'0 0 4px', fontWeight:600 }}>Can't send yet:</p>
+                <ul style={{ margin:0, paddingLeft:'16px' }}>
+                  {sendMeetupIssues.map((iss,idx) => <li key={idx} style={{ fontSize:'12px', color:'rgba(255,255,255,0.60)' }}>{iss}</li>)}
+                </ul>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Revenue */}
@@ -259,6 +674,10 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
                 <div>
                   <label style={S.label}>GUEST NAME</label>
                   <input value={otaForm.guest_name} onChange={e=>setOtaForm(f=>({...f,guest_name:e.target.value}))} style={S.input} placeholder="Name"/>
+                </div>
+                <div>
+                  <label style={S.label}>GUEST EMAIL (OPTIONAL)</label>
+                  <input value={otaForm.guest_email} onChange={e=>setOtaForm(f=>({...f,guest_email:e.target.value}))} style={S.input} placeholder="For confirmed-meetup email"/>
                 </div>
                 <div>
                   <label style={S.label}>TICKETS</label>
@@ -329,6 +748,16 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
           ))}
         </div>
       </div>
+
+      {confirmModal && (
+        <ConfirmModal
+          title={confirmModal.title}
+          message={confirmModal.message}
+          confirmLabel={confirmModal.confirmLabel}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal(null)}
+        />
+      )}
     </div>
   )
 }
