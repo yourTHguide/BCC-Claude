@@ -98,6 +98,35 @@ CREATE TABLE ota_bookings (
   created_at    TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- ── OPERATIONS LAYER (added for host-brief / confirmed-meetup workflow) ──
+-- event_dates: verdict + meetup logistics + host fee tracking
+ALTER TABLE event_dates
+  ADD COLUMN IF NOT EXISTS operation_verdict TEXT NOT NULL DEFAULT 'Pending'
+    CHECK (operation_verdict IN ('Pending','Pre-confirmation','Operation Confirmed','Cancelled / Rescheduled','Completed','Reviewed')),
+  ADD COLUMN IF NOT EXISTS meet_up_location TEXT,
+  ADD COLUMN IF NOT EXISTS whatsapp_group_link TEXT,
+  ADD COLUMN IF NOT EXISTS venue_route JSONB DEFAULT '{}'::jsonb,  -- { venue1, venue2, venue3, venue4, backup, notes }
+  ADD COLUMN IF NOT EXISTS van_or_taxi_contact TEXT,
+  ADD COLUMN IF NOT EXISTS special_notes TEXT,
+  ADD COLUMN IF NOT EXISTS host_payment_status TEXT NOT NULL DEFAULT 'Not calculated'
+    CHECK (host_payment_status IN ('Not calculated','Calculated','Paid')),
+  ADD COLUMN IF NOT EXISTS host_fee_final INTEGER;
+
+-- Guest attendance tracking — reuses existing booking sources rather than a
+-- separate namelist table
+ALTER TABLE bookings
+  ADD COLUMN IF NOT EXISTS attendance_status TEXT NOT NULL DEFAULT 'expected'
+    CHECK (attendance_status IN ('expected','checked_in','no_show'));
+
+ALTER TABLE ota_bookings
+  ADD COLUMN IF NOT EXISTS attendance_status TEXT NOT NULL DEFAULT 'expected'
+    CHECK (attendance_status IN ('expected','checked_in','no_show')),
+  ADD COLUMN IF NOT EXISTS guest_email TEXT; -- optional, lets OTA guests receive the confirmed-meetup email
+
+CREATE INDEX IF NOT EXISTS idx_event_dates_verdict ON event_dates(operation_verdict);
+CREATE INDEX IF NOT EXISTS idx_bookings_attendance ON bookings(attendance_status);
+CREATE INDEX IF NOT EXISTS idx_ota_attendance ON ota_bookings(attendance_status);
+
 -- ── INDEXES ─────────────────────────────────────────────────
 CREATE INDEX idx_bookings_date ON bookings(event_date);
 CREATE INDEX idx_bookings_night ON bookings(night_slug);
