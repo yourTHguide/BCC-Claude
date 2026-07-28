@@ -229,6 +229,24 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
     loadDetail()
   }
 
+  function deleteOTABooking(o: OTABooking) {
+    setConfirmModal({
+      title: 'Remove this OTA booking?',
+      message: `Remove ${o.guest_name || 'this guest'} (${o.source}, ${o.quantity} ticket${o.quantity===1?'':'s'})? This cannot be undone.`,
+      confirmLabel: 'Remove',
+      onConfirm: async () => {
+        await fetch('/api/delete-ota-booking', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: o.id }),
+        })
+        setConfirmModal(null)
+        loadDetail()
+        onUpdate()
+      },
+    })
+  }
+
   async function addExpense() {
     await supabase.from('expenses').insert({ event_date: event.event_date, night_slug: event.night_slug, ...expForm, amount: parseInt(expForm.amount)||0 })
     setAddingExp(false)
@@ -582,6 +600,7 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
                   <option value="checked_in">Checked in</option>
                   <option value="no_show">No-show</option>
                 </select>
+                <button onClick={() => deleteOTABooking(o)} title="Remove booking" style={{ ...S.btn, ...S.btnGhost, height:'30px', padding:'0 10px', fontSize:'12px', color:'#EA003A', borderColor:'rgba(234,0,58,0.35)' }}>Remove</button>
               </div>
             ))}
           </div>
