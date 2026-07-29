@@ -600,7 +600,6 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
                   <option value="checked_in">Checked in</option>
                   <option value="no_show">No-show</option>
                 </select>
-                <button onClick={() => deleteOTABooking(o)} title="Remove booking" style={{ ...S.btn, ...S.btnGhost, height:'30px', padding:'0 10px', fontSize:'12px', color:'#EA003A', borderColor:'rgba(234,0,58,0.35)' }}>Remove</button>
               </div>
             ))}
           </div>
@@ -715,12 +714,15 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
           )}
           {otaBookings.length===0 && !addingOTA && <p style={{ fontSize:'13px', color:'rgba(255,255,255,0.35)' }}>No OTA bookings added.</p>}
           {otaBookings.map(b => (
-            <div key={b.id} style={{ display:'flex', justifyContent:'space-between', borderBottom:'1px solid rgba(255,255,255,0.06)', paddingBottom:'10px', marginBottom:'10px' }}>
+            <div key={b.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:'8px', borderBottom:'1px solid rgba(255,255,255,0.06)', paddingBottom:'10px', marginBottom:'10px' }}>
               <div>
                 <p style={{ fontWeight:600, fontSize:'13px', color:'#fff' }}>{b.guest_name||'Guest'}</p>
                 <p style={{ fontSize:'12px', color:'rgba(255,255,255,0.45)', marginTop:'2px' }}>{b.source} · {b.quantity} ticket{b.quantity>1?'s':''}</p>
               </div>
-              <p style={{ fontWeight:600, fontSize:'13px', color:'#fff' }}>฿{(b.total_paid||0).toLocaleString()}</p>
+              <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+                <p style={{ fontWeight:600, fontSize:'13px', color:'#fff', margin:0 }}>฿{(b.total_paid||0).toLocaleString()}</p>
+                <button onClick={() => deleteOTABooking(b)} title="Remove booking" style={{ ...S.btn, ...S.btnGhost, height:'30px', padding:'0 10px', fontSize:'12px', color:'#EA003A', borderColor:'rgba(234,0,58,0.35)' }}>Remove</button>
+              </div>
             </div>
           ))}
         </div>
