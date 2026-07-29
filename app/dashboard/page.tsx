@@ -130,14 +130,26 @@ function AuthGate({ onAuth }: { onAuth: () => void }) {
 function ConfirmModal({ title, message, confirmLabel, onConfirm, onCancel }: {
   title: string, message: string, confirmLabel: string, onConfirm: () => void, onCancel: () => void,
 }) {
+  const [busy, setBusy] = useState(false)
+
+  async function handleConfirm() {
+    if (busy) return
+    setBusy(true)
+    try {
+      await onConfirm()
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.60)', zIndex:500, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'Inter, sans-serif' }}>
       <div style={{ ...S.card, width:'100%', maxWidth:'380px', background:'#1A0015', border:'1px solid rgba(234,0,58,0.25)' }}>
         <h3 style={{ fontWeight:600, fontSize:'16px', color:'#fff', margin:'0 0 10px' }}>{title}</h3>
         <p style={{ fontSize:'13px', color:'rgba(255,255,255,0.65)', lineHeight:1.6, margin:'0 0 20px' }}>{message}</p>
         <div style={{ display:'flex', gap:'8px', justifyContent:'flex-end' }}>
-          <button onClick={onCancel} style={{ ...S.btn, ...S.btnGhost }}>Never mind</button>
-          <button onClick={onConfirm} style={{ ...S.btn, ...S.btnRed }}>{confirmLabel}</button>
+          <button onClick={onCancel} disabled={busy} style={{ ...S.btn, ...S.btnGhost, opacity: busy ? 0.5 : 1 }}>Never mind</button>
+          <button onClick={handleConfirm} disabled={busy} style={{ ...S.btn, ...S.btnRed, opacity: busy ? 0.7 : 1 }}>{busy ? 'Working…' : confirmLabel}</button>
         </div>
       </div>
     </div>
@@ -235,14 +247,24 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
       message: `Remove ${o.guest_name || 'this guest'} (${o.source}, ${o.quantity} ticket${o.quantity===1?'':'s'})? This cannot be undone.`,
       confirmLabel: 'Remove',
       onConfirm: async () => {
-        await fetch('/api/delete-ota-booking', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: o.id }),
-        })
-        setConfirmModal(null)
-        loadDetail()
-        onUpdate()
+        try {
+          const res = await fetch('/api/delete-ota-booking', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: o.id }),
+          })
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({} as any))
+            alert(`Couldn't remove this booking: ${body.error || res.statusText}`)
+            return
+          }
+          await loadDetail()
+          onUpdate()
+        } catch (err: any) {
+          alert(`Couldn't remove this booking: ${err?.message || 'network error, please try again'}`)
+        } finally {
+          setConfirmModal(null)
+        }
       },
     })
   }
@@ -286,13 +308,23 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
 
   async function updateAttendance(table: 'bookings'|'ota_bookings', id: string, status: string) {
     const doUpdate = async () => {
-      await fetch('/api/update-attendance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ table, id, status }),
-      })
-      loadDetail()
-      setConfirmModal(null)
+      try {
+        const res = await fetch('/api/update-attendance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ table, id, status }),
+        })
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({} as any))
+          alert(`Couldn't update attendance: ${body.error || res.statusText}`)
+          return
+        }
+        await loadDetail()
+      } catch (err: any) {
+        alert(`Couldn't update attendance: ${err?.message || 'network error, please try again'}`)
+      } finally {
+        setConfirmModal(null)
+      }
     }
     if (status === 'no_show') {
       setConfirmModal({
