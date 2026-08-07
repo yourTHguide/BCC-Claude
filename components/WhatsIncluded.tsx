@@ -1,9 +1,10 @@
 export default function WhatsIncluded() {
   const items = [
-    { label: '4 Curated Venues', desc: 'Handpicked for tonight\'s crowd' },
-    { label: 'VIP Entry', desc: 'Skip the queue at every stop' },
+    { label: '4 Curated Venues', desc: "Handpicked for tonight's crowd" },
+    { label: 'Priority VIP Entries', desc: 'Skip the queue at every stop' },
     { label: '2–4 Complimentary Shots', desc: 'Included drinks throughout the night' },
-    { label: 'Private Party Van', desc: 'Music, lights, movement between venues' },
+    { label: 'Special Drink Deals', desc: 'Exclusive deals at every venue' },
+    { label: 'Private Party Van', desc: 'Music, lights, movement between venues', satOnly: true },
     { label: 'Dedicated Host', desc: 'With you from start to finish' },
     { label: 'Capped Group Size', desc: 'Never too big. Always the right energy.' },
   ]
@@ -22,9 +23,28 @@ export default function WhatsIncluded() {
             <div key={item.label} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
               <div className="crimson-dot" style={{ marginTop: '4px' }} />
               <div>
-                <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '14px', color: '#FFFFFF' }}>
-                  {item.label}
-                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '14px', color: '#FFFFFF' }}>
+                    {item.label}
+                  </p>
+                  {item.satOnly && (
+                    <span style={{
+                      fontFamily: 'Inter, sans-serif',
+                      fontWeight: 600,
+                      fontSize: '8px',
+                      letterSpacing: '0.12em',
+                      textTransform: 'uppercase',
+                      color: '#EA003A',
+                      border: '1px solid #EA003A',
+                      borderRadius: '3px',
+                      padding: '2px 5px',
+                      lineHeight: 1,
+                      whiteSpace: 'nowrap',
+                    }}>
+                      SAT ONLY
+                    </span>
+                  )}
+                </div>
                 <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', color: 'rgba(255,255,255,0.50)', marginTop: '3px', lineHeight: 1.4 }}>
                   {item.desc}
                 </p>
