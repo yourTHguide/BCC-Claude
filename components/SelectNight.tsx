@@ -14,7 +14,7 @@ const nights = [
     tag: 'FRIDAY NIGHTS · ALL WELCOME',
     title: 'TGIF Bangkok',
     tagline: 'The city on foot. Your crowd for the night.',
-    descriptor: 'Walking crawl · Transportation optional',
+    descriptor: 'Walkable route',
     price: '฿1,200',
     cap: 12,
     slug: 'tgif',
