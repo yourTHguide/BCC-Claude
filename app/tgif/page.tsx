@@ -16,7 +16,7 @@ export default function TGIF() {
         '4 curated venues — Friday lineup includes premium stops across Sukhumvit',
         'Higher energy pacing than weekday editions',
         '2–4 complimentary shots during the night',
-        'Private party van with music and lights between every venue',
+        'A walkable route between all four venues — the group moves together on foot',
         'VIP entry at all stops — no queue',
         'Capped at 12 — same intimacy as weekday nights at Friday energy levels',
       ]}
