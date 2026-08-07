@@ -2,7 +2,7 @@
 
 export default function StickyBar() {
   const scrollToNights = () => {
-    window.location.href = '/book'
+    document.getElementById('select-night')?.scrollIntoView({ behavior: 'smooth' })
   }
 
   return (
@@ -33,7 +33,7 @@ export default function StickyBar() {
             color: '#FFFFFF',
           }}
         >
-          Book Tonight — From ฿1,000
+          Book This Weekend — From ฿1,200 →
         </span>
       </div>
 
