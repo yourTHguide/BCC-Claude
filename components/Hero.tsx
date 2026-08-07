@@ -1,7 +1,11 @@
 'use client'
 
 export default function Hero() {
-  const scrollToNights = () => {
+  const scrollToSaturday = () => {
+    document.getElementById('select-night')?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  const scrollToFriday = () => {
     document.getElementById('select-night')?.scrollIntoView({ behavior: 'smooth' })
   }
 
@@ -87,15 +91,26 @@ export default function Hero() {
           A crowd worth meeting.
         </p>
 
-        {/* CTA */}
+        {/* CTA — two buttons */}
         <div>
-          <button
-            className="btn-primary"
-            onClick={scrollToNights}
-            style={{ width: 'fit-content' }}
-          >
-            Choose Your Night →
-          </button>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            {/* Primary: Saturday */}
+            <button
+              className="btn-primary"
+              onClick={scrollToSaturday}
+              style={{ flex: '1 1 auto', minWidth: '180px' }}
+            >
+              Book Saturday — ฿1,500 →
+            </button>
+            {/* Secondary: Friday */}
+            <button
+              className="btn-secondary"
+              onClick={scrollToFriday}
+              style={{ flex: '1 1 auto', minWidth: '160px' }}
+            >
+              Book Friday — ฿1,200 →
+            </button>
+          </div>
           <p
             style={{
               fontFamily: 'Inter, sans-serif',
@@ -150,8 +165,26 @@ export default function Hero() {
       </div>
 
       <style>{`
-        @media (max-width: 768px) {
-          .hero-cta-btn { width: 100% !important; text-align: center; }
+        .btn-secondary {
+          background: transparent;
+          color: #FFFFFF;
+          font-family: Inter, sans-serif;
+          font-weight: 600;
+          font-size: 14px;
+          border: 1.5px solid rgba(255,255,255,0.35);
+          border-radius: 6px;
+          padding: 0 20px;
+          height: 48px;
+          cursor: pointer;
+          transition: border-color 0.2s ease, background 0.2s ease;
+          white-space: nowrap;
+        }
+        .btn-secondary:hover {
+          border-color: rgba(255,255,255,0.65);
+          background: rgba(255,255,255,0.06);
+        }
+        @media (max-width: 480px) {
+          .btn-secondary, .btn-primary { width: 100% !important; text-align: center; }
         }
       `}</style>
     </section>
