@@ -1,7 +1,7 @@
 import Navigation from '@/components/Navigation'
 import Hero from '@/components/Hero'
-import HowItWorks from '@/components/HowItWorks'
 import SelectNight from '@/components/SelectNight'
+import HowItWorks from '@/components/HowItWorks'
 import WhoJoinsUs from '@/components/WhoJoinsUs'
 import WhatsIncluded from '@/components/WhatsIncluded'
 import Hosts from '@/components/Hosts'
@@ -17,8 +17,8 @@ export default function Home() {
       <Navigation />
       <main>
         <Hero />
-        <HowItWorks />
         <SelectNight />
+        <HowItWorks />
         <WhoJoinsUs />
         <WhatsIncluded />
         <Hosts />
