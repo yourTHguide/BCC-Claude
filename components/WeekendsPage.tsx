@@ -644,16 +644,9 @@ export default function WeekendsPage() {
       {/* ─── NAV ─── */}
       <nav>
         <div className="nav-inner">
-          <a className="nav-logo" href="#">
+          <a className="nav-logo" href="/">
             <img src="/images/bcc-logo.png" alt="Bangkok Club Crawl" />
           </a>
-          <button className="nav-menu" aria-label="Menu">
-            <svg width="22" height="16" viewBox="0 0 22 16" fill="none">
-              <rect y="0" width="22" height="2" rx="1" fill="white" />
-              <rect y="7" width="16" height="2" rx="1" fill="white" />
-              <rect y="14" width="22" height="2" rx="1" fill="white" />
-            </svg>
-          </button>
         </div>
       </nav>
 
