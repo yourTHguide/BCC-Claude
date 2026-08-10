@@ -1,15 +1,15 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
+
 export default function StickyBar() {
-  const scrollToNights = () => {
-    document.getElementById('select-night')?.scrollIntoView({ behavior: 'smooth' })
-  }
+  const router = useRouter()
 
   return (
     <>
       <div
         className="sticky-bar"
-        onClick={scrollToNights}
+        onClick={() => router.push('/book')}
         style={{
           position: 'fixed',
           bottom: 0,

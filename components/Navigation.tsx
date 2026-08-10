@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
 export default function Navigation() {
@@ -45,28 +46,26 @@ export default function Navigation() {
         style={{ display: 'flex', gap: '32px', alignItems: 'center' }}
         className="hidden-mobile"
       >
-        {[
-          { label: 'How It Works', id: 'how-it-works' },
-          { label: 'Nights', id: 'select-night' },
-          { label: 'Book', id: 'final-cta' },
-        ].map(({ label, id }) => (
-          <button
-            key={id}
-            onClick={() => scrollTo(id)}
-            style={{
-              fontFamily: 'Inter, sans-serif',
-              fontWeight: 500,
-              fontSize: '13px',
-              color: '#FFFFFF',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: 0,
-            }}
-          >
-            {label}
-          </button>
-        ))}
+        {(() => {
+          const linkStyle = {
+            fontFamily: 'Inter, sans-serif',
+            fontWeight: 500,
+            fontSize: '13px',
+            color: '#FFFFFF',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 0,
+            textDecoration: 'none',
+          } as const
+          return (
+            <>
+              <button onClick={() => scrollTo('how-it-works')} style={linkStyle}>How It Works</button>
+              <Link href="/weekends" style={linkStyle}>The Crawl</Link>
+              <Link href="/book" style={linkStyle}>Book</Link>
+            </>
+          )
+        })()}
       </div>
 
       <style>{`

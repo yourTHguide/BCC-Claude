@@ -37,7 +37,7 @@ export default function SaturdaySignature() {
       logistics={[
         { label: 'DATE & TIME', value: 'Every Saturday · 9:30 PM – Late' },
         { label: 'LOCATION', value: 'Sukhumvit 11 / Asoke area' },
-        { label: 'PRICE', value: '฿1,500 per person' },
+        { label: 'PRICE', value: '฿1,200 per person' },
         { label: 'SPOTS', value: 'Limited to 24 guests' },
       ]}
       goodToKnow={[
@@ -48,7 +48,7 @@ export default function SaturdaySignature() {
         'All guests are required to order 1 drink minimum at each venue',
         'Event confirmed or cancelled at 7 PM',
       ]}
-      price="฿1,500"
+      price="฿1,200"
       slug="saturday-signature"
     />
   )

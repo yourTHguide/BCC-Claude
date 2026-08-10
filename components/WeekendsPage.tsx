@@ -1,6 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+
+declare global {
+  interface Window {
+    fbq?: (...args: unknown[]) => void
+  }
+}
 
 /* ─── Gallery images (real Bangkok Club Crawl event photos, in /public/images/gallery) ─── */
 const galleryPhotos = [
@@ -17,12 +24,6 @@ const galleryPhotos = [
   { src: '/images/gallery/g11.jpg', alt: 'The crew — group photo' },
   { src: '/images/gallery/g12.jpg', alt: 'Cocktail lounge' },
 ]
-
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December']
-
-/* Stripe price IDs */
-const STRIPE_PRICE_WEEKEND = 'Stripe_price_weekend' /* Fri & Sat */
 
 const styles = `
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -578,12 +579,7 @@ const styles = `
 `
 
 export default function WeekendsPage() {
-  /* ─── CALENDAR STATE ─── */
-  const [today] = useState(() => new Date())
-  const [viewYear, setViewYear] = useState(() => new Date().getFullYear())
-  const [viewMonth, setViewMonth] = useState(() => new Date().getMonth())
-  const [selDate, setSelDate] = useState<string | null>(null)
-  const [calOpen, setCalOpen] = useState(false)
+  const router = useRouter()
 
   /* ─── LIGHTBOX STATE ─── */
   const [lbOpen, setLbOpen] = useState(false)
@@ -592,99 +588,44 @@ export default function WeekendsPage() {
   /* ─── SECURE LABEL (wide screens only) ─── */
   const [showSecure, setShowSecure] = useState(false)
 
-  /* Tag <body> so page-scoped body styles apply, and show secure label on wide screens */
+  /* Tag <body> so page-scoped body styles apply, show secure label on wide screens,
+     and fire the Meta Pixel ViewContent event for this weekend-crawl product page. */
   useEffect(() => {
     document.body.classList.add('weekends-page')
     if (window.innerWidth >= 768) setShowSecure(true)
+    window.fbq?.('track', 'ViewContent', {
+      content_name: 'Bangkok Club Crawl — Weekend',
+      content_category: 'weekends',
+    })
     return () => document.body.classList.remove('weekends-page')
   }, [])
 
-  /* Lock body scroll while a modal is open */
+  /* Lock body scroll while the lightbox is open */
   useEffect(() => {
-    document.body.style.overflow = calOpen || lbOpen ? 'hidden' : ''
+    document.body.style.overflow = lbOpen ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
-  }, [calOpen, lbOpen])
+  }, [lbOpen])
 
-  /* Keyboard nav for lightbox + calendar */
+  /* Keyboard nav for lightbox */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (lbOpen) {
-        if (e.key === 'Escape') setLbOpen(false)
-        if (e.key === 'ArrowLeft') lbPrev()
-        if (e.key === 'ArrowRight') lbNext()
-      }
-      if (calOpen && e.key === 'Escape') setCalOpen(false)
+      if (!lbOpen) return
+      if (e.key === 'Escape') setLbOpen(false)
+      if (e.key === 'ArrowLeft') lbPrev()
+      if (e.key === 'ArrowRight') lbNext()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lbOpen, calOpen])
+  }, [lbOpen])
 
-  /* ─── CALENDAR HELPERS ─── */
-  function openCal() { setCalOpen(true) }
-  function closeCal() { setCalOpen(false) }
-  function moveMon(dir: number) {
-    let ny = viewYear
-    let nm = viewMonth + dir
-    if (nm > 11) { nm = 0; ny++ }
-    if (nm < 0) { nm = 11; ny-- }
-    setViewYear(ny)
-    setViewMonth(nm)
-  }
-
-  function renderCells() {
-    const cells = []
-    const first = new Date(viewYear, viewMonth, 1).getDay()
-    const days = new Date(viewYear, viewMonth + 1, 0).getDate()
-
-    for (let i = 0; i < first; i++) {
-      cells.push(<div key={`empty-${i}`} className="cal-day empty" />)
-    }
-    for (let d = 1; d <= days; d++) {
-      const date = new Date(viewYear, viewMonth, d)
-      const dow = date.getDay()
-      const isPast = date < new Date(today.getFullYear(), today.getMonth(), today.getDate())
-      const key = `${viewYear}-${viewMonth + 1}-${d}`
-
-      let className = 'cal-day'
-      let onClick: (() => void) | undefined
-
-      if (isPast) {
-        className = 'cal-day past'
-      } else if (dow === 5 || dow === 6) {
-        className = 'cal-day avail' + (selDate === key ? ' sel' : '')
-        onClick = () => setSelDate(key)
-      }
-
-      cells.push(
-        <div key={key} className={className} onClick={onClick}>{d}</div>
-      )
-    }
-    return cells
-  }
-
-  /* Confirm button label / disabled state derived from selection */
-  let confirmDisabled = true
-  let confirmLabel = 'Select a date above'
-  if (selDate) {
-    const [, m, d] = selDate.split('-')
-    const dow = new Date(parseInt(selDate.split('-')[0]), parseInt(m) - 1, parseInt(d)).getDay()
-    const dayName = dow === 5 ? 'Friday' : 'Saturday'
-    confirmLabel = `Confirm — ${dayName} ${d} ${MONTHS[parseInt(m) - 1]}`
-    confirmDisabled = false
-  }
-
-  function doBook() {
-    if (!selDate) return
-    const [y, m, d] = selDate.split('-')
-    const dow = new Date(parseInt(y), parseInt(m) - 1, parseInt(d)).getDay()
-    const dayName = dow === 5 ? 'Friday' : 'Saturday'
-    const dateLabel = `${dayName} ${d} ${MONTHS[parseInt(m) - 1]} ${y}`
-    closeCal()
-    setSelDate(null)
-    /* Redirect to Stripe checkout with weekend price */
-    window.location.href =
-      `https://buy.stripe.com/${STRIPE_PRICE_WEEKEND}?client_reference_id=${encodeURIComponent(dateLabel)}`
+  /* Booking → fire InitiateCheckout, then go to the live booking calendar */
+  function bookNow() {
+    window.fbq?.('track', 'InitiateCheckout', {
+      content_name: 'Bangkok Club Crawl — Weekend',
+      content_category: 'weekends',
+    })
+    router.push('/book')
   }
 
   /* ─── LIGHTBOX HELPERS ─── */
@@ -819,8 +760,8 @@ export default function WeekendsPage() {
           <div className="label">Where We Go</div>
           <div className="map-placeholder">
             <iframe
-              title="Sukhumvit 11, Bangkok"
-              src="https://maps.google.com/maps?q=Sukhumvit%2011%2C%20Bangkok&z=15&output=embed"
+              title="Asok Intersection, Bangkok"
+              src="https://maps.google.com/maps?q=Asok%20Intersection%2C%20Bangkok&z=16&output=embed"
               width="100%"
               height="100%"
               style={{ border: 0, display: 'block' }}
@@ -832,7 +773,7 @@ export default function WeekendsPage() {
           <div className="loc-card">
             <div className="loc-card-icon">📍</div>
             <div>
-              <h4>Asoke – Sukhumvit</h4>
+              <h4>Asoke – Phrompong (Sukhumvit)</h4>
               <p>Exact meet-up location confirmed via email &amp; WhatsApp after booking. Venues rotate to keep each night fresh.</p>
             </div>
           </div>
@@ -972,38 +913,8 @@ export default function WeekendsPage() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <span style={{ fontSize: 11, opacity: 0.6, display: showSecure ? 'block' : 'none' }} id="secureLabel">🔒 Secure booking · Limited spots</span>
-            <button className="btn-book" onClick={openCal}>BOOK YOUR SPOT →</button>
+            <button className="btn-book" onClick={bookNow}>BOOK YOUR SPOT →</button>
           </div>
-        </div>
-      </div>
-
-
-      {/* ─── CALENDAR MODAL ─── */}
-      <div id="calOverlay" className={calOpen ? 'open' : ''}>
-        <div className="cal-sheet">
-          <div className="cal-handle"></div>
-          <div className="cal-title">Choose Your Night</div>
-          <div className="cal-sub">Friday &amp; Saturday spots only — select your date</div>
-
-          <div className="cal-nav">
-            <button onClick={() => moveMon(-1)}>‹</button>
-            <span id="calMonthLabel">{MONTHS[viewMonth]} {viewYear}</span>
-            <button onClick={() => moveMon(1)}>›</button>
-          </div>
-
-          <div className="cal-grid" id="calGrid">
-            <div className="cal-day-label">SUN</div>
-            <div className="cal-day-label">MON</div>
-            <div className="cal-day-label">TUE</div>
-            <div className="cal-day-label">WED</div>
-            <div className="cal-day-label">THU</div>
-            <div className="cal-day-label">FRI</div>
-            <div className="cal-day-label">SAT</div>
-            {renderCells()}
-          </div>
-
-          <button id="confirmBtn" disabled={confirmDisabled} onClick={doBook}>{confirmLabel}</button>
-          <button className="cal-close-btn" onClick={closeCal}>Cancel</button>
         </div>
       </div>
 

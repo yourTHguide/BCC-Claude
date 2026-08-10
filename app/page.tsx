@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import Navigation from '@/components/Navigation'
 import Hero from '@/components/Hero'
-import SelectNight from '@/components/SelectNight'
 import HowItWorks from '@/components/HowItWorks'
 import WhoJoinsUs from '@/components/WhoJoinsUs'
 import WhatsIncluded from '@/components/WhatsIncluded'
@@ -81,7 +80,6 @@ export default function Home() {
           </div>
         </section>
 
-        <SelectNight />
         <HowItWorks />
         <WhoJoinsUs />
         <WhatsIncluded />

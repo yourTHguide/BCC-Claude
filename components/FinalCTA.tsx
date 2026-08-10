@@ -1,10 +1,8 @@
 'use client'
 
-export default function FinalCTA() {
-  const scrollToNights = () => {
-    document.getElementById('select-night')?.scrollIntoView({ behavior: 'smooth' })
-  }
+import Link from 'next/link'
 
+export default function FinalCTA() {
   return (
     <section
       id="final-cta"
@@ -67,9 +65,9 @@ export default function FinalCTA() {
           Bangkok's best nightlife, hosted weekly.
         </p>
 
-        <button className="btn-primary" onClick={scrollToNights}>
-          Choose Your Night →
-        </button>
+        <Link className="btn-primary" href="/book" style={{ display: 'inline-block' }}>
+          Book This Weekend →
+        </Link>
 
         <p
           style={{

@@ -26,7 +26,7 @@ const nights = [
     title: 'BCC Signature Night',
     tagline: "The full experience. Private van. Bangkok's best clubs.",
     descriptor: 'Party van included',
-    price: '฿1,500',
+    price: '฿1,200',
     cap: 12,
     slug: 'saturday-signature',
     badge: 'FLAGSHIP',

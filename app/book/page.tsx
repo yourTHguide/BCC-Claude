@@ -75,7 +75,7 @@ const NIGHTS = [
     tag: 'FLAGSHIP · SATURDAY',
     day: 6, // Saturday
     time: '9:30 PM – Late',
-    price: 1500,
+    price: 1200,
     cap: 24,
     color: '#EA003A',
   },
