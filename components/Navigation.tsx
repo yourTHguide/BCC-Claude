@@ -35,7 +35,7 @@ export default function Navigation() {
     >
       <div style={{ height: '36px', display: 'flex', alignItems: 'center' }}>
         <img
-          src="/images/Nightlife Thailand LOGO.png"
+          src="/images/bcc-logo.png"
           alt="Bangkok Club Crawl"
           style={{ height: '36px', width: 'auto', objectFit: 'contain' }}
         />

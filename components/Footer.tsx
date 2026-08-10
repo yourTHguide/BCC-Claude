@@ -36,7 +36,7 @@ export default function Footer() {
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px', marginBottom: '24px' }}>
           <div style={{ height: '32px', display: 'flex', alignItems: 'center' }}>
-            <img src="/images/Nightlife Thailand LOGO.png" alt="Bangkok Club Crawl" style={{ height: '32px', width: 'auto', objectFit: 'contain' }} />
+            <img src="/images/bcc-logo.png" alt="Bangkok Club Crawl" style={{ height: '32px', width: 'auto', objectFit: 'contain' }} />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
             <a href="https://instagram.com/bkkclubcrawl" target="_blank" rel="noopener noreferrer"
