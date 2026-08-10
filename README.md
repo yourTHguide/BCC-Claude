@@ -1,5 +1,5 @@
 # Bangkok Club Crawl — Website
-
+Deployment refresh: August 11, 2026
 Next.js 14 website for bkkclubcrawl.com. Deployed on Vercel, connected to Supabase + Stripe + Resend.
 
 ## Tech Stack
