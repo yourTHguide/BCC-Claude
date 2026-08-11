@@ -35,7 +35,7 @@ const HOSTS = [
 ]
 
 const WHO_WE_ARE =
-  "We're a crew of Bangkok locals — born here, raised on the music, obsessed with putting the right people in the same room. We handle the venues, the doors, and the timing so you don't have to; you just show up and connect. Safe, effortless, and unmistakably local — that's a Friday or Saturday done right."
+  "We're a crew of Bangkok locals — born here, raised on the music, and happiest when a room of strangers turns into a group of friends. The venues, the doors, the timing: we handle all of it. But the real work is reading the room and introducing the right people, so the night feels warm, easy, and genuinely connected — never a crowd of phones. Effortless on the surface, carefully put together underneath, and always a safe, quality night out. That's a Friday or Saturday done right."
 
 const styles = `
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -611,6 +611,7 @@ const styles = `
       border-top: 1px solid var(--border);
       border-bottom: 1px solid var(--border);
       padding: 36px 20px;
+      text-align: center;
     }
     .weekends-page .reviews-title {
       font-size: 22px; font-weight: 700; color: var(--text);
@@ -626,6 +627,7 @@ const styles = `
       max-width: var(--max-w);
       margin: 0 auto;
       padding: 44px 20px;
+      text-align: center;
     }
     .weekends-page .hosts-row {
       display: flex;
@@ -652,7 +654,7 @@ const styles = `
     .weekends-page .hosts-desc {
       font-family: var(--serif); font-style: italic;
       font-size: 17px; line-height: 1.65; color: var(--muted);
-      max-width: 660px; margin-top: 28px;
+      max-width: 660px; margin: 28px auto 0;
     }
 
     @media (min-width: 768px) {

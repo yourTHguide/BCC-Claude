@@ -41,7 +41,7 @@ export default function WhatsIncluded() {
                       lineHeight: 1,
                       whiteSpace: 'nowrap',
                     }}>
-                      SAT ONLY
+                      On select nights
                     </span>
                   )}
                 </div>
