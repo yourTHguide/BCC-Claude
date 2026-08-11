@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Script from 'next/script'
 
 declare global {
   interface Window {
@@ -24,6 +25,17 @@ const galleryPhotos = [
   { src: '/images/gallery/g11.jpg', alt: 'The crew — group photo' },
   { src: '/images/gallery/g12.jpg', alt: 'Cocktail lounge' },
 ]
+
+/* ─── Hosts (shared with the homepage Hosts section) ─── */
+const HOSTS = [
+  { name: 'Boom', role: 'Social Connector', photo: '/images/host-boom.jpg', objectPosition: 'center bottom' },
+  { name: 'Ice', role: 'Energy Host', photo: '/images/host-ice.jpg', objectPosition: 'center top' },
+  { name: 'JJ', role: 'Flow Manager', photo: '/images/host-jj.jpg', objectPosition: 'center bottom' },
+  { name: 'Guide', role: 'Founder & Host', photo: '/images/host-guide.jpg', objectPosition: 'center top' },
+]
+
+const WHO_WE_ARE =
+  "We're a crew of Bangkok locals — born here, raised on the music, obsessed with putting the right people in the same room. We handle the venues, the doors, and the timing so you don't have to; you just show up and connect. Safe, effortless, and unmistakably local — that's a Friday or Saturday done right."
 
 const styles = `
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -576,6 +588,93 @@ const styles = `
       .weekends-page .hero__text { padding: 72px 56px; }
       .weekends-page .gallery { padding: 28px 56px 40px; }
     }
+
+    /* ═══ ROW 1 as a responsive grid: What We'll Do | Where We Go + Reviews ═══
+       Mobile order: What We'll Do → Reviews → Where We Go
+       Desktop:      [What We'll Do | Where We Go] then Reviews full-width below */
+    .weekends-page .row-experience {
+      display: grid;
+      grid-template-columns: 1fr;
+      grid-template-areas: "whatwedo" "reviews" "wherewego";
+      max-width: var(--max-w);
+      margin: 0 auto;
+    }
+    .weekends-page .row-experience .col-whatwedo  { grid-area: whatwedo; background: var(--bg-dark); }
+    .weekends-page .row-experience .col-wherewego { grid-area: wherewego; background: var(--bg-mid); }
+    .weekends-page .row-experience .col {
+      padding: 36px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .weekends-page .reviews-block {
+      grid-area: reviews;
+      background: var(--bg-deep);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 36px 20px;
+    }
+    .weekends-page .reviews-title {
+      font-size: 22px; font-weight: 700; color: var(--text);
+      margin-bottom: 20px; letter-spacing: -0.01em;
+    }
+
+    /* ─── MEET THE HOSTS ─── */
+    .weekends-page .hosts-band {
+      background: var(--bg-mid);
+      border-top: 1px solid var(--border);
+    }
+    .weekends-page .hosts-inner {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 44px 20px;
+    }
+    .weekends-page .hosts-row {
+      display: flex;
+      gap: 18px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 4px;
+    }
+    .weekends-page .hosts-row::-webkit-scrollbar { display: none; }
+    .weekends-page .host-card { flex-shrink: 0; width: 104px; text-align: center; }
+    .weekends-page .host-avatar {
+      width: 96px; height: 96px; border-radius: 50%;
+      overflow: hidden; margin: 0 auto 12px;
+      border: 2px solid rgba(234,0,58,0.40);
+      background: linear-gradient(160deg, #5A0040 0%, #2F002F 100%);
+    }
+    .weekends-page .host-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .weekends-page .host-name { font-size: 15px; font-weight: 700; color: var(--text); }
+    .weekends-page .host-role {
+      font-size: 9.5px; font-weight: 600; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--accent); margin-top: 3px;
+    }
+    .weekends-page .hosts-desc {
+      font-family: var(--serif); font-style: italic;
+      font-size: 17px; line-height: 1.65; color: var(--muted);
+      max-width: 660px; margin-top: 28px;
+    }
+
+    @media (min-width: 768px) {
+      .weekends-page .row-experience {
+        grid-template-columns: 1fr 1fr;
+        grid-template-areas: "whatwedo wherewego" "reviews reviews";
+      }
+      .weekends-page .row-experience .col { padding: 44px 32px; border-bottom: none; }
+      .weekends-page .row-experience .col-whatwedo { border-right: 1px solid var(--border); }
+      .weekends-page .reviews-block { padding: 44px 32px; }
+
+      .weekends-page .hosts-inner { padding: 52px 32px; }
+      .weekends-page .hosts-row { gap: 40px; overflow-x: visible; justify-content: center; }
+      .weekends-page .host-card { width: 150px; }
+      .weekends-page .host-avatar { width: 128px; height: 128px; }
+    }
+
+    @media (min-width: 1024px) {
+      .weekends-page .row-experience .col { padding: 52px 48px; }
+      .weekends-page .reviews-block { padding: 52px 48px; }
+      .weekends-page .hosts-inner { padding: 64px 48px; }
+    }
 `
 
 export default function WeekendsPage() {
@@ -710,11 +809,11 @@ export default function WeekendsPage() {
       </div>{/* /hero-wrap */}
 
 
-      {/* ═══ ROW 1: What We'll Do | Where We Go (2-col) ═══ */}
-      <div className="grid-2">
+      {/* ═══ ROW 1: What We'll Do | Where We Go + Reviews (responsive grid) ═══ */}
+      <div className="row-experience">
 
         {/* What We'll Do */}
-        <div className="col">
+        <div className="col col-whatwedo">
           <div className="label">What We&apos;ll Do</div>
           <div className="timeline">
             <div className="tl-item">
@@ -749,7 +848,7 @@ export default function WeekendsPage() {
         </div>
 
         {/* Where We Go */}
-        <div className="col">
+        <div className="col col-wherewego">
           <div className="label">Where We Go</div>
           <div className="map-placeholder">
             <iframe
@@ -779,7 +878,15 @@ export default function WeekendsPage() {
           </div>
         </div>
 
-      </div>{/* /grid-2 row 1 */}
+        {/* Reviews (Elfsight) — mobile: between What We'll Do & Where We Go; desktop: full-width below */}
+        <div className="reviews-block">
+          <div className="label">What Guests Say</div>
+          <h3 className="reviews-title">700+ nights. All rated 5 stars.</h3>
+          <Script src="https://elfsightcdn.com/platform.js" strategy="afterInteractive" />
+          <div className="elfsight-app-c9a3552e-9881-4e1c-98f3-0a366fc9e590" data-elfsight-app-lazy></div>
+        </div>
+
+      </div>{/* /row-experience */}
 
 
       {/* ═══ ROW 2: What's Included (full-width, 1-col) ═══ */}
@@ -850,6 +957,26 @@ export default function WeekendsPage() {
             </div>{/* /right */}
 
           </div>{/* /included-cols */}
+        </div>
+      </div>
+
+
+      {/* ═══ MEET THE HOSTS ═══ */}
+      <div className="hosts-band">
+        <div className="hosts-inner">
+          <div className="label">Meet the Hosts</div>
+          <div className="hosts-row">
+            {HOSTS.map((host) => (
+              <div className="host-card" key={host.name}>
+                <div className="host-avatar">
+                  <img src={host.photo} alt={host.name} style={{ objectPosition: host.objectPosition }} />
+                </div>
+                <div className="host-name">{host.name}</div>
+                <div className="host-role">{host.role}</div>
+              </div>
+            ))}
+          </div>
+          <p className="hosts-desc">{WHO_WE_ARE}</p>
         </div>
       </div>
 

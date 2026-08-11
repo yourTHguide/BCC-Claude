@@ -97,9 +97,10 @@ function getWeekOfMonth(date: Date): number {
   return Math.ceil((date.getDate() + firstDay) / 7)
 }
 
-// Get events for a given date
+// Get events for a given date — weekend crawl only (Friday & Saturday)
 function getEventsForDate(date: Date): typeof NIGHTS {
   const dow = date.getDay() // 0=Sun...6=Sat
+  if (dow !== 5 && dow !== 6) return [] // only Friday & Saturday are bookable
   const week = getWeekOfMonth(date)
   const isOddWeek = week % 2 === 1
 
@@ -112,19 +113,18 @@ function getEventsForDate(date: Date): typeof NIGHTS {
   })
 }
 
-// Is a date available (not Monday, not in the past)
+// Is a date available — Friday & Saturday only, and not in the past
 function isAvailable(date: Date): boolean {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   if (date < today) return false
-  return date.getDay() !== 1 // Monday = sold out
+  const dow = date.getDay()
+  return dow === 5 || dow === 6 // Friday or Saturday only
 }
 
-function isSoldOut(date: Date): boolean {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  if (date < today) return false
-  return date.getDay() === 1
+// No sold-out state anymore — non-weekend days are simply inactive/off
+function isSoldOut(_date: Date): boolean {
+  return false
 }
 
 function formatPrice(n: number) {
@@ -245,11 +245,13 @@ function BookingCalendar() {
         >
           ← Back
         </button>
-        <div style={{
-          fontWeight: 600, fontSize: '18px', color: '#fff',
-          border: '2px solid #fff', height: '32px', padding: '0 10px',
-          display: 'flex', alignItems: 'center', letterSpacing: '0.05em',
-        }}>BCC</div>
+        <a href="/" style={{ display: 'flex', alignItems: 'center', height: '32px' }}>
+          <img
+            src="/images/bcc-logo.png"
+            alt="Bangkok Club Crawl"
+            style={{ height: '30px', width: 'auto', objectFit: 'contain', display: 'block' }}
+          />
+        </a>
       </nav>
 
       <div style={{ maxWidth: '480px', margin: '0 auto', padding: '24px 20px 160px' }}>
@@ -417,8 +419,7 @@ function BookingCalendar() {
               <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.40)' }}>Today</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <div style={{ width: '16px', height: '1px', background: 'rgba(255,255,255,0.25)' }} />
-              <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.40)' }}>Sold out</span>
+              <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.40)' }}>Fri &amp; Sat only</span>
             </div>
           </div>
         </div>
