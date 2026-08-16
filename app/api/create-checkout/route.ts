@@ -20,7 +20,10 @@ export async function POST(req: NextRequest) {
   try {
     const { nightSlug, eventDate, quantity } = await req.json()
 
-    if (!nightSlug || !eventDate || !quantity) {
+    // nightSlug/eventDate are required, and quantity must be *present*. A
+    // supplied-but-invalid quantity (e.g. 0) is not "missing" — it flows through
+    // to createDynamicCheckout below and is rejected there as "Invalid quantity".
+    if (!nightSlug || !eventDate || quantity === undefined || quantity === null) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
@@ -216,6 +219,14 @@ async function createLegacyCheckout({
   quantity: any
   appUrl: string
 }) {
+  // Preserve the legacy path's original behavior. It previously relied on the
+  // top-level `!quantity` guard to reject falsy quantities (0, missing) as
+  // "Missing required fields"; that guard now only catches truly-missing
+  // quantity, so re-assert the falsy check here to keep legacy byte-identical.
+  if (!quantity) {
+    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+  }
+
   const nightName = NIGHT_NAMES[nightSlug] || nightSlug
   const priceId = getPriceId(nightSlug)
   const formattedDate = formatEventDate(eventDate)
