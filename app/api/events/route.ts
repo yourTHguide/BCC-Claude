@@ -85,16 +85,20 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  const events = rows.map((row) => {
+  const events = rows.flatMap((row) => {
     // Supabase returns a to-one embed as an object; normalize defensively.
     const product = Array.isArray(row.products) ? row.products[0] : row.products
 
-    // Effective values mirror checkout's resolution. Price is surfaced for
-    // display only — it remains authoritatively re-validated at checkout.
+    // Effective price mirrors checkout's resolution (price_override ??
+    // default_price). Drop any event whose price is missing / non-integer /
+    // non-positive: checkout rejects those (gate 6), so the calendar must not
+    // surface them either. Checkout stays the final authority on price.
     const effectivePrice = row.price_override ?? product?.default_price ?? null
+    if (!Number.isInteger(effectivePrice) || effectivePrice <= 0) return []
+
     const effectiveStartTime = row.start_time_override ?? product?.default_start_time ?? null
 
-    return {
+    return [{
       eventId: row.id,
       productId: product?.id ?? null,
       productSlug: product?.slug ?? null,
@@ -106,10 +110,10 @@ export async function GET(req: NextRequest) {
 
       effectivePrice,
       effectiveStartTime,
-      // Per-event capacity; NULL means no defined capacity. The calendar applies
-      // its own per-order transaction safeguard — this is NOT that limit.
+      // Per-event capacity; NULL = no defined capacity. Surfaced for future use;
+      // it does NOT drive the calendar's purchase quantity in Phase 3.
       capacity: row.capacity ?? null,
-    }
+    }]
   })
 
   return NextResponse.json({ events })

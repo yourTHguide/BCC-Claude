@@ -22,7 +22,7 @@
 -- ============================================================
 
 -- ── BOOKINGS ────────────────────────────────────────────────
-CREATE TABLE bookings (
+CREATE TABLE IF NOT EXISTS bookings (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at        TIMESTAMPTZ DEFAULT NOW(),
 
@@ -64,7 +64,7 @@ CREATE TABLE bookings (
 
 -- ── EVENT DATES ─────────────────────────────────────────────
 -- Founder controls which dates are open/closed
-CREATE TABLE event_dates (
+CREATE TABLE IF NOT EXISTS event_dates (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_date    DATE NOT NULL,
   night_slug    TEXT NOT NULL,
@@ -77,7 +77,7 @@ CREATE TABLE event_dates (
 );
 
 -- ── EXPENSES ────────────────────────────────────────────────
-CREATE TABLE expenses (
+CREATE TABLE IF NOT EXISTS expenses (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_date  DATE NOT NULL,
   night_slug  TEXT NOT NULL,
@@ -90,7 +90,7 @@ CREATE TABLE expenses (
 -- ── PROMO CODES ─────────────────────────────────────────────
 -- Reference only (actual validation is in Stripe)
 -- Used to track which codes exist and their source
-CREATE TABLE promo_codes (
+CREATE TABLE IF NOT EXISTS promo_codes (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   code            TEXT UNIQUE NOT NULL,
   discount_amount INT NOT NULL,   -- THB
@@ -103,7 +103,7 @@ CREATE TABLE promo_codes (
 
 -- ── OTA ADDITIONS ───────────────────────────────────────────
 -- Manual entries for OTA bookings (Klook, Airbnb, etc.)
-CREATE TABLE ota_bookings (
+CREATE TABLE IF NOT EXISTS ota_bookings (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_date    DATE NOT NULL,
   night_slug    TEXT NOT NULL,
@@ -191,13 +191,13 @@ BEGIN
 END $$;
 
 -- ── INDEXES ─────────────────────────────────────────────────
-CREATE INDEX idx_bookings_date ON bookings(event_date);
-CREATE INDEX idx_bookings_night ON bookings(night_slug);
-CREATE INDEX idx_bookings_status ON bookings(status);
-CREATE INDEX idx_bookings_email ON bookings(guest_email);
-CREATE INDEX idx_event_dates_date ON event_dates(event_date);
-CREATE INDEX idx_expenses_date ON expenses(event_date);
-CREATE INDEX idx_ota_date ON ota_bookings(event_date);
+CREATE INDEX IF NOT EXISTS idx_bookings_date ON bookings(event_date);
+CREATE INDEX IF NOT EXISTS idx_bookings_night ON bookings(night_slug);
+CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);
+CREATE INDEX IF NOT EXISTS idx_bookings_email ON bookings(guest_email);
+CREATE INDEX IF NOT EXISTS idx_event_dates_date ON event_dates(event_date);
+CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(event_date);
+CREATE INDEX IF NOT EXISTS idx_ota_date ON ota_bookings(event_date);
 
 -- ── ROW LEVEL SECURITY ──────────────────────────────────────
 -- Public can insert bookings (webhook does this)

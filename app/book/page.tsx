@@ -32,12 +32,13 @@ function presentationFor(slug: string) {
 
 // Per-order transaction safeguard for the quantity selector. This is a checkout
 // UX limit, NOT event/venue capacity. It matches the hard cap the checkout API
-// already enforces (create-checkout rejects qty > 24). When a real per-event
-// capacity is defined later, that value takes precedence (see maxTickets()).
+// already enforces (create-checkout rejects qty > 24). Phase 3 governs the
+// stepper ONLY by this safeguard — event.capacity is intentionally not used to
+// drive purchase quantity yet (real capacity enforcement is out of scope); it
+// stays in the API response for future use.
 const MAX_TICKETS_PER_ORDER = 24
-function maxTickets(ev: EventInstance | null): number {
-  if (!ev) return MAX_TICKETS_PER_ORDER
-  return ev.capacity ?? MAX_TICKETS_PER_ORDER
+function maxTickets(): number {
+  return MAX_TICKETS_PER_ORDER
 }
 
 // Today in Asia/Bangkok as YYYY-MM-DD — the venue's local day. Used for the
@@ -180,7 +181,7 @@ function BookingCalendar() {
   const unitPrice = selectedEvent?.effectivePrice ?? null
   const totalPrice = unitPrice != null ? unitPrice * quantity : null
   const selectedDateStr = selectedDateISO ? formatDateLabel(selectedDateISO) : null
-  const capMax = maxTickets(selectedEvent)
+  const capMax = maxTickets()
 
   return (
     <div
