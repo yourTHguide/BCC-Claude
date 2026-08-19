@@ -29,6 +29,13 @@ const C = {
   label: { fontWeight: 600, fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.40)', margin: '0 0 4px' },
   value: { fontSize: '15px', margin: '0 0 16px' } as React.CSSProperties,
   banner: { background: 'rgba(52,199,89,0.10)', border: '1px solid rgba(52,199,89,0.35)', borderRadius: '10px', padding: '14px 16px', margin: '0 0 20px', color: '#8ff0a6', fontSize: '14px' } as React.CSSProperties,
+  hint: { fontSize: '12px', color: 'rgba(255,255,255,0.40)', margin: '6px 0 0' } as React.CSSProperties,
+  warn: { background: 'rgba(255,196,0,0.08)', border: '1px solid rgba(255,196,0,0.30)', borderRadius: '10px', padding: '12px 14px', margin: '0 0 10px', color: '#FFC400', fontSize: '13px', lineHeight: 1.5 } as React.CSSProperties,
+  actionErr: { background: 'rgba(234,0,58,0.10)', border: '1px solid rgba(234,0,58,0.30)', borderRadius: '8px', padding: '12px 14px', color: '#ff6b8a', fontSize: '13px', margin: '0 0 14px', lineHeight: 1.5 } as React.CSSProperties,
+  toggle: (on: boolean): React.CSSProperties => ({ height: '36px', padding: '0 14px', borderRadius: '8px', border: `1px solid ${on ? 'rgba(52,199,89,0.4)' : 'rgba(255,255,255,0.12)'}`, background: on ? 'rgba(52,199,89,0.12)' : 'rgba(255,255,255,0.05)', color: on ? '#34C759' : 'rgba(255,255,255,0.6)', fontWeight: 600, fontSize: '13px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }),
+  primaryBtn: (dis: boolean): React.CSSProperties => ({ height: '42px', padding: '0 20px', borderRadius: '9px', border: 'none', background: dis ? 'rgba(255,255,255,0.08)' : 'linear-gradient(135deg,#EA003A,#820065)', color: dis ? 'rgba(255,255,255,0.4)' : '#fff', fontWeight: 600, fontSize: '14px', cursor: dis ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif' }),
+  ghostBtn: { height: '42px', padding: '0 20px', borderRadius: '9px', border: '1px solid rgba(255,255,255,0.14)', background: 'transparent', color: 'rgba(255,255,255,0.75)', fontWeight: 600, fontSize: '14px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' } as React.CSSProperties,
+  dangerBtn: { height: '42px', padding: '0 20px', borderRadius: '9px', border: '1px solid rgba(234,0,58,0.35)', background: 'rgba(234,0,58,0.08)', color: '#ff6b8a', fontWeight: 600, fontSize: '14px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' } as React.CSSProperties,
 }
 
 const baht = (n: number | null) => (n == null ? '—' : `฿${n.toLocaleString()}`)
@@ -46,22 +53,88 @@ function ProductDetailInner() {
 
   const [status, setStatus] = useState<'loading' | 'ready' | 'notfound' | 'error'>('loading')
   const [product, setProduct] = useState<Product | null>(null)
+  const [events, setEvents] = useState<{ total: number; upcomingOpen: number; nextOpenDate: string | null } | null>(null)
+
+  // Publish/Deactivate panel state
+  const [panel, setPanel] = useState<'none' | 'activate'>('none')
+  const [pendingBcc, setPendingBcc] = useState(false)
+  const [pendingBnt, setPendingBnt] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+
+  async function loadProduct() {
+    if (!params?.id) return
+    try {
+      const res = await fetch(`/api/admin/products/${params.id}`, { cache: 'no-store' })
+      if (res.status === 404) { setStatus('notfound'); return }
+      if (!res.ok) throw new Error(String(res.status))
+      const data = await res.json()
+      setProduct(data.product)
+      setEvents(data.events ?? null)
+      setStatus('ready')
+    } catch {
+      setStatus('error')
+    }
+  }
 
   useEffect(() => {
-    if (!params?.id) return
-    ;(async () => {
-      try {
-        const res = await fetch(`/api/admin/products/${params.id}`, { cache: 'no-store' })
-        if (res.status === 404) { setStatus('notfound'); return }
-        if (!res.ok) throw new Error(String(res.status))
-        const data = await res.json()
-        setProduct(data.product)
-        setStatus('ready')
-      } catch {
-        setStatus('error')
-      }
-    })()
+    loadProduct()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params?.id])
+
+  function openActivatePanel() {
+    if (!product) return
+    setPendingBcc(product.visible_bcc)
+    setPendingBnt(product.visible_bnt)
+    setActionError(null)
+    setPanel('activate')
+  }
+
+  async function handleActivate() {
+    if (!product || busy) return
+    setBusy(true)
+    setActionError(null)
+    try {
+      const res = await fetch(`/api/admin/products/${product.id}/activate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visibleBcc: pendingBcc, visibleBnt: pendingBnt }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setActionError(data.error || 'Could not publish this product. Please try again.')
+        setBusy(false)
+        return
+      }
+      setPanel('none')
+      await loadProduct()
+    } catch {
+      setActionError('Something went wrong talking to the server. Please try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleDeactivate() {
+    if (!product || busy) return
+    if (!confirm(`Deactivate "${product.name}"? It will immediately disappear from all storefronts and become unbookable. Its schedule and Event Instances are kept as-is.`)) return
+    setBusy(true)
+    setActionError(null)
+    try {
+      const res = await fetch(`/api/admin/products/${product.id}/deactivate`, { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setActionError(data.error || 'Could not deactivate this product. Please try again.')
+        setBusy(false)
+        return
+      }
+      await loadProduct()
+    } catch {
+      setActionError('Something went wrong talking to the server. Please try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <div style={C.page}>
@@ -95,7 +168,50 @@ function ProductDetailInner() {
                 <Field label="Default price">{baht(product.default_price)}</Field>
                 <Field label="Default start time">{hhmm(product.default_start_time)}</Field>
                 <Field label="Visible on BCC">{product.visible_bcc ? 'Yes' : 'No'}</Field>
-                <Field label="Visible on BNT">{product.visible_bnt ? 'Yes' : 'No'}</Field>
+                <Field label="Visible on BNT">{product.visible_bnt ? 'Yes (not live yet — BNT storefront/checkout isn’t built)' : 'No'}</Field>
+
+                {actionError && <div style={C.actionErr}>{actionError}</div>}
+
+                {product.status === 'draft' && panel === 'none' && (
+                  <button style={C.primaryBtn(false)} onClick={openActivatePanel}>Publish…</button>
+                )}
+
+                {product.status === 'draft' && panel === 'activate' && (
+                  <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '16px' }}>
+                    <p style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 10px' }}>Publish this product</p>
+
+                    {events && events.upcomingOpen === 0 && (
+                      <div style={C.warn}>No upcoming open Event Instances yet — it will be Active but nothing will be bookable until dates are open.</div>
+                    )}
+                    {product.default_price == null && (
+                      <div style={C.warn}>No default price set — instances without their own price override won&rsquo;t be bookable.</div>
+                    )}
+
+                    <p style={C.label}>Storefront visibility</p>
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                      <button type="button" style={C.toggle(pendingBcc)} onClick={() => setPendingBcc((v) => !v)}>{pendingBcc ? '✓ ' : ''}Show on BCC</button>
+                      <button type="button" style={C.toggle(pendingBnt)} onClick={() => setPendingBnt((v) => !v)}>{pendingBnt ? '✓ ' : ''}Show on BNT (not live yet)</button>
+                    </div>
+                    {!pendingBcc && (
+                      <p style={{ ...C.hint, color: '#FFC400', margin: '0 0 8px' }}>
+                        BCC is the only storefront checkout currently supports — publishing requires &ldquo;Show on BCC&rdquo;.
+                      </p>
+                    )}
+
+                    <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
+                      <button style={C.primaryBtn(!pendingBcc || busy)} disabled={!pendingBcc || busy} onClick={handleActivate}>
+                        {busy ? 'Publishing…' : 'Confirm Publish'}
+                      </button>
+                      <button style={C.ghostBtn} disabled={busy} onClick={() => { setPanel('none'); setActionError(null) }}>Cancel</button>
+                    </div>
+                  </div>
+                )}
+
+                {product.status === 'active' && (
+                  <button style={C.dangerBtn} disabled={busy} onClick={handleDeactivate}>
+                    {busy ? 'Deactivating…' : 'Deactivate'}
+                  </button>
+                )}
               </div>
 
               <div style={C.card}>
