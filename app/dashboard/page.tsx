@@ -95,35 +95,6 @@ const S = {
   btnDanger: { background:'rgba(234,0,58,0.12)', color:'#EA003A', border:'1px solid rgba(234,0,58,0.25)' } as React.CSSProperties,
 }
 
-// ── Auth Gate ───────────────────────────────────────────────
-function AuthGate({ onAuth }: { onAuth: () => void }) {
-  const [pw, setPw] = useState('')
-  const [error, setError] = useState(false)
-  function handleLogin(e: React.FormEvent) {
-    e.preventDefault()
-    if (pw === process.env.NEXT_PUBLIC_DASHBOARD_PASSWORD || pw === 'bcc2026guide') {
-      sessionStorage.setItem('bcc_auth', '1')
-      onAuth()
-    } else { setError(true) }
-  }
-  return (
-    <div style={{ minHeight:'100vh', background:'#1A0015', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'Inter, sans-serif' }}>
-      <div style={{ width:'100%', maxWidth:'360px', padding:'0 24px' }}>
-        <p style={S.eyebrow}>BCC DASHBOARD</p>
-        <h1 style={{ fontWeight:600, fontSize:'24px', color:'#fff', margin:'8px 0 32px' }}>Founder Access</h1>
-        <form onSubmit={handleLogin}>
-          <input type="password" placeholder="Password" value={pw}
-            onChange={e => { setPw(e.target.value); setError(false) }}
-            style={{ ...S.input, marginBottom:'12px', border:`1px solid ${error?'#EA003A':'rgba(255,255,255,0.12)'}` }}
-          />
-          {error && <p style={{ color:'#EA003A', fontSize:'13px', marginBottom:'12px' }}>Incorrect password</p>}
-          <button type="submit" style={{ ...S.btn, ...S.btnRed, width:'100%', height:'48px' }}>Enter Dashboard</button>
-        </form>
-      </div>
-    </div>
-  )
-}
-
 // ── Confirm Modal ───────────────────────────────────────────
 // Generic admin-confirmation dialog used before any sensitive action
 // (sending guest email, marking a verdict, marking host pay as Paid, etc.)
@@ -817,7 +788,6 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
 
 // ── Main Dashboard ──────────────────────────────────────────
 export default function Dashboard() {
-  const [authed, setAuthed] = useState(false)
   const [activeTab, setActiveTab] = useState<'calendar'|'bookings'>('calendar')
   const [calYear, setCalYear] = useState(new Date().getFullYear())
   const [calMonth, setCalMonth] = useState(new Date().getMonth())
@@ -831,7 +801,6 @@ export default function Dashboard() {
   const [cancelConfirm, setCancelConfirm] = useState<Record<string,boolean>>({})
   const [actionState, setActionState] = useState<Record<string,'idle'|'sending'|'done'|'error'>>({})
 
-  useEffect(() => { if (sessionStorage.getItem('bcc_auth')==='1') setAuthed(true) }, [])
 
   const loadEvents = useCallback(async () => {
     setLoading(true)
@@ -912,9 +881,8 @@ export default function Dashboard() {
     }
   }
 
-  useEffect(() => { if (authed) { loadEvents(); loadBookings() } }, [authed, loadEvents, loadBookings])
+  useEffect(() => { loadEvents(); loadBookings() }, [loadEvents, loadBookings])
 
-  if (!authed) return <AuthGate onAuth={() => setAuthed(true)} />
 
   // Build calendar grid
   const firstDow = new Date(calYear, calMonth, 1).getDay()
