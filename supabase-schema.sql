@@ -5,6 +5,12 @@
 -- (project ref: oomhftxgvikzxlvqdcmr), reconciled by direct catalog
 -- introspection on 2026-08-17.
 --
+-- Everything ABOVE the "PHASE 4 (AUTHORED — NOT YET LIVE)" banner at the end of
+-- this file reflects production as it is TODAY. The Phase 4 appendix documents
+-- additive objects that are authored in supabase/migrations/ but NOT yet applied
+-- to production (as of 2026-08-19) — included here only so a FRESH environment
+-- rebuilt from this file reaches the intended Phase 4 target schema.
+--
 -- PURPOSE
 --   • Documents the canonical production schema so the repo is a truthful
 --     description of production.
@@ -288,3 +294,120 @@ ORDER BY ed.event_date DESC;
 INSERT INTO products (id, slug, name, status, default_price, default_start_time, visible_bcc, visible_bnt)
 VALUES ('bbacd61d-1063-4b69-a0d6-4fd147ef98ea', 'bangkok-club-crawl', 'Bangkok Club Crawl', 'active', 1200, '21:30:00', TRUE, FALSE)
 ON CONFLICT (slug) DO NOTHING;
+
+-- ============================================================
+-- PHASE 4 (AUTHORED — NOT YET LIVE)
+-- ============================================================
+-- The objects below are additive Phase 4 schema, authored in Stage 0 and mirrored
+-- from supabase/migrations/. As of 2026-08-19 they are NOT applied to production.
+-- They are reproduced here so a fresh rebuild of this file yields the full
+-- intended Phase 4 schema. Per-stage application to production:
+--   • Migration A (admin_users, products.updated_at, products RLS) → Stage 1
+--   • Migration B (product_schedules, event_dates.schedule_id)     → Stage 4
+--   • Migration C (product_content, product_media)                 → Stage 7
+-- All are idempotent and additive; none alter or drop existing columns/rows.
+-- ============================================================
+
+-- ── [A] admin_users + products.updated_at + products RLS ────
+CREATE TABLE IF NOT EXISTS admin_users (
+  user_id      UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  role         TEXT NOT NULL DEFAULT 'owner'
+    CHECK (role IN ('owner','admin','staff')),
+  display_name TEXT,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+ALTER TABLE admin_users ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "admin_users self read" ON admin_users;
+CREATE POLICY "admin_users self read" ON admin_users
+  FOR SELECT TO authenticated
+  USING (auth.uid() = user_id);
+
+ALTER TABLE products
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
+
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER AS $fn$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$fn$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS products_set_updated_at ON products;
+CREATE TRIGGER products_set_updated_at
+  BEFORE UPDATE ON products
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- products currently ships with RLS DISABLED (see the RLS section above, which
+-- documents production as-is). Migration A enables it; service-role clients
+-- bypass RLS and nothing anon-side reads products.
+ALTER TABLE products ENABLE ROW LEVEL SECURITY;
+
+-- ── [B] product_schedules + event_dates.schedule_id ─────────
+-- NOTE: the booking calendar never reads product_schedules; it reads only the
+-- event_dates rows this schedule generates.
+CREATE TABLE IF NOT EXISTS product_schedules (
+  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_id         UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  night_slug         TEXT NOT NULL,
+  night_name         TEXT NOT NULL,
+  freq               TEXT NOT NULL DEFAULT 'weekly'
+    CHECK (freq IN ('once','weekly')),
+  weekday            SMALLINT CHECK (weekday BETWEEN 0 AND 6),
+  start_date         DATE NOT NULL,
+  until_date         DATE,
+  start_time_default TIME,
+  generated_through  DATE,
+  is_active          BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_product_schedules_product ON product_schedules(product_id);
+ALTER TABLE product_schedules ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE event_dates
+  ADD COLUMN IF NOT EXISTS schedule_id UUID;
+DO $guard$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'event_dates_schedule_id_fkey'
+      AND conrelid = 'public.event_dates'::regclass
+  ) THEN
+    ALTER TABLE event_dates
+      ADD CONSTRAINT event_dates_schedule_id_fkey
+      FOREIGN KEY (schedule_id) REFERENCES product_schedules(id) ON DELETE SET NULL;
+  END IF;
+END $guard$;
+CREATE INDEX IF NOT EXISTS idx_event_dates_schedule ON event_dates(schedule_id);
+
+-- ── [C] product_content + product_media ─────────────────────
+-- Kept OUT of products; the booking hot path never reads these.
+CREATE TABLE IF NOT EXISTS product_content (
+  product_id        UUID PRIMARY KEY REFERENCES products(id) ON DELETE CASCADE,
+  short_description TEXT,
+  full_description  TEXT,
+  meeting_point     TEXT,
+  duration_minutes  INTEGER,
+  highlights        JSONB NOT NULL DEFAULT '[]'::jsonb,
+  itinerary         JSONB NOT NULL DEFAULT '[]'::jsonb,
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+DROP TRIGGER IF EXISTS product_content_set_updated_at ON product_content;
+CREATE TRIGGER product_content_set_updated_at
+  BEFORE UPDATE ON product_content
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TABLE IF NOT EXISTS product_media (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  kind       TEXT NOT NULL DEFAULT 'gallery'
+    CHECK (kind IN ('cover','gallery')),
+  url        TEXT NOT NULL,
+  alt        TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_product_media_product ON product_media(product_id, sort_order);
+ALTER TABLE product_content ENABLE ROW LEVEL SECURITY;
+ALTER TABLE product_media ENABLE ROW LEVEL SECURITY;
+-- Storage bucket `product-media` (public-read) is created during Stage 7b, not here.
