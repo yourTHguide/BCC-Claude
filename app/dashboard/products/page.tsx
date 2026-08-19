@@ -70,7 +70,10 @@ export default function ProductsListPage() {
       </div>
 
       <div style={C.wrap}>
-        <h1 style={{ fontWeight: 600, fontSize: '22px', margin: '0 0 4px' }}>Products</h1>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', margin: '0 0 4px' }}>
+          <h1 style={{ fontWeight: 600, fontSize: '22px', margin: 0 }}>Products</h1>
+          <Link href="/dashboard/products/new" style={{ height: '38px', padding: '0 16px', display: 'inline-flex', alignItems: 'center', borderRadius: '8px', background: 'linear-gradient(135deg,#EA003A,#820065)', color: '#fff', fontWeight: 600, fontSize: '13px', textDecoration: 'none' }}>+ Create Product</Link>
+        </div>
         <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.45)', margin: '0 0 24px' }}>
           Reusable experience definitions. Read-only at this stage.
         </p>
