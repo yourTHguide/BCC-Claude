@@ -220,7 +220,7 @@ async function createDynamicCheckout({
 
     custom_text: {
       submit: {
-        message: `You're booking ${qty} ticket${qty > 1 ? 's' : ''} for ${event.night_name} on ${formattedDate}. Meet-up at 9:30 PM — location shared via WhatsApp by 7 PM.`,
+        message: `You're booking ${qty} ticket${qty > 1 ? 's' : ''} for ${event.night_name} on ${formattedDate}.`,
       },
     },
 
@@ -289,7 +289,7 @@ async function createLegacyCheckout({
     // Pre-fill description so guest sees the night name
     custom_text: {
       submit: {
-        message: `You're booking ${quantity} ticket${quantity > 1 ? 's' : ''} for ${nightName} on ${formattedDate}. Meet-up at 9:30 PM — location shared via WhatsApp by 7 PM.`,
+        message: `You're booking ${quantity} ticket${quantity > 1 ? 's' : ''} for ${nightName} on ${formattedDate}.`,
       },
     },
 
