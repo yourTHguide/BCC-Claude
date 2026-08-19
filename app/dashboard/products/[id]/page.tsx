@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useSearchParams } from 'next/navigation'
+import InstancesPanel from './InstancesPanel'
 
 interface Product {
   id: string
@@ -16,7 +17,6 @@ interface Product {
   created_at: string
   updated_at: string | null
 }
-interface EventsSummary { total: number; upcomingOpen: number; nextOpenDate: string | null }
 
 const C = {
   page: { minHeight: '100vh', background: '#0D000A', fontFamily: 'Inter, sans-serif', color: '#fff' } as React.CSSProperties,
@@ -45,7 +45,6 @@ function ProductDetailInner() {
 
   const [status, setStatus] = useState<'loading' | 'ready' | 'notfound' | 'error'>('loading')
   const [product, setProduct] = useState<Product | null>(null)
-  const [events, setEvents] = useState<EventsSummary | null>(null)
 
   useEffect(() => {
     if (!params?.id) return
@@ -56,7 +55,6 @@ function ProductDetailInner() {
         if (!res.ok) throw new Error(String(res.status))
         const data = await res.json()
         setProduct(data.product)
-        setEvents(data.events)
         setStatus('ready')
       } catch {
         setStatus('error')
@@ -98,12 +96,7 @@ function ProductDetailInner() {
               <Field label="Visible on BNT">{product.visible_bnt ? 'Yes' : 'No'}</Field>
             </div>
 
-            <div style={C.card}>
-              <p style={{ ...C.label, color: '#EA003A', marginBottom: '14px' }}>Event instances (read-only)</p>
-              <Field label="Total instances">{events?.total ?? 0}</Field>
-              <Field label="Upcoming & open">{events?.upcomingOpen ?? 0}</Field>
-              <Field label="Next open date">{events?.nextOpenDate ?? '—'}</Field>
-            </div>
+            <InstancesPanel productId={params.id} />
 
             <div style={C.card}>
               <p style={{ ...C.label, color: '#EA003A', marginBottom: '14px' }}>Identity</p>
