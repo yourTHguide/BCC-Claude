@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import Link from 'next/link'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -934,6 +935,9 @@ export default function Dashboard() {
               {tab === 'calendar' ? '📅 Calendar' : '📋 Bookings'}
             </button>
           ))}
+          <Link href="/dashboard/products" style={{ ...S.btn, ...S.btnGhost, display:'inline-flex', alignItems:'center', textDecoration:'none' }}>
+            🧩 Products
+          </Link>
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
           <button onClick={prevMonth} style={{ ...S.btn, ...S.btnGhost, padding:'0 12px' }}>‹</button>
