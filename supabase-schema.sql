@@ -5,12 +5,11 @@
 -- (project ref: oomhftxgvikzxlvqdcmr), reconciled by direct catalog
 -- introspection on 2026-08-17.
 --
--- Everything ABOVE the "PHASE 4 (AUTHORED — NOT YET LIVE)" banner at the end of
--- this file reflects production as it is TODAY. The Phase 4 appendix documents
--- additive Phase 4 objects. As of 2026-08-19, Migrations A and B are APPLIED to
--- production; Migration C is authored but NOT yet applied. All are reproduced
--- here so a FRESH environment rebuilt from this file reaches the full Phase 4
--- target schema.
+-- Everything ABOVE the "PHASE 4" banner at the end of this file reflects
+-- production as it is TODAY. The Phase 4 appendix documents additive Phase 4
+-- objects. As of 2026-08-19, Migrations A, B, and C (v3) are APPLIED to
+-- production. All are reproduced here so a FRESH environment rebuilt from
+-- this file reaches the full Phase 4 target schema.
 --
 -- PURPOSE
 --   • Documents the canonical production schema so the repo is a truthful
@@ -297,16 +296,16 @@ VALUES ('bbacd61d-1063-4b69-a0d6-4fd147ef98ea', 'bangkok-club-crawl', 'Bangkok C
 ON CONFLICT (slug) DO NOTHING;
 
 -- ============================================================
--- PHASE 4 (AUTHORED — NOT YET LIVE)
+-- PHASE 4 (APPLIED)
 -- ============================================================
 -- The objects below are additive Phase 4 schema, authored in Stage 0 and mirrored
--- from supabase/migrations/. As of 2026-08-19, Migrations A and B are APPLIED to
--- production; Migration C is NOT yet applied.
+-- from supabase/migrations/. As of 2026-08-19, Migrations A, B, and C (v3) are
+-- ALL APPLIED to production.
 -- They are reproduced here so a fresh rebuild of this file yields the full
 -- intended Phase 4 schema. Per-stage application to production:
 --   • Migration A (admin_users, products.updated_at, products RLS) → Stage 1  [APPLIED]
 --   • Migration B (product_schedules, event_dates.schedule_id)     → Stage 4  [APPLIED]
---   • Migration C (product_content, product_media)                 → Stage 7  [pending]
+--   • Migration C v3 (product_content, product_media)              → Stage 8a [APPLIED]
 -- All are idempotent and additive; none alter or drop existing columns/rows.
 -- ============================================================
 
@@ -385,17 +384,27 @@ BEGIN
 END $guard$;
 CREATE INDEX IF NOT EXISTS idx_event_dates_schedule ON event_dates(schedule_id);
 
--- ── [C] product_content + product_media ─────────────────────
+-- ── [C v3] product_content + product_media ───────────────────
 -- Kept OUT of products; the booking hot path never reads these.
 CREATE TABLE IF NOT EXISTS product_content (
-  product_id        UUID PRIMARY KEY REFERENCES products(id) ON DELETE CASCADE,
-  short_description TEXT,
-  full_description  TEXT,
-  meeting_point     TEXT,
-  duration_minutes  INTEGER,
-  highlights        JSONB NOT NULL DEFAULT '[]'::jsonb,
-  itinerary         JSONB NOT NULL DEFAULT '[]'::jsonb,
-  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  product_id          UUID PRIMARY KEY REFERENCES products(id) ON DELETE CASCADE,
+  tagline              TEXT,
+  short_description    TEXT,
+  full_description     TEXT,
+  -- { display_name, address, maps_url, instructions, visibility }
+  -- visibility ∈ 'public' | 'after_booking' | 'private'; '{}' = unset.
+  meeting_point        JSONB NOT NULL DEFAULT '{}'::jsonb,
+  duration_minutes     INTEGER,
+  highlights           JSONB NOT NULL DEFAULT '[]'::jsonb,
+  itinerary             JSONB NOT NULL DEFAULT '[]'::jsonb,
+  whats_included        JSONB NOT NULL DEFAULT '[]'::jsonb,
+  whats_not_included    JSONB NOT NULL DEFAULT '[]'::jsonb,
+  important_info        JSONB NOT NULL DEFAULT '[]'::jsonb,
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT meeting_point_visibility_valid CHECK (
+    NOT (meeting_point ? 'visibility')
+    OR meeting_point->>'visibility' IN ('public','after_booking','private')
+  )
 );
 DROP TRIGGER IF EXISTS product_content_set_updated_at ON product_content;
 CREATE TRIGGER product_content_set_updated_at
@@ -403,16 +412,21 @@ CREATE TRIGGER product_content_set_updated_at
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 CREATE TABLE IF NOT EXISTS product_media (
-  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-  kind       TEXT NOT NULL DEFAULT 'gallery'
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_id    UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  kind          TEXT NOT NULL DEFAULT 'gallery'
     CHECK (kind IN ('cover','gallery')),
-  url        TEXT NOT NULL,
-  alt        TEXT,
-  sort_order INTEGER NOT NULL DEFAULT 0,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  -- Canonical identifier: path of the object inside the `product-media`
+  -- bucket. The public URL is always DERIVED from this at read time
+  -- (lib/media.ts) — never persisted, never parsed back out of a URL.
+  storage_path  TEXT NOT NULL,
+  alt           TEXT,
+  sort_order    INTEGER NOT NULL DEFAULT 0,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_product_media_product ON product_media(product_id, sort_order);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_product_cover ON product_media(product_id) WHERE kind = 'cover';
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_product_media_storage_path ON product_media(storage_path);
 ALTER TABLE product_content ENABLE ROW LEVEL SECURITY;
 ALTER TABLE product_media ENABLE ROW LEVEL SECURITY;
--- Storage bucket `product-media` (public-read) is created during Stage 7b, not here.
+-- Storage bucket `product-media` (public-read) is created during Stage 8b, not here.

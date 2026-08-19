@@ -1,18 +1,26 @@
 # Phase 4 — Internal Product & Schedule Builder — Checkpoint
 
-_Last updated: 2026-08-19. Compact resume doc for continuing in a fresh conversation._
+_Last updated: 2026-08-19 (Stage 8a). Compact resume doc for continuing in a fresh conversation._
 
 ## Where we are
 Phase 4 adds an internal admin dashboard to create Products, generate their
 Event Instances from a recurrence rule, and operate individual dates — so
 launching a new experience becomes an **admin task, not a code/SQL task**.
 
-- **Working branch:** `phase4-stage0-baseline` (GitHub `yourTHguide/BCC-Claude`).
+- **Working branch:** `claude/phase4c-content-media-audit-dvu5c1`, based on
+  `phase4-stage0-baseline` @ `41db3e4` (GitHub `yourTHguide/BCC-Claude`).
 - **NOT merged to `main`.** Production (`bkkclubcrawl.com`, `main` @ `03dc06c`)
   still runs the pre-Phase-4 app; all new admin code is Preview-only on the branch.
 - **Stages 0–7 complete and verified.** Stage 6 (additive `eventId` checkout
   resolution) and Stage 7 (Activate/Publish + Deactivate) are both done.
-  **New in Bangkok** is the first real onboarding exercise — it does NOT exist yet.
+  **New in Bangkok** (`new-in-bkk`) is the first real onboarding exercise — it
+  **exists as a real Product**: Draft, ฿590, Tuesday 20:30, first date
+  2026‑09‑01, 12-week horizon, 1 `product_schedules` row + 12 `event_dates`
+  rows, `visible_bcc=false`, `visible_bnt=false`. It stays Draft through the
+  rest of Phase 4C — see "Not done yet" below.
+- **Stage 8a (Migration C v3) applied.** `product_content` + `product_media`
+  now live in production, both empty (0 rows), RLS enabled with no policies
+  (service-role only). See schema below.
 
 ## Production database (Supabase `oomhftxgvikzxlvqdcmr`)
 - Migration **A** applied — `admin_users` (owner/admin/staff, RLS + self-read),
@@ -20,9 +28,27 @@ launching a new experience becomes an **admin task, not a code/SQL task**.
   **RLS enabled on `products`** (service-role only).
 - Migration **B** applied — `product_schedules` + `event_dates.schedule_id`
   (FK `ON DELETE SET NULL`). The booking calendar never reads `product_schedules`.
-- Migration **C** (product_content, product_media) — **authored, NOT applied.**
-- Canonical data unchanged: 1 Product `bangkok-club-crawl` (active, ฿1200), 80
-  `event_dates`, 0 `product_schedules`. Admin user seeded: bestnightlifethailand@gmail.com.
+- Migration **C v3** applied (2026-08-19, Stage 8a) — `product_content` (1:1)
+  + `product_media` (1:N), both RLS-enabled/service-role-only, both currently
+  0 rows. Revised from the originally authored v1 during the Stage 8 planning
+  session:
+  - `product_content` gained `tagline`, `whats_included`, `whats_not_included`,
+    `important_info`; `meeting_point` is JSONB (`{display_name, address,
+    maps_url, instructions, visibility}`, `visibility` CHECK'd to `'public' |
+    'after_booking' | 'private'`) instead of plain TEXT; `itinerary` is
+    generic `{title, description}[]` instead of assuming BCC's 4-venue-stop
+    shape.
+  - `product_media` uses `storage_path` (the canonical Storage-object key) —
+    **no `url` column**; the public URL is always derived from `storage_path`
+    at read time (`lib/media.ts`, not yet built — Stage 8d). Added a partial
+    unique index (`WHERE kind='cover'`) enforcing one cover row per Product,
+    and a unique index on `storage_path`.
+  - The Supabase Storage bucket `product-media` is **not created yet** —
+    Stage 8b.
+- Canonical data unchanged by Stage 8a: 2 Products (`bangkok-club-crawl`
+  active ฿1200; `new-in-bkk` draft ฿590), 92 `event_dates` (80 + 12), 1
+  `product_schedules`, 7 `bookings` — all identical before/after the
+  migration. Admin user seeded: bestnightlifethailand@gmail.com.
 
 ## Auth model
 - Supabase Auth is the sole dashboard gate. `middleware.ts` guards `/dashboard/*`
@@ -81,7 +107,14 @@ launching a new experience becomes an **admin task, not a code/SQL task**.
   `visible_bnt=true` as making a product bookable anywhere yet.
 
 ## Not done yet (remaining for New in Bangkok onboarding)
-- **Migration C + product content/media + landing pages** — not started.
+- **Storage bucket (`product-media`), Content UI, Media UI, `ProductPage.tsx`,
+  authenticated Draft preview (`/dashboard/products/[id]/preview`), public
+  `/events/[slug]`** — not started (Stages 8b–8k). Schema is live (Stage 8a);
+  no content/media has been entered for New in Bangkok yet.
+- **New in Bangkok stays Draft** through all of Stage 8 — Preview and
+  production share the same Supabase project, so Activate/Publish is never
+  used as a preview mechanism. Draft review happens via the authenticated
+  admin preview route once built (Stage 8f), not by flipping `status`.
 - **BNT storefront + BNT checkout** — not started; `visible_bnt` is inert.
 - **Archive** product-lifecycle state — intentionally deferred (not needed for
   New in Bangkok; Draft ⇄ Active is the full lifecycle for now).
