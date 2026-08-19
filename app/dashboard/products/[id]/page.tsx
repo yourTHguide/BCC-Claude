@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useSearchParams } from 'next/navigation'
 import InstancesPanel from './InstancesPanel'
+import ContentTab from './ContentTab'
 
 interface Product {
   id: string
@@ -25,6 +26,13 @@ const C = {
   link: { fontSize: '13px', color: 'rgba(255,255,255,0.70)', textDecoration: 'none' } as React.CSSProperties,
   wrap: { maxWidth: '1280px', margin: '0 auto', padding: '28px 24px' } as React.CSSProperties,
   narrow: { maxWidth: '640px' } as React.CSSProperties,
+  contentWrap: { maxWidth: '760px' } as React.CSSProperties,
+  tabBar: { display: 'flex', gap: '4px', borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: '24px' } as React.CSSProperties,
+  tab: (active: boolean): React.CSSProperties => ({
+    height: '38px', padding: '0 16px', border: 'none', borderBottom: active ? '2px solid #EA003A' : '2px solid transparent',
+    background: 'transparent', color: active ? '#fff' : 'rgba(255,255,255,0.50)', fontWeight: 600, fontSize: '13px',
+    cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+  }),
   card: { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '20px 22px', marginBottom: '16px' } as React.CSSProperties,
   label: { fontWeight: 600, fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.40)', margin: '0 0 4px' },
   value: { fontSize: '15px', margin: '0 0 16px' } as React.CSSProperties,
@@ -54,6 +62,7 @@ function ProductDetailInner() {
   const [status, setStatus] = useState<'loading' | 'ready' | 'notfound' | 'error'>('loading')
   const [product, setProduct] = useState<Product | null>(null)
   const [events, setEvents] = useState<{ total: number; upcomingOpen: number; nextOpenDate: string | null } | null>(null)
+  const [tab, setTab] = useState<'overview' | 'instances' | 'content'>('overview')
 
   // Publish/Deactivate panel state
   const [panel, setPanel] = useState<'none' | 'activate'>('none')
@@ -150,18 +159,25 @@ function ProductDetailInner() {
 
         {status === 'ready' && product && (
           <>
+            {justCreated && (
+              <div style={{ ...C.banner, maxWidth: '640px' }}>
+                ✓ Draft product created{createdCount ? ` with ${createdCount} date${createdCount === '1' ? '' : 's'} generated` : ''}. It stays hidden from customers until activated.
+              </div>
+            )}
+
+            <h1 style={{ fontWeight: 600, fontSize: '22px', margin: '0 0 2px' }}>{product.name}</h1>
+            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.45)', margin: '0 0 18px' }}>
+              {product.slug} · status: {product.status}
+            </p>
+
+            <div style={C.tabBar}>
+              <button style={C.tab(tab === 'overview')} onClick={() => setTab('overview')}>Overview</button>
+              <button style={C.tab(tab === 'instances')} onClick={() => setTab('instances')}>Schedule / Instances</button>
+              <button style={C.tab(tab === 'content')} onClick={() => setTab('content')}>Content</button>
+            </div>
+
+            {tab === 'overview' && (
             <div style={C.narrow}>
-              {justCreated && (
-                <div style={C.banner}>
-                  ✓ Draft product created{createdCount ? ` with ${createdCount} date${createdCount === '1' ? '' : 's'} generated` : ''}. It stays hidden from customers until activated.
-                </div>
-              )}
-
-              <h1 style={{ fontWeight: 600, fontSize: '22px', margin: '0 0 2px' }}>{product.name}</h1>
-              <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.45)', margin: '0 0 22px' }}>
-                {product.slug} · status: {product.status}
-              </p>
-
               <div style={C.card}>
                 <p style={{ ...C.label, color: '#EA003A', marginBottom: '14px' }}>Operational</p>
                 <Field label="Status">{product.status}</Field>
@@ -221,8 +237,15 @@ function ProductDetailInner() {
                 <Field label="Updated">{product.updated_at ? new Date(product.updated_at).toLocaleString() : '—'}</Field>
               </div>
             </div>
+            )}
 
-            <InstancesPanel productId={params.id} />
+            {tab === 'instances' && <InstancesPanel productId={params.id} />}
+
+            {tab === 'content' && (
+              <div style={C.contentWrap}>
+                <ContentTab productId={params.id} />
+              </div>
+            )}
           </>
         )}
       </div>
