@@ -326,12 +326,15 @@ ALTER TABLE products
   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
 
 CREATE OR REPLACE FUNCTION set_updated_at()
-RETURNS TRIGGER AS $fn$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = ''
+AS $fn$
 BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$fn$ LANGUAGE plpgsql;
+$fn$;
 
 DROP TRIGGER IF EXISTS products_set_updated_at ON products;
 CREATE TRIGGER products_set_updated_at

@@ -1,3 +1,4 @@
+import { NextResponse } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase/server'
 import { getServiceSupabase } from '@/lib/supabase'
 
@@ -8,30 +9,22 @@ export interface AdminUser {
   email: string | null
 }
 
-// Authorization gate for /dashboard and /api/admin/* (Stage 1+).
-//
-// 1. Validates the Supabase Auth session from cookies (getUser() verifies the
-//    JWT with the auth server — not just a decode).
-// 2. Confirms the user has an admin_users row (created by Migration A / seeded
-//    in the Supabase dashboard).
-//
-// Returns the admin on success, or null on failure — callers must respond
-// 401/403 and touch NO data otherwise. The privileged work then uses
-// getServiceSupabase() (service role) ONLY after this passes.
-//
-// Not imported anywhere yet — scaffolding for the Stage 1 auth boundary.
-// admin_users does not exist in production until Migration A is applied; this
-// module is never invoked until Stage 1 wires it into routes.
-export async function getAdminUser(): Promise<AdminUser | null> {
+type AdminResult =
+  | { status: 'ok'; admin: AdminUser }
+  | { status: 'no_session' }
+  | { status: 'not_admin' }
+
+// Core resolver: validate the Supabase Auth session, then confirm admin_users
+// membership. The role lookup uses the service role so authorization never
+// depends on client-supplied RLS context. The service role stays server-side.
+async function resolveAdmin(): Promise<AdminResult> {
   const supabase = createServerSupabase()
   const {
     data: { user },
     error,
   } = await supabase.auth.getUser()
-  if (error || !user) return null
+  if (error || !user) return { status: 'no_session' }
 
-  // Independent server-side role lookup via the service role, so authorization
-  // never depends on client-supplied RLS context.
   const svc = getServiceSupabase()
   const { data: adminRow } = await svc
     .from('admin_users')
@@ -39,10 +32,29 @@ export async function getAdminUser(): Promise<AdminUser | null> {
     .eq('user_id', user.id)
     .maybeSingle()
 
-  if (!adminRow) return null
+  if (!adminRow) return { status: 'not_admin' }
   return {
-    userId: user.id,
-    role: (adminRow as { role: AdminRole }).role,
-    email: user.email ?? null,
+    status: 'ok',
+    admin: { userId: user.id, role: (adminRow as { role: AdminRole }).role, email: user.email ?? null },
+  }
+}
+
+// For Server Components / layouts: returns the admin, or null (caller redirects).
+export async function getAdminUser(): Promise<AdminUser | null> {
+  const r = await resolveAdmin()
+  return r.status === 'ok' ? r.admin : null
+}
+
+// For /api/admin/* route handlers: returns { admin } on success, or { response }
+// (401 no session / 403 not admin) that the handler should return immediately.
+export async function requireAdmin(): Promise<{ admin: AdminUser } | { response: NextResponse }> {
+  const r = await resolveAdmin()
+  if (r.status === 'ok') return { admin: r.admin }
+  const status = r.status === 'no_session' ? 401 : 403
+  return {
+    response: NextResponse.json(
+      { error: status === 401 ? 'Unauthorized' : 'Forbidden' },
+      { status }
+    ),
   }
 }

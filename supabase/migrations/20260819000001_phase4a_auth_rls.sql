@@ -47,13 +47,19 @@ ALTER TABLE products
   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
 
 -- Shared BEFORE-UPDATE touch function (reused by later Phase 4 tables).
+-- SET search_path = '' pins name resolution (Supabase advisor 0011): the body
+-- only uses NOW() (pg_catalog, always in scope) and the NEW record, so an empty
+-- search_path is safe and prevents search_path-injection surprises.
 CREATE OR REPLACE FUNCTION set_updated_at()
-RETURNS TRIGGER AS $fn$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = ''
+AS $fn$
 BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$fn$ LANGUAGE plpgsql;
+$fn$;
 
 DROP TRIGGER IF EXISTS products_set_updated_at ON products;
 CREATE TRIGGER products_set_updated_at
