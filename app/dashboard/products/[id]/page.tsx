@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 
 interface Product {
   id: string
@@ -27,22 +27,22 @@ const C = {
   card: { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '20px 22px', marginBottom: '16px' } as React.CSSProperties,
   label: { fontWeight: 600, fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.40)', margin: '0 0 4px' },
   value: { fontSize: '15px', margin: '0 0 16px' } as React.CSSProperties,
+  banner: { background: 'rgba(52,199,89,0.10)', border: '1px solid rgba(52,199,89,0.35)', borderRadius: '10px', padding: '14px 16px', margin: '0 0 20px', color: '#8ff0a6', fontSize: '14px' } as React.CSSProperties,
 }
 
 const baht = (n: number | null) => (n == null ? '—' : `฿${n.toLocaleString()}`)
 const hhmm = (t: string | null) => (t ? t.slice(0, 5) : '—')
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <p style={C.label}>{label}</p>
-      <p style={C.value}>{children}</p>
-    </div>
-  )
+  return (<div><p style={C.label}>{label}</p><p style={C.value}>{children}</p></div>)
 }
 
-export default function ProductDetailPage() {
+function ProductDetailInner() {
   const params = useParams<{ id: string }>()
+  const search = useSearchParams()
+  const justCreated = search.get('created') === '1'
+  const createdCount = search.get('count')
+
   const [status, setStatus] = useState<'loading' | 'ready' | 'notfound' | 'error'>('loading')
   const [product, setProduct] = useState<Product | null>(null)
   const [events, setEvents] = useState<EventsSummary | null>(null)
@@ -78,6 +78,12 @@ export default function ProductDetailPage() {
 
         {status === 'ready' && product && (
           <>
+            {justCreated && (
+              <div style={C.banner}>
+                ✓ Draft product created{createdCount ? ` with ${createdCount} date${createdCount === '1' ? '' : 's'} generated` : ''}. It stays hidden from customers until activated.
+              </div>
+            )}
+
             <h1 style={{ fontWeight: 600, fontSize: '22px', margin: '0 0 2px' }}>{product.name}</h1>
             <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.45)', margin: '0 0 22px' }}>
               {product.slug} · status: {product.status} · read-only
@@ -109,5 +115,13 @@ export default function ProductDetailPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function ProductDetailPage() {
+  return (
+    <Suspense fallback={<div style={C.page} />}>
+      <ProductDetailInner />
+    </Suspense>
   )
 }
