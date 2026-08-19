@@ -23,7 +23,8 @@ const C = {
   nav: { background: 'rgba(26,0,21,0.98)', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '0 24px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' } as React.CSSProperties,
   eyebrow: { fontWeight: 600, fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase' as const, color: '#EA003A' },
   link: { fontSize: '13px', color: 'rgba(255,255,255,0.70)', textDecoration: 'none' } as React.CSSProperties,
-  wrap: { maxWidth: '720px', margin: '0 auto', padding: '28px 24px' } as React.CSSProperties,
+  wrap: { maxWidth: '1280px', margin: '0 auto', padding: '28px 24px' } as React.CSSProperties,
+  narrow: { maxWidth: '640px' } as React.CSSProperties,
   card: { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '20px 22px', marginBottom: '16px' } as React.CSSProperties,
   label: { fontWeight: 600, fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.40)', margin: '0 0 4px' },
   value: { fontSize: '15px', margin: '0 0 16px' } as React.CSSProperties,
@@ -76,34 +77,36 @@ function ProductDetailInner() {
 
         {status === 'ready' && product && (
           <>
-            {justCreated && (
-              <div style={C.banner}>
-                ✓ Draft product created{createdCount ? ` with ${createdCount} date${createdCount === '1' ? '' : 's'} generated` : ''}. It stays hidden from customers until activated.
+            <div style={C.narrow}>
+              {justCreated && (
+                <div style={C.banner}>
+                  ✓ Draft product created{createdCount ? ` with ${createdCount} date${createdCount === '1' ? '' : 's'} generated` : ''}. It stays hidden from customers until activated.
+                </div>
+              )}
+
+              <h1 style={{ fontWeight: 600, fontSize: '22px', margin: '0 0 2px' }}>{product.name}</h1>
+              <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.45)', margin: '0 0 22px' }}>
+                {product.slug} · status: {product.status}
+              </p>
+
+              <div style={C.card}>
+                <p style={{ ...C.label, color: '#EA003A', marginBottom: '14px' }}>Operational</p>
+                <Field label="Status">{product.status}</Field>
+                <Field label="Default price">{baht(product.default_price)}</Field>
+                <Field label="Default start time">{hhmm(product.default_start_time)}</Field>
+                <Field label="Visible on BCC">{product.visible_bcc ? 'Yes' : 'No'}</Field>
+                <Field label="Visible on BNT">{product.visible_bnt ? 'Yes' : 'No'}</Field>
               </div>
-            )}
 
-            <h1 style={{ fontWeight: 600, fontSize: '22px', margin: '0 0 2px' }}>{product.name}</h1>
-            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.45)', margin: '0 0 22px' }}>
-              {product.slug} · status: {product.status} · read-only
-            </p>
-
-            <div style={C.card}>
-              <p style={{ ...C.label, color: '#EA003A', marginBottom: '14px' }}>Operational</p>
-              <Field label="Status">{product.status}</Field>
-              <Field label="Default price">{baht(product.default_price)}</Field>
-              <Field label="Default start time">{hhmm(product.default_start_time)}</Field>
-              <Field label="Visible on BCC">{product.visible_bcc ? 'Yes' : 'No'}</Field>
-              <Field label="Visible on BNT">{product.visible_bnt ? 'Yes' : 'No'}</Field>
+              <div style={C.card}>
+                <p style={{ ...C.label, color: '#EA003A', marginBottom: '14px' }}>Identity</p>
+                <Field label="Product ID">{product.id}</Field>
+                <Field label="Created">{new Date(product.created_at).toLocaleString()}</Field>
+                <Field label="Updated">{product.updated_at ? new Date(product.updated_at).toLocaleString() : '—'}</Field>
+              </div>
             </div>
 
             <InstancesPanel productId={params.id} />
-
-            <div style={C.card}>
-              <p style={{ ...C.label, color: '#EA003A', marginBottom: '14px' }}>Identity</p>
-              <Field label="Product ID">{product.id}</Field>
-              <Field label="Created">{new Date(product.created_at).toLocaleString()}</Field>
-              <Field label="Updated">{product.updated_at ? new Date(product.updated_at).toLocaleString() : '—'}</Field>
-            </div>
           </>
         )}
       </div>

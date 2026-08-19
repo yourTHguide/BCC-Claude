@@ -30,7 +30,7 @@ const S = {
   btn: { height: '32px', padding: '0 12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.8)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' } as React.CSSProperties,
   btnRed: { background: 'linear-gradient(135deg,#EA003A,#820065)', color: '#fff', border: 'none' } as React.CSSProperties,
   btnDanger: { background: 'rgba(234,0,58,0.12)', color: '#ff6b8a', border: '1px solid rgba(234,0,58,0.25)' } as React.CSSProperties,
-  th: { textAlign: 'left' as const, fontWeight: 600, fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.38)', padding: '0 10px 8px', whiteSpace: 'nowrap' as const },
+  th: { textAlign: 'left' as const, fontWeight: 600, fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.42)', padding: '11px 10px 9px', whiteSpace: 'nowrap' as const, position: 'sticky' as const, top: 0, zIndex: 1, background: '#160A13', borderBottom: '1px solid rgba(255,255,255,0.10)' },
   td: { padding: '10px', borderTop: '1px solid rgba(255,255,255,0.07)', fontSize: '13px', whiteSpace: 'nowrap' as const, verticalAlign: 'middle' as const },
 }
 
@@ -143,8 +143,8 @@ export default function InstancesPanel({ productId }: { productId: string }) {
         <button style={{ ...S.btn }} disabled={busy || !addDate} onClick={add}>+ Add date</button>
       </div>
 
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: '560px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <table style={{ width: 'auto', minWidth: '760px', borderCollapse: 'collapse' }}>
           <thead><tr>
             <th style={S.th}>Date</th><th style={S.th}>Status</th><th style={S.th}>Price</th>
             <th style={S.th}>Start</th><th style={S.th}>Capacity</th><th style={S.th}>Bkgs</th><th style={S.th}>Actions</th>
