@@ -306,6 +306,7 @@ ON CONFLICT (slug) DO NOTHING;
 --   • Migration A (admin_users, products.updated_at, products RLS) → Stage 1  [APPLIED]
 --   • Migration B (product_schedules, event_dates.schedule_id)     → Stage 4  [APPLIED]
 --   • Migration C v3 (product_content, product_media)              → Stage 8a [APPLIED]
+--   • Storage bucket `product-media` (public-read)                 → Stage 8b [APPLIED]
 -- All are idempotent and additive; none alter or drop existing columns/rows.
 -- ============================================================
 
@@ -429,4 +430,18 @@ CREATE UNIQUE INDEX IF NOT EXISTS uniq_product_cover ON product_media(product_id
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_product_media_storage_path ON product_media(storage_path);
 ALTER TABLE product_content ENABLE ROW LEVEL SECURITY;
 ALTER TABLE product_media ENABLE ROW LEVEL SECURITY;
--- Storage bucket `product-media` (public-read) is created during Stage 8b, not here.
+
+-- ── [C v3 / Stage 8b] Storage bucket `product-media` ─────────
+-- Public-read, no public write (storage.objects RLS is enabled project-wide
+-- with no policies — same deny-by-default, service-role-only posture as
+-- every table above). Admin uploads/deletes go through authenticated
+-- Next.js admin routes using the server-side service role (Stage 8d).
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'product-media', 'product-media', true, 5242880,
+  ARRAY['image/jpeg','image/png','image/webp']
+)
+ON CONFLICT (id) DO UPDATE SET
+  public = EXCLUDED.public,
+  file_size_limit = EXCLUDED.file_size_limit,
+  allowed_mime_types = EXCLUDED.allowed_mime_types;

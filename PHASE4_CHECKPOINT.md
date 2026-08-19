@@ -1,6 +1,6 @@
 # Phase 4 — Internal Product & Schedule Builder — Checkpoint
 
-_Last updated: 2026-08-19 (Stage 8a). Compact resume doc for continuing in a fresh conversation._
+_Last updated: 2026-08-19 (Stage 8b). Compact resume doc for continuing in a fresh conversation._
 
 ## Where we are
 Phase 4 adds an internal admin dashboard to create Products, generate their
@@ -21,6 +21,14 @@ launching a new experience becomes an **admin task, not a code/SQL task**.
 - **Stage 8a (Migration C v3) applied.** `product_content` + `product_media`
   now live in production, both empty (0 rows), RLS enabled with no policies
   (service-role only). See schema below.
+- **Stage 8b (Storage bucket) live.** `product-media` bucket created:
+  public-read, `file_size_limit=5242880` (5 MB), `allowed_mime_types=
+  {image/jpeg,image/png,image/webp}`. No storage.objects RLS policies
+  (deny-by-default, same posture as every other Phase 4C table) — verified by
+  direct role-simulation: `anon` INSERT → `42501` RLS violation; `service_role`
+  INSERT → succeeds (bypasses RLS, same as `postgres`/`supabase_admin`, all
+  three have `rolbypassrls=true`). Bucket is empty (0 objects) after test
+  cleanup. No admin upload/delete code exists yet — that's Stage 8d.
 
 ## Production database (Supabase `oomhftxgvikzxlvqdcmr`)
 - Migration **A** applied — `admin_users` (owner/admin/staff, RLS + self-read),
@@ -107,10 +115,11 @@ launching a new experience becomes an **admin task, not a code/SQL task**.
   `visible_bnt=true` as making a product bookable anywhere yet.
 
 ## Not done yet (remaining for New in Bangkok onboarding)
-- **Storage bucket (`product-media`), Content UI, Media UI, `ProductPage.tsx`,
-  authenticated Draft preview (`/dashboard/products/[id]/preview`), public
-  `/events/[slug]`** — not started (Stages 8b–8k). Schema is live (Stage 8a);
-  no content/media has been entered for New in Bangkok yet.
+- **Content UI, Media UI, `ProductPage.tsx`, authenticated Draft preview
+  (`/dashboard/products/[id]/preview`), public `/events/[slug]`** — not
+  started (Stages 8c–8k). Schema (Stage 8a) and Storage bucket (Stage 8b) are
+  both live; no content/media has been entered for New in Bangkok yet, and no
+  admin upload/delete route exists yet to enter it with.
 - **New in Bangkok stays Draft** through all of Stage 8 — Preview and
   production share the same Supabase project, so Activate/Publish is never
   used as a preview mechanism. Draft review happens via the authenticated
@@ -131,3 +140,15 @@ launching a new experience becomes an **admin task, not a code/SQL task**.
    protection, which blocks unauthenticated HTTP fetches from automated
    sessions — direct-SQL gate replication against the exact route/query logic
    is the fallback verification path), then delete and confirm baseline.
+4. Storage-specific notes discovered in Stage 8b, for whoever builds the
+   Stage 8d upload/delete routes: (a) this agent session's outbound network
+   policy blocks direct HTTPS to `*.supabase.co` — the Storage HTTP API can't
+   be curl'd from here, only reached via the Supabase MCP `execute_sql`
+   channel (which talks to Postgres directly, not the Storage microservice) —
+   this is a tooling constraint, not a production one; the real Vercel-hosted
+   admin routes have no such restriction. (b) `storage.objects` blocks direct
+   `DELETE` via SQL with a `protect_delete()` trigger ("Use the Storage API
+   instead") unless the session sets `storage.allow_delete_query = 'true'`
+   first — confirms deletes belong in the real Storage API call
+   (`supabase.storage.from('product-media').remove([...])`), not a raw SQL
+   `DELETE` on `storage.objects`, when Stage 8d's delete route is built.
