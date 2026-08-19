@@ -7,9 +7,10 @@
 --
 -- Everything ABOVE the "PHASE 4 (AUTHORED — NOT YET LIVE)" banner at the end of
 -- this file reflects production as it is TODAY. The Phase 4 appendix documents
--- additive objects that are authored in supabase/migrations/ but NOT yet applied
--- to production (as of 2026-08-19) — included here only so a FRESH environment
--- rebuilt from this file reaches the intended Phase 4 target schema.
+-- additive Phase 4 objects. As of 2026-08-19, Migrations A and B are APPLIED to
+-- production; Migration C is authored but NOT yet applied. All are reproduced
+-- here so a FRESH environment rebuilt from this file reaches the full Phase 4
+-- target schema.
 --
 -- PURPOSE
 --   • Documents the canonical production schema so the repo is a truthful
@@ -299,12 +300,13 @@ ON CONFLICT (slug) DO NOTHING;
 -- PHASE 4 (AUTHORED — NOT YET LIVE)
 -- ============================================================
 -- The objects below are additive Phase 4 schema, authored in Stage 0 and mirrored
--- from supabase/migrations/. As of 2026-08-19 they are NOT applied to production.
+-- from supabase/migrations/. As of 2026-08-19, Migrations A and B are APPLIED to
+-- production; Migration C is NOT yet applied.
 -- They are reproduced here so a fresh rebuild of this file yields the full
 -- intended Phase 4 schema. Per-stage application to production:
---   • Migration A (admin_users, products.updated_at, products RLS) → Stage 1
---   • Migration B (product_schedules, event_dates.schedule_id)     → Stage 4
---   • Migration C (product_content, product_media)                 → Stage 7
+--   • Migration A (admin_users, products.updated_at, products RLS) → Stage 1  [APPLIED]
+--   • Migration B (product_schedules, event_dates.schedule_id)     → Stage 4  [APPLIED]
+--   • Migration C (product_content, product_media)                 → Stage 7  [pending]
 -- All are idempotent and additive; none alter or drop existing columns/rows.
 -- ============================================================
 
