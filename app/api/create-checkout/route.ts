@@ -18,12 +18,16 @@ function formatEventDate(eventDate: string): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const { nightSlug, eventDate, quantity } = await req.json()
+    const { eventId, nightSlug, eventDate, quantity } = await req.json()
 
-    // nightSlug/eventDate are required, and quantity must be *present*. A
-    // supplied-but-invalid quantity (e.g. 0) is not "missing" — it flows through
-    // to createDynamicCheckout below and is rejected there as "Invalid quantity".
-    if (!nightSlug || !eventDate || quantity === undefined || quantity === null) {
+    // Identity: prefer the canonical event-instance id (event_id) when the
+    // caller supplies it; otherwise fall back to the legacy (night_slug,
+    // event_date) composite. Require at least one usable identifier, plus a
+    // *present* quantity. A supplied-but-invalid quantity (e.g. 0) is not
+    // "missing" — it flows through to createDynamicCheckout below and is
+    // rejected there as "Invalid quantity".
+    const hasComposite = Boolean(nightSlug && eventDate)
+    if ((!eventId && !hasComposite) || quantity === undefined || quantity === null) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
@@ -34,7 +38,7 @@ export async function POST(req: NextRequest) {
     // the legacy hardcoded slug → Stripe Price ID path (unchanged). Flipping
     // this env var in Vercel is the instant rollback/cutover switch.
     if (process.env.CHECKOUT_DYNAMIC_PRICING === 'true') {
-      return await createDynamicCheckout({ nightSlug, eventDate, quantity, appUrl })
+      return await createDynamicCheckout({ eventId, nightSlug, eventDate, quantity, appUrl })
     }
     return await createLegacyCheckout({ nightSlug, eventDate, quantity, appUrl })
   } catch (err: any) {
@@ -47,13 +51,15 @@ export async function POST(req: NextRequest) {
 // Dynamic path (Phase 2): Supabase Product + Event Instance is authoritative.
 // ─────────────────────────────────────────────────────────────────────────
 async function createDynamicCheckout({
+  eventId,
   nightSlug,
   eventDate,
   quantity,
   appUrl,
 }: {
-  nightSlug: string
-  eventDate: string
+  eventId?: string | null
+  nightSlug?: string | null
+  eventDate?: string | null
   quantity: any
   appUrl: string
 }) {
@@ -65,21 +71,28 @@ async function createDynamicCheckout({
   }
 
   // ── Resolve the actual event instance + its product ──
-  // The static calendar only knows (night_slug, event_date), so we resolve on
-  // that composite. Phase 3 (DB-driven calendar) can pass event_id directly.
+  // Prefer the canonical primary key (event_id) when the caller supplies it;
+  // otherwise fall back to the legacy (night_slug, event_date) composite for
+  // callers that don't (e.g. the static-calendar path). Either way we resolve a
+  // single event_dates row and then run the identical storefront gates below —
+  // how the row is found never changes what is charged or the webhook metadata.
   let event: any
   try {
     const supabase = getServiceSupabase()
-    const { data, error } = await supabase
+    let query = supabase
       .from('event_dates')
       .select(
         'id, event_date, night_slug, night_name, is_open, price_override, product_id, ' +
           'products ( id, slug, name, status, default_price, visible_bcc )'
       )
-      .eq('night_slug', nightSlug)
-      .eq('event_date', eventDate)
-      .limit(1)
-      .maybeSingle()
+
+    if (eventId) {
+      query = query.eq('id', eventId)
+    } else {
+      query = query.eq('night_slug', nightSlug).eq('event_date', eventDate)
+    }
+
+    const { data, error } = await query.limit(1).maybeSingle()
 
     if (error) {
       // A query error means we couldn't validate — fail closed, never charge.
@@ -104,6 +117,20 @@ async function createDynamicCheckout({
   // 1. Event exists
   if (!event) {
     return NextResponse.json({ error: 'Event not found' }, { status: 404 })
+  }
+
+  // 1b. Identity consistency — when the caller supplies BOTH the canonical
+  //     event_id AND the legacy composite, they must agree. We resolved
+  //     canonically by event_id above; a composite naming a different night or
+  //     date is a contradictory request, rejected here before any Stripe call
+  //     rather than silently honoring one identifier over the other.
+  if (eventId && nightSlug && eventDate) {
+    if (event.night_slug !== nightSlug || event.event_date !== eventDate) {
+      return NextResponse.json(
+        { error: 'Event identifiers do not match' },
+        { status: 409 }
+      )
+    }
   }
 
   // 2. Event is open for booking
@@ -220,10 +247,12 @@ async function createLegacyCheckout({
   appUrl: string
 }) {
   // Preserve the legacy path's original behavior. It previously relied on the
-  // top-level `!quantity` guard to reject falsy quantities (0, missing) as
-  // "Missing required fields"; that guard now only catches truly-missing
-  // quantity, so re-assert the falsy check here to keep legacy byte-identical.
-  if (!quantity) {
+  // top-level guard to guarantee nightSlug/eventDate/quantity; that guard now
+  // also accepts eventId-only requests (dynamic path), so re-assert the legacy
+  // path's own requirements here. The legacy path can't resolve an event_id
+  // (no DB lookup — it maps slug → Stripe Price), so a request that reaches it
+  // without the composite is "Missing required fields", byte-identical to before.
+  if (!nightSlug || !eventDate || !quantity) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 

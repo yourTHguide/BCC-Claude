@@ -620,6 +620,11 @@ function BookingCalendar() {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
+                              // Canonical event-instance id (preferred by
+                              // checkout). nightSlug/eventDate are still sent so
+                              // checkout can cross-check the two identities and
+                              // as a fallback for any caller without an eventId.
+                              eventId: selectedEvent.eventId,
                               nightSlug: selectedEvent.nightSlug,
                               eventDate: selectedEvent.eventDate,
                               quantity,
