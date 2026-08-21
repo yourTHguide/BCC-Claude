@@ -267,23 +267,11 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
         >
           {mode === 'preview' ? 'Product Preview' : product.name}
         </span>
-        <div
-          style={{
-            fontFamily: 'Inter, sans-serif',
-            fontWeight: 700,
-            fontSize: '12px',
-            color: '#FFFFFF',
-            border: '1px solid rgba(255,255,255,0.35)',
-            height: '28px',
-            padding: '0 10px',
-            display: 'flex',
-            alignItems: 'center',
-            letterSpacing: '0.14em',
-            borderRadius: '4px',
-          }}
-        >
-          BEST NIGHTLIFE
-        </div>
+        <img
+          src="/images/Nightlife Thailand LOGO.png"
+          alt="Nightlife Thailand"
+          style={{ height: '38px', width: 'auto', objectFit: 'contain' }}
+        />
       </nav>
 
       <main className="pp-main" style={{ paddingTop: mode === 'preview' ? 0 : '60px' }}>
