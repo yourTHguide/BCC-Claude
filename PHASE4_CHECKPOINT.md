@@ -1,6 +1,6 @@
 # Phase 4 — Internal Product & Schedule Builder — Checkpoint
 
-_Last updated: 2026-08-19 (Stage 8b). Compact resume doc for continuing in a fresh conversation._
+_Last updated: 2026-08-21 (Stage 8d — COMPLETE, real media uploaded). Compact resume doc for continuing in a fresh conversation._
 
 ## Where we are
 Phase 4 adds an internal admin dashboard to create Products, generate their
@@ -27,8 +27,39 @@ launching a new experience becomes an **admin task, not a code/SQL task**.
   (deny-by-default, same posture as every other Phase 4C table) — verified by
   direct role-simulation: `anon` INSERT → `42501` RLS violation; `service_role`
   INSERT → succeeds (bypasses RLS, same as `postgres`/`supabase_admin`, all
-  three have `rolbypassrls=true`). Bucket is empty (0 objects) after test
-  cleanup. No admin upload/delete code exists yet — that's Stage 8d.
+  three have `rolbypassrls=true`).
+- **Stage 8c (Content API + admin Content tab) live.** `GET/PUT
+  /api/admin/products/[id]/content` + a Content tab on
+  `/dashboard/products/[id]` (alongside Overview / Schedule-Instances,
+  unchanged). Generic CRUD proven via a temp Draft product; `new-in-bkk`'s
+  `product_content` is still 0 rows — content has not been entered yet.
+- **Stage 8d (Media API + admin Media tab) — COMPLETE, real assets live.**
+  `GET/POST /api/admin/products/[id]/media` + `PATCH/DELETE
+  /api/admin/media/[id]` + a Media tab. `lib/media.ts` centralizes the bucket
+  name, allowed types, size limit, and the `storage_path` → public URL
+  formula. Guide uploaded New in Bangkok's **real** cover + gallery images
+  through the Preview dashboard (2026-08-21) — the true multipart/Storage
+  path, exercised for real, not simulated:
+  - `product_media` for `new-in-bkk` (`75466d68-23b6-45a9-bc68-96f002fb6b1e`):
+    1 cover (`.../cover/1787328645011-mjgkbuhv.jpg`, 226 KB JPEG) + 2 gallery
+    images (`.../gallery/1787328606731-dqhtmjf8.png` 2.0 MB,
+    `.../gallery/1787328667390-nsrdznqq.png` 2.1 MB) — 3 rows total, all
+    under the 5 MB cap, all allowed MIME types.
+  - `storage.objects` for bucket `product-media`: exactly 3 objects, `name`
+    matching `storage_path` 1:1 for all three rows — zero orphans either
+    direction.
+  - Gallery `sort_order` was reordered from upload order via the ↑/↓ UI
+    (confirmed by created_at vs sort_order not matching) — reorder proven
+    working in production, not just in the temp-product SQL simulation.
+  - `new-in-bkk` confirmed still `status='draft'`, `visible_bcc=false`,
+    `visible_bnt=false` after the upload — uploading media does not touch
+    product status/visibility, nothing became bookable.
+  - **These are real Product assets now — do not delete them.** Any future
+    cleanup in this area must target only `zzz-*` temp products, never
+    `new-in-bkk`'s actual rows/objects.
+  - `product_content` for `new-in-bkk` is still 0 rows (media only so far;
+    content entry is next, whenever Guide chooses to do it — not blocking
+    Stage 8e).
 
 ## Production database (Supabase `oomhftxgvikzxlvqdcmr`)
 - Migration **A** applied — `admin_users` (owner/admin/staff, RLS + self-read),
@@ -83,15 +114,34 @@ launching a new experience becomes an **admin task, not a code/SQL task**.
 - `POST /api/admin/products/[id]/deactivate` — Stage 7: Active → Draft,
   status-only (visibility/schedules/instances untouched). Conditional on
   `status='active'` (409 on a stale/duplicate request).
+- `GET/PUT /api/admin/products/[id]/content` — Stage 8c: read / upsert the
+  ONE `product_content` row (1:1). PUT validates every field server-side
+  (incl. `meeting_point.visibility` against the same enum the DB CHECK
+  enforces) and never accepts `updated_at` from the client.
+- `GET/POST /api/admin/products/[id]/media` — Stage 8d: list media / upload
+  one image (multipart). Cover uploads replace the existing cover (delete
+  old object+row, insert new); gallery uploads append at `max(sort_order)+1`.
+  Server-side type/size validation (jpeg/png/webp, 5 MB), generated filename
+  (never trusts the client's).
+- `PATCH/DELETE /api/admin/media/[id]` — Stage 8d: edit `alt`/`sort_order`
+  only (image replacement is POST+DELETE, not PATCH) / delete row + Storage
+  object (row deleted first, so a storage failure orphans harmlessly rather
+  than leaving a broken row).
 
 ## Dashboard UI
 - `/dashboard/products` (list, + Create Product), `/dashboard/products/new`
-  (neutral blank Create form + live preview + Save as Draft), `/dashboard/products/[id]`
-  (detail: narrow info cards, Publish/Deactivate controls, full-width interactive
-  Event Instances panel). Publish opens an inline panel with non-blocking warnings
-  (no upcoming open instances, no default price) and BCC/BNT visibility toggles;
-  confirming requires BCC on. `visible_bnt` is labeled "not live yet" everywhere
-  it's shown — no BNT storefront/checkout exists yet.
+  (neutral blank Create form + live preview + Save as Draft),
+  `/dashboard/products/[id]` — now tabbed: **Overview** (narrow info cards,
+  Publish/Deactivate controls) | **Schedule / Instances** (the full-width
+  interactive Event Instances panel, unchanged) | **Content** (Stage 8c —
+  tagline/descriptions/duration/meeting point/highlights/itinerary/
+  included-not-included/important info, explicit Save button) | **Media**
+  (Stage 8d — cover upload/replace, gallery multi-upload, alt text, ↑/↓
+  reorder, delete). Publish opens an inline panel with non-blocking warnings
+  (no upcoming open instances, no default price) and BCC/BNT visibility
+  toggles; confirming requires BCC on. `visible_bnt` is labeled "not live
+  yet" everywhere it's shown — no BNT storefront/checkout exists yet.
+  Tabs are client-side state only, not yet URL-deep-linkable.
 
 ## Key invariants (do not regress)
 - **Recurrence:** one pure generator `lib/recurrence.ts` (weekly + once, 12-week
@@ -115,11 +165,11 @@ launching a new experience becomes an **admin task, not a code/SQL task**.
   `visible_bnt=true` as making a product bookable anywhere yet.
 
 ## Not done yet (remaining for New in Bangkok onboarding)
-- **Content UI, Media UI, `ProductPage.tsx`, authenticated Draft preview
+- **`ProductPage.tsx`, authenticated Draft preview
   (`/dashboard/products/[id]/preview`), public `/events/[slug]`** — not
-  started (Stages 8c–8k). Schema (Stage 8a) and Storage bucket (Stage 8b) are
-  both live; no content/media has been entered for New in Bangkok yet, and no
-  admin upload/delete route exists yet to enter it with.
+  started (Stages 8e–8k). Content UI (8c) and Media UI (8d) are both live;
+  New in Bangkok has real cover + gallery images uploaded, but
+  `product_content` is still empty (0 rows) — content entry is next.
 - **New in Bangkok stays Draft** through all of Stage 8 — Preview and
   production share the same Supabase project, so Activate/Publish is never
   used as a preview mechanism. Draft review happens via the authenticated
