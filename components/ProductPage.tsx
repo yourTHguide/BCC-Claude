@@ -1,18 +1,25 @@
 'use client'
 
-// Reusable Product Page renderer (Phase 4, Stage 8e).
+// Reusable BEST Nightlife Product Page — design-system renderer (Phase 4,
+// Stage 8e/8e.1).
 //
 // Presentation-only: no DB fetching, no product-specific hardcoding. Callers
-// (the authenticated Draft Preview and the public /events/[slug] route) load
-// Product + product_content + product_media + upcoming Event Instances and
-// pass them in as props. Every content section is optional and renders
-// nothing when its data is absent — a Product with zero product_content rows
-// still produces a coherent (if sparse) page built from operational data
-// alone (name, price, start time).
+// (the authenticated Draft Preview and the fail-closed /events/[slug] route
+// in THIS repo) load Product + product_content + product_media + upcoming
+// Event Instances and pass them in as props. Every content section is
+// optional and renders nothing when its data is absent — a Product with zero
+// product_content rows still produces a coherent (if sparse) page built from
+// operational data alone (name, price, start time).
 //
-// Operational fields (price, start time, status) always come from the
+// Operational fields (price, start time) always come from the
 // Product/Event Instance props, never from product_content — content only
 // supplies descriptive copy.
+//
+// This component is the reference design system for BEST Nightlife products
+// generally (New in Bangkok, The Builders Club, future products, and
+// potentially Bangkok Club Crawl after a future migration) — it deliberately
+// carries no BCC-specific branding, tracking, or routing. It is NOT wired to
+// any storefront's checkout/pixel setup; the caller owns that via `mode`.
 
 export interface ProductPageProduct {
   id: string
@@ -64,10 +71,13 @@ export interface ProductPageProps {
   media: ProductPageMediaItem[]
   upcomingEvents: ProductPageUpcomingEvent[]
   /**
-   * 'public' renders the real booking CTA (links to /book?night=<slug>).
+   * 'public' renders the real booking CTA (links to /book?night=<slug> —
+   * a BCC-repo convention the caller opts into; a future storefront can pass
+   * its own routing without changing this component).
    * 'preview' renders a non-booking CTA and an admin Draft Preview banner —
    * used by the authenticated /dashboard preview route so a Draft product
-   * can be reviewed visually without becoming bookable.
+   * can be reviewed visually without becoming bookable. No tracking pixels
+   * fire in this component in either mode — that stays the caller's concern.
    */
   mode: 'public' | 'preview'
 }
@@ -137,9 +147,10 @@ function SectionHeadline({ children }: { children: React.ReactNode }) {
       style={{
         fontFamily: 'Inter, sans-serif',
         fontWeight: 600,
-        fontSize: '22px',
+        fontSize: 'clamp(20px, 5vw, 24px)',
         color: '#FFFFFF',
         marginBottom: '20px',
+        lineHeight: 1.2,
       }}
     >
       {children}
@@ -179,6 +190,7 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
   const priceLabel = baht(effectivePrice)
   const timeLabel = hhmm(effectiveStartTime)
   const durLabel = durationLabel(content?.duration_minutes ?? null)
+  const dateLabel = nextEvent ? formatEventDate(nextEvent.event_date) : null
 
   const tagline = content?.tagline?.trim() || null
   const shortDescription = content?.short_description?.trim() || null
@@ -189,14 +201,18 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
   const whatsNotIncluded = content?.whats_not_included?.filter(Boolean) ?? []
   const importantInfo = content?.important_info?.filter(Boolean) ?? []
   const meetingPoint = content?.meeting_point ?? null
-  const meetingPointVisible =
+  const meetingPointVisible = Boolean(
     meetingPoint && meetingPoint.visibility !== 'private' && (meetingPoint.display_name || meetingPoint.address)
+  )
 
-  const logistics: { label: string; value: string }[] = []
-  if (timeLabel) logistics.push({ label: 'Start Time', value: timeLabel })
-  if (durLabel) logistics.push({ label: 'Duration', value: durLabel })
-  if (priceLabel) logistics.push({ label: 'Price', value: `${priceLabel} / person` })
-  if (nextEvent) logistics.push({ label: 'Next Date', value: formatEventDate(nextEvent.event_date) })
+  // Early, at-a-glance facts — shown right under the hero, before any copy.
+  const quickFacts: { label: string; value: string }[] = []
+  if (dateLabel) quickFacts.push({ label: 'Next Date', value: dateLabel })
+  if (timeLabel) quickFacts.push({ label: 'Start Time', value: timeLabel })
+  if (durLabel) quickFacts.push({ label: 'Duration', value: durLabel })
+  if (priceLabel) quickFacts.push({ label: 'Price', value: `${priceLabel} / person` })
+
+  const showStickyBar = true // both modes render a bottom bar; preview's is inert (see below)
 
   function handleBook() {
     if (mode !== 'public') return
@@ -210,7 +226,7 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
           style={{
             position: 'sticky',
             top: 0,
-            zIndex: 200,
+            zIndex: 300,
             background: '#FFC400',
             color: '#1A0015',
             fontFamily: 'Inter, sans-serif',
@@ -231,8 +247,8 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
           top: 0,
           left: 0,
           right: 0,
-          height: '64px',
-          padding: '0 24px',
+          height: '60px',
+          padding: '0 20px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -249,33 +265,34 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
             color: 'rgba(255,255,255,0.65)',
           }}
         >
-          {mode === 'preview' ? 'Product Preview' : 'Bangkok Club Crawl'}
+          {mode === 'preview' ? 'Product Preview' : product.name}
         </span>
         <div
           style={{
             fontFamily: 'Inter, sans-serif',
-            fontWeight: 600,
-            fontSize: '18px',
+            fontWeight: 700,
+            fontSize: '12px',
             color: '#FFFFFF',
-            border: '2px solid #FFFFFF',
-            height: '32px',
+            border: '1px solid rgba(255,255,255,0.35)',
+            height: '28px',
             padding: '0 10px',
             display: 'flex',
             alignItems: 'center',
-            letterSpacing: '0.05em',
+            letterSpacing: '0.14em',
+            borderRadius: '4px',
           }}
         >
-          <img src="/images/bcc-logo.png" alt="Bangkok Club Crawl" style={{ height: '28px', width: 'auto', objectFit: 'contain' }} />
+          BEST NIGHTLIFE
         </div>
       </nav>
 
-      <main style={{ paddingTop: mode === 'preview' ? 0 : '64px' }}>
-        {/* HERO */}
+      <main className="pp-main" style={{ paddingTop: mode === 'preview' ? 0 : '60px' }}>
+        {/* HERO — mobile-first: large, close to full-screen cover photography */}
         <section
           style={{
             position: 'relative',
-            height: '60vh',
-            minHeight: '380px',
+            height: 'min(88svh, 760px)',
+            minHeight: '480px',
             overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
@@ -301,42 +318,85 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
             style={{
               position: 'absolute',
               inset: 0,
-              background: 'linear-gradient(to bottom, transparent 0%, rgba(26,0,21,0.95) 100%)',
+              background: 'linear-gradient(to bottom, rgba(26,0,21,0.05) 0%, rgba(26,0,21,0.35) 55%, rgba(26,0,21,0.97) 100%)',
               zIndex: 1,
             }}
           />
-          <div style={{ position: 'relative', zIndex: 2, padding: '0 24px 48px' }}>
+          <div style={{ position: 'relative', zIndex: 2, padding: '0 20px 40px' }}>
             <h1
               style={{
                 fontFamily: 'Inter, sans-serif',
                 fontWeight: 600,
-                fontSize: 'clamp(28px, 7vw, 48px)',
+                fontSize: 'clamp(30px, 8vw, 52px)',
                 color: '#FFFFFF',
                 lineHeight: 1.05,
-                marginBottom: tagline ? '12px' : 0,
+                marginBottom: tagline ? '10px' : 0,
               }}
             >
               {product.name}
             </h1>
             {tagline && (
-              <p style={{ fontFamily: 'Cormorant Garamond, serif', fontStyle: 'italic', fontSize: '18px', color: 'rgba(255,255,255,0.70)' }}>
+              <p
+                style={{
+                  fontFamily: 'Cormorant Garamond, serif',
+                  fontStyle: 'italic',
+                  fontSize: 'clamp(17px, 4vw, 21px)',
+                  color: 'rgba(255,255,255,0.75)',
+                  maxWidth: '520px',
+                }}
+              >
                 {tagline}
               </p>
             )}
           </div>
         </section>
 
-        {/* DESCRIPTION */}
+        {/* QUICK FACTS — the "day/time/duration/price" logistics, visible immediately */}
+        {quickFacts.length > 0 && (
+          <section style={{ background: '#1A0015', borderBottom: '1px solid rgba(255,255,255,0.08)', padding: '20px 20px' }}>
+            <div
+              style={{
+                maxWidth: '640px',
+                margin: '0 auto',
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '20px 28px',
+              }}
+            >
+              {quickFacts.map((fact) => (
+                <div key={fact.label}>
+                  <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.40)', margin: '0 0 4px' }}>
+                    {fact.label}
+                  </p>
+                  <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '16px', color: '#FFFFFF', margin: 0 }}>
+                    {fact.value}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* INTRO — tagline's supporting thought, then the full positioning copy */}
         {(shortDescription || fullDescription) && (
-          <section style={{ background: '#2F002F', padding: '48px 24px' }}>
+          <section style={{ background: '#2F002F', padding: '44px 20px' }}>
             <div style={{ maxWidth: '600px', margin: '0 auto' }}>
               {shortDescription && (
-                <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '15px', color: 'rgba(255,255,255,0.70)', lineHeight: 1.8, marginBottom: fullDescription ? '16px' : 0 }}>
+                <p
+                  style={{
+                    fontFamily: 'Cormorant Garamond, serif',
+                    fontStyle: 'italic',
+                    fontSize: 'clamp(18px, 4.5vw, 21px)',
+                    color: 'rgba(255,255,255,0.85)',
+                    lineHeight: 1.5,
+                    marginBottom: fullDescription ? '20px' : 0,
+                  }}
+                >
                   {shortDescription}
                 </p>
               )}
               {fullDescription && (
-                <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', color: 'rgba(255,255,255,0.55)', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', color: 'rgba(255,255,255,0.60)', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
                   {fullDescription}
                 </p>
               )}
@@ -346,7 +406,7 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
 
         {/* HIGHLIGHTS */}
         {highlights.length > 0 && (
-          <section style={{ background: '#1A0015', padding: '48px 24px' }}>
+          <section style={{ background: '#1A0015', padding: '44px 20px' }}>
             <div style={{ maxWidth: '600px', margin: '0 auto' }}>
               <Eyebrow>HIGHLIGHTS</Eyebrow>
               <SectionHeadline>What makes this different.</SectionHeadline>
@@ -357,7 +417,7 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
 
         {/* WHAT'S INCLUDED */}
         {whatsIncluded.length > 0 && (
-          <section style={{ background: '#2F002F', padding: '48px 24px' }}>
+          <section style={{ background: '#2F002F', padding: '44px 20px' }}>
             <div style={{ maxWidth: '600px', margin: '0 auto' }}>
               <Eyebrow>THE NIGHT</Eyebrow>
               <SectionHeadline>What&rsquo;s included.</SectionHeadline>
@@ -366,34 +426,17 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
           </section>
         )}
 
-        {/* ITINERARY */}
+        {/* ITINERARY — vertical timeline, styled after BCC's night-flow section */}
         {itinerary.length > 0 && (
-          <section style={{ background: '#1A0015', padding: '48px 24px' }}>
+          <section style={{ background: '#1A0015', padding: '44px 20px' }}>
             <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-              <Eyebrow>ITINERARY</Eyebrow>
-              <SectionHeadline>How the night flows.</SectionHeadline>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <Eyebrow>HOW THE NIGHT GOES</Eyebrow>
+              <SectionHeadline>The flow.</SectionHeadline>
+              <div className="pp-timeline">
                 {itinerary.map((step, i) => (
-                  <div key={i} style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-                    <div
-                      style={{
-                        width: '28px',
-                        height: '28px',
-                        borderRadius: '50%',
-                        border: '1px solid rgba(234,0,58,0.5)',
-                        color: '#EA003A',
-                        fontFamily: 'Inter, sans-serif',
-                        fontWeight: 600,
-                        fontSize: '12px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
-                      }}
-                    >
-                      {i + 1}
-                    </div>
-                    <div>
+                  <div className="pp-timeline-row" key={i}>
+                    <div className="pp-timeline-marker">{i + 1}</div>
+                    <div style={{ paddingBottom: i === itinerary.length - 1 ? 0 : '24px' }}>
                       {step.title && (
                         <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '15px', color: '#FFFFFF', marginBottom: step.description ? '4px' : 0 }}>
                           {step.title}
@@ -412,82 +455,43 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
           </section>
         )}
 
-        {/* GALLERY */}
-        {gallery.length > 0 && (
-          <section style={{ background: '#2F002F', padding: '48px 24px' }}>
+        {/* MEETING POINT — its own moment, respecting public / after_booking / private */}
+        {meetingPointVisible && meetingPoint && (
+          <section style={{ background: '#2F002F', padding: '44px 20px' }}>
             <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-              <Eyebrow>GALLERY</Eyebrow>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '10px' }}>
-                {gallery.map((img) => (
-                  <img
-                    key={img.id}
-                    src={img.url}
-                    alt={img.alt ?? product.name}
-                    style={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'cover', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}
-                  />
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* LOGISTICS */}
-        {logistics.length > 0 && (
-          <section style={{ background: '#1A0015', padding: '48px 24px' }}>
-            <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-              <Eyebrow>LOGISTICS</Eyebrow>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-                {logistics.map((item) => (
-                  <div key={item.label}>
-                    <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.40)', marginBottom: '6px' }}>
-                      {item.label}
-                    </p>
-                    <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '16px', color: '#FFFFFF', lineHeight: 1.4 }}>
-                      {item.value}
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-              {meetingPointVisible && meetingPoint && (
-                <div style={{ marginTop: '28px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '24px' }}>
-                  <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '10px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.40)', marginBottom: '6px' }}>
-                    Meeting Point
-                  </p>
-                  {meetingPoint.display_name && (
-                    <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '15px', color: '#FFFFFF', marginBottom: '4px' }}>
-                      {meetingPoint.display_name}
+              <Eyebrow>MEETING POINT</Eyebrow>
+              {meetingPoint.display_name && (
+                <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '17px', color: '#FFFFFF', marginBottom: '8px' }}>
+                  {meetingPoint.display_name}
+                </p>
+              )}
+              {meetingPoint.visibility === 'after_booking' ? (
+                <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', color: 'rgba(255,255,255,0.60)' }}>
+                  Full address sent after booking.
+                </p>
+              ) : (
+                <>
+                  {meetingPoint.address && (
+                    <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', color: 'rgba(255,255,255,0.65)', lineHeight: 1.7 }}>
+                      {meetingPoint.address}
                     </p>
                   )}
-                  {meetingPoint.visibility === 'after_booking' ? (
-                    <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', color: 'rgba(255,255,255,0.55)' }}>
-                      Full address sent after booking.
-                    </p>
-                  ) : (
-                    <>
-                      {meetingPoint.address && (
-                        <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', color: 'rgba(255,255,255,0.60)', lineHeight: 1.6 }}>
-                          {meetingPoint.address}
-                        </p>
-                      )}
-                      {meetingPoint.maps_url && (
-                        <a
-                          href={meetingPoint.maps_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', color: '#EA003A', textDecoration: 'none' }}
-                        >
-                          View on map →
-                        </a>
-                      )}
-                      {meetingPoint.instructions && (
-                        <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, marginTop: '8px' }}>
-                          {meetingPoint.instructions}
-                        </p>
-                      )}
-                    </>
+                  {meetingPoint.maps_url && (
+                    <a
+                      href={meetingPoint.maps_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', fontWeight: 600, color: '#EA003A', textDecoration: 'none', display: 'inline-block', marginTop: '6px' }}
+                    >
+                      View on map →
+                    </a>
                   )}
-                </div>
+                  {meetingPoint.instructions && (
+                    <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, marginTop: '10px' }}>
+                      {meetingPoint.instructions}
+                    </p>
+                  )}
+                </>
               )}
             </div>
           </section>
@@ -495,34 +499,58 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
 
         {/* GOOD TO KNOW (not included / important info) */}
         {(whatsNotIncluded.length > 0 || importantInfo.length > 0) && (
-          <section style={{ background: '#2F002F', padding: '48px 24px' }}>
+          <section style={{ background: '#1A0015', padding: '44px 20px' }}>
             <div style={{ maxWidth: '600px', margin: '0 auto' }}>
               <Eyebrow>GOOD TO KNOW</Eyebrow>
-              {whatsNotIncluded.length > 0 && (
-                <div style={{ marginBottom: importantInfo.length > 0 ? '28px' : 0 }}>
-                  <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '13px', color: 'rgba(255,255,255,0.75)', marginBottom: '12px' }}>
-                    Not included
-                  </p>
-                  <BulletList items={whatsNotIncluded} small />
-                </div>
-              )}
-              {importantInfo.length > 0 && (
-                <div>
-                  <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '13px', color: 'rgba(255,255,255,0.75)', marginBottom: '12px' }}>
-                    Important info
-                  </p>
-                  <BulletList items={importantInfo} small />
-                </div>
-              )}
+              <div
+                className="pp-good-to-know"
+                style={{ display: 'grid', gap: '28px' }}
+              >
+                {whatsNotIncluded.length > 0 && (
+                  <div>
+                    <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '13px', color: 'rgba(255,255,255,0.75)', marginBottom: '12px' }}>
+                      Not included
+                    </p>
+                    <BulletList items={whatsNotIncluded} small />
+                  </div>
+                )}
+                {importantInfo.length > 0 && (
+                  <div>
+                    <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '13px', color: 'rgba(255,255,255,0.75)', marginBottom: '12px' }}>
+                      Important info
+                    </p>
+                    <BulletList items={importantInfo} small />
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* GALLERY — horizontal, large tiles: feels like integrated photography, not a thumbnail grid */}
+        {gallery.length > 0 && (
+          <section style={{ background: '#2F002F', padding: '44px 0' }}>
+            <div style={{ maxWidth: '640px', margin: '0 auto', padding: '0 20px' }}>
+              <Eyebrow>GALLERY</Eyebrow>
+            </div>
+            <div className="pp-gallery-strip">
+              {gallery.map((img) => (
+                <img
+                  key={img.id}
+                  src={img.url}
+                  alt={img.alt ?? product.name}
+                  className="pp-gallery-item"
+                />
+              ))}
             </div>
           </section>
         )}
 
         {/* BOOK CTA */}
-        <section style={{ background: '#1A0015', padding: '48px 24px', textAlign: 'center' }}>
+        <section style={{ background: '#1A0015', padding: '44px 20px', textAlign: 'center' }}>
           {mode === 'public' ? (
             <button
-              className="btn-primary"
+              className="pp-btn-primary"
               style={{ width: '100%', maxWidth: '480px', fontSize: '16px', height: '56px', padding: '0' }}
               onClick={handleBook}
             >
@@ -553,15 +581,39 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
         </section>
 
         {/* Footer */}
-        <footer style={{ background: '#1A0015', borderTop: '1px solid rgba(255,255,255,0.08)', padding: '32px 24px', textAlign: 'center' }}>
+        <footer style={{ background: '#1A0015', borderTop: '1px solid rgba(255,255,255,0.08)', padding: '32px 20px', textAlign: 'center' }}>
           <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '11px', color: 'rgba(255,255,255,0.20)' }}>
             © 2026 BEST Nightlife Thailand · Sanctuary Nexus Co., Ltd. · Bangkok
           </p>
         </footer>
       </main>
 
+      {/* Sticky bottom booking bar — mobile only. In preview mode this is an
+          inert status strip: no onClick, no pointer cursor, never navigates. */}
+      {showStickyBar && (
+        <div
+          className="pp-sticky-bar"
+          onClick={mode === 'public' ? handleBook : undefined}
+          style={{ cursor: mode === 'public' ? 'pointer' : 'default' }}
+        >
+          {mode === 'public' ? (
+            <>
+              {priceLabel && (
+                <div className="pp-sticky-price">
+                  <span className="pp-sticky-price-amount">{priceLabel}</span>
+                  <span className="pp-sticky-price-unit">/ PERSON</span>
+                </div>
+              )}
+              <div className="pp-sticky-cta">Book Your Spot →</div>
+            </>
+          ) : (
+            <div className="pp-sticky-preview">PREVIEW ONLY — BOOKING OPENS WHEN PUBLISHED</div>
+          )}
+        </div>
+      )}
+
       <style>{`
-        .btn-primary {
+        .pp-btn-primary {
           background: linear-gradient(135deg, #EA003A 0%, #820065 100%);
           color: #FFFFFF;
           font-family: Inter, sans-serif;
@@ -571,7 +623,57 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
           cursor: pointer;
           transition: opacity 0.2s ease;
         }
-        .btn-primary:hover { opacity: 0.9; }
+        .pp-btn-primary:hover { opacity: 0.9; }
+
+        .pp-timeline-row { display: flex; gap: 16px; align-items: flex-start; position: relative; }
+        .pp-timeline-marker {
+          width: 28px; height: 28px; border-radius: 50%;
+          border: 1px solid rgba(234,0,58,0.5); color: #EA003A;
+          font-family: Inter, sans-serif; font-weight: 600; font-size: 12px;
+          display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+          position: relative; z-index: 1; background: #1A0015;
+        }
+        .pp-timeline-row:not(:last-child) .pp-timeline-marker::after {
+          content: ''; position: absolute; top: 28px; left: 50%; width: 1px; height: calc(100% + 4px);
+          background: rgba(234,0,58,0.25); transform: translateX(-50%);
+        }
+
+        .pp-gallery-strip {
+          display: flex; gap: 10px; overflow-x: auto; padding: 0 20px 4px;
+          scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+        }
+        .pp-gallery-item {
+          scroll-snap-align: start; flex: 0 0 auto;
+          width: min(78vw, 320px); aspect-ratio: 4 / 5; object-fit: cover;
+          border-radius: 10px; border: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .pp-good-to-know { grid-template-columns: 1fr; }
+
+        .pp-sticky-bar {
+          display: none;
+          position: fixed; left: 0; right: 0; bottom: 0; z-index: 250;
+          background: linear-gradient(135deg, #EA003A 0%, #820065 100%);
+          align-items: center; justify-content: space-between;
+          padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+        }
+        .pp-sticky-price { display: flex; flex-direction: column; line-height: 1.1; }
+        .pp-sticky-price-amount { font-family: Inter, sans-serif; font-weight: 700; font-size: 17px; color: #FFFFFF; }
+        .pp-sticky-price-unit { font-family: Inter, sans-serif; font-weight: 600; font-size: 9px; letter-spacing: 0.1em; color: rgba(255,255,255,0.80); }
+        .pp-sticky-cta { font-family: Inter, sans-serif; font-weight: 700; font-size: 14px; color: #FFFFFF; letter-spacing: 0.02em; }
+        .pp-sticky-preview {
+          width: 100%; text-align: center;
+          font-family: Inter, sans-serif; font-weight: 700; font-size: 12px; letter-spacing: 0.04em; color: #FFFFFF;
+        }
+
+        @media (max-width: 768px) {
+          .pp-sticky-bar { display: flex; }
+          .pp-main { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+        }
+
+        @media (min-width: 640px) {
+          .pp-good-to-know { grid-template-columns: 1fr 1fr; }
+        }
       `}</style>
     </>
   )
