@@ -171,11 +171,16 @@ function ProductDetailInner() {
               {product.slug} · status: {product.status}
             </p>
 
-            <div style={C.tabBar}>
-              <button style={C.tab(tab === 'overview')} onClick={() => setTab('overview')}>Overview</button>
-              <button style={C.tab(tab === 'instances')} onClick={() => setTab('instances')}>Schedule / Instances</button>
-              <button style={C.tab(tab === 'content')} onClick={() => setTab('content')}>Content</button>
-              <button style={C.tab(tab === 'media')} onClick={() => setTab('media')}>Media</button>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+              <div style={C.tabBar}>
+                <button style={C.tab(tab === 'overview')} onClick={() => setTab('overview')}>Overview</button>
+                <button style={C.tab(tab === 'instances')} onClick={() => setTab('instances')}>Schedule / Instances</button>
+                <button style={C.tab(tab === 'content')} onClick={() => setTab('content')}>Content</button>
+                <button style={C.tab(tab === 'media')} onClick={() => setTab('media')}>Media</button>
+              </div>
+              <Link href={`/dashboard/products/${params.id}/preview`} style={{ ...C.ghostBtn, height: '34px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', textDecoration: 'none', marginBottom: '10px' }}>
+                Preview Event Page →
+              </Link>
             </div>
 
             {tab === 'overview' && (
