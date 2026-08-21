@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useParams, useSearchParams } from 'next/navigation'
 import InstancesPanel from './InstancesPanel'
 import ContentTab from './ContentTab'
+import MediaTab from './MediaTab'
 
 interface Product {
   id: string
@@ -62,7 +63,7 @@ function ProductDetailInner() {
   const [status, setStatus] = useState<'loading' | 'ready' | 'notfound' | 'error'>('loading')
   const [product, setProduct] = useState<Product | null>(null)
   const [events, setEvents] = useState<{ total: number; upcomingOpen: number; nextOpenDate: string | null } | null>(null)
-  const [tab, setTab] = useState<'overview' | 'instances' | 'content'>('overview')
+  const [tab, setTab] = useState<'overview' | 'instances' | 'content' | 'media'>('overview')
 
   // Publish/Deactivate panel state
   const [panel, setPanel] = useState<'none' | 'activate'>('none')
@@ -174,6 +175,7 @@ function ProductDetailInner() {
               <button style={C.tab(tab === 'overview')} onClick={() => setTab('overview')}>Overview</button>
               <button style={C.tab(tab === 'instances')} onClick={() => setTab('instances')}>Schedule / Instances</button>
               <button style={C.tab(tab === 'content')} onClick={() => setTab('content')}>Content</button>
+              <button style={C.tab(tab === 'media')} onClick={() => setTab('media')}>Media</button>
             </div>
 
             {tab === 'overview' && (
@@ -244,6 +246,12 @@ function ProductDetailInner() {
             {tab === 'content' && (
               <div style={C.contentWrap}>
                 <ContentTab productId={params.id} />
+              </div>
+            )}
+
+            {tab === 'media' && (
+              <div style={C.contentWrap}>
+                <MediaTab productId={params.id} />
               </div>
             )}
           </>
