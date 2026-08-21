@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
+import { VISIBILITY_COLUMN } from '@/lib/storefront'
 
 // Canonical event-availability layer (Phase 3).
 //
@@ -20,13 +21,6 @@ import { getServiceSupabase } from '@/lib/supabase'
 
 // This route depends on "today" and live DB state, so it must never be cached.
 export const dynamic = 'force-dynamic'
-
-// Storefront → product visibility column. Whitelisted so the value is only ever
-// one of these two literals (never user-controlled SQL).
-const VISIBILITY_COLUMN: Record<string, 'visible_bcc' | 'visible_bnt'> = {
-  bcc: 'visible_bcc',
-  bnt: 'visible_bnt',
-}
 
 // Today's date in Asia/Bangkok as YYYY-MM-DD. event_date is a DATE column, so
 // comparing against the Bangkok *local* date keeps "tonight is still bookable"

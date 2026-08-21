@@ -1,6 +1,134 @@
 # Phase 4 — Internal Product & Schedule Builder — Checkpoint
 
-_Last updated: 2026-08-21 (Stage 8d — COMPLETE, real media uploaded). Compact resume doc for continuing in a fresh conversation._
+_Last updated: 2026-08-22 (BNT integration Stage A — COMPLETE, public Product Read API live on the branch). Compact resume doc for continuing in a fresh conversation._
+
+## BNT integration (separate track from the New in Bangkok onboarding below)
+A second, separately-audited storefront (`bestnightlifethailand.com`, repo
+`NightlifeAntigravity`, project `nightlife-antigravity`) will consume this
+canonical Product system as a read-only client — never direct DB access, never
+a duplicated checkout. Two audits (architecture, then a focused checkout pass)
+concluded: `bcc-claude` stays the canonical backend for both storefronts;
+`bestnightlifethailand.com` gets its own `/events/[slug]` + `/book` (NOT
+`bkkclubcrawl.com/book`), calling the same canonical checkout backend
+server-to-server. Staged as **A. Product read API → B. BNT `/events/:slug`
+page → C. BNT booking surface → D. shared canonical checkout → E.
+Publish/activation → F. legacy cleanup**. New in Bangkok stays Draft through
+A–D. Only Stage A is implemented so far (this branch, `bcc-claude` side only —
+no `NightlifeAntigravity` changes yet).
+
+### Stage A — Product Read API — COMPLETE
+`GET /api/products/[slug]?storefront=bcc|bnt` — public, unauthenticated,
+read-only. Reuses `/api/events`'s storefront-whitelist pattern (now extracted
+to `lib/storefront.ts`, imported by both routes, so the two can't drift) and
+the exact fail-closed gate `/events/[slug]/page.tsx` already uses:
+`status='active' AND visible_<storefront>=true`, else a uniform 404 — a
+Draft product, a wrong-storefront product, and a nonexistent slug are all
+indistinguishable to the caller.
+
+**Response contract** (hand-picked, not a table dump):
+```
+200 →
+{
+  product: { slug, name, default_price, default_start_time },
+  content: {                                    // null if no product_content row
+    tagline, short_description, full_description, duration_minutes,
+    highlights, itinerary, whats_included, whats_not_included, important_info,
+    meeting_point: {
+      visibility: 'public', display_name, address, maps_url, instructions
+    } | { visibility: 'after_booking' }          // NO location fields at all
+      | null                                     // 'private', unset, or invalid
+  } | null,
+  media: [ { kind, alt, sort_order, url } ],      // url derived from storage_path; storage_path itself never returned
+  upcomingEvents: [ { eventId, eventDate, effectivePrice, effectiveStartTime } ]
+                                                   // is_open=true, event_date >= today (Asia/Bangkok);
+                                                   // effective* = instance override ?? product default
+}
+
+400 → { error: 'Unknown storefront' }             // storefront not in {'bcc','bnt'}
+404 → { error: 'Not found' }                      // missing / inactive / not visible on this storefront
+503 → { error: 'Product temporarily unavailable. Please try again.' }  // Supabase query error (fail closed, distinct from 404)
+```
+Never returned, by design: `product.id`/UUID, `product.status`, raw
+`visible_bcc`/`visible_bnt`, `event_dates.id`'s product/schedule linkage
+beyond the instance id itself, `capacity`, `product_schedules` anything,
+`product_media.storage_path`.
+
+**Meeting-point sanitization is enforced server-side in this route**, not
+left to a renderer — the previous audit found `ProductPage.tsx` was the only
+place gating `meeting_point.visibility` today, which is fine within one
+trusted app but not once a second, external app is a consumer. Rule: `public`
+→ full location object; `after_booking` → `{visibility:'after_booking'}`
+only, zero location fields (BNT renders its own generic "shared after
+booking" copy — actual post-booking disclosure is a separate, later
+concern); `private`/unset (`{}`)/invalid → `meeting_point: null`.
+
+**Files:** `lib/storefront.ts` (new — `VISIBILITY_COLUMN` whitelist,
+extracted from `app/api/events/route.ts` so both routes import the same
+object instead of two copies that could drift), `app/api/products/[slug]/
+route.ts` (new), `app/api/events/route.ts` (modified — now imports
+`VISIBILITY_COLUMN` instead of defining it locally; behavior unchanged).
+
+**Verified:**
+- `npx tsc --noEmit` — clean.
+- `npm run build` — succeeds; route lists as `ƒ /api/products/[slug]`
+  (dynamic, not statically rendered), no regressions to any other route.
+- `?storefront=invalid` and missing `storefront` → live HTTP 400 `{"error":
+  "Unknown storefront"}` (confirmed via `next dev` against this branch —
+  this check never touches Supabase, so it worked even where the DB-backed
+  checks below couldn't run over HTTP).
+- End-to-end HTTP verification of the DB-gated paths hit the same
+  constraint recorded earlier in this doc (Stage 8d's "how to resume" notes):
+  this session's Vercel-pulled env vars come back with real secret values
+  redacted to `""` (Supabase URL/keys, Stripe keys, etc. — platform metadata
+  like `VERCEL_ENV` pulls fine, project secrets don't), so `next dev` can't
+  reach the real Supabase project locally either. Fell back to the same
+  playbook already documented here: **direct-SQL gate replication against
+  the exact route/query logic**, via the Supabase MCP against the real
+  project (`oomhftxgvikzxlvqdcmr`), read-only (`SELECT` only, zero writes):
+  - `products` table confirms real current state: `bangkok-club-crawl`
+    (`status='active'`, `visible_bcc=true`, `visible_bnt=false`) and
+    `new-in-bkk` (`status='draft'`, `visible_bcc=false`, `visible_bnt=false`)
+    — unchanged by this stage, confirmed before and after.
+  - Replicated the route's gate against `new-in-bkk` for both storefronts by
+    hand against that row: `storefront=bnt` → `status≠'active'` → gated;
+    `storefront=bcc` → `status≠'active'` AND `visible_bcc≠true` → gated. Both
+    correctly fail closed while Draft.
+  - Replicated the full query chain against `bangkok-club-crawl`
+    (active + `visible_bcc=true`, so `storefront=bcc` passes the gate):
+    fetched its real `product_content` (0 rows → `content: null`),
+    `product_media` (0 rows → `media: []`), and `event_dates` (5+ real open
+    future rows) and hand-traced the exact response the route would produce
+    — confirmed no `id`/`status`/`visible_*`/`capacity`/`storage_path` in the
+    shape, only the approved contract fields.
+  - `sanitizeMeetingPoint()` unit-tested standalone (verbatim function body,
+    no DB/env needed) against 6 cases incl. an adversarial `after_booking`
+    input carrying a real address/maps_url/instructions payload designed to
+    catch a leak — confirmed the output is exactly `{visibility:
+    'after_booking'}` with nothing else, and `private`/unset/invalid all
+    produce `null`.
+  - `product_media` → public-URL mapping checked against `new-in-bkk`'s 3
+    real uploaded rows (real `storage_path` values from Stage 8d) — traced
+    that the response only ever carries the derived `url`, never
+    `storage_path`.
+  - Price/start-time override precedence (`row.*_override ?? product.default_*`)
+    reuses the identical expression already live in `/api/events` and
+    `/events/[slug]/page.tsx`; no `event_dates` row in production currently
+    has a non-null override to exercise live, so this is verified by
+    code-pattern parity with already-proven production code, not a live
+    override case.
+  - Reconfirmed after all queries: `new-in-bkk` still `status='draft'`,
+    `visible_bcc=false`, `visible_bnt=false`; `bangkok-club-crawl` and all
+    other BCC operational data unchanged. Every verification query was a
+    plain `SELECT` — zero `INSERT`/`UPDATE`/`DELETE` run against production.
+
+**Not done:** Stage B (BNT `/events/:slug` page), Stage C (BNT booking
+surface), Stage D (shared checkout storefront-awareness — `create-checkout`
+still hardcodes `visible_bcc` and a single `NEXT_PUBLIC_APP_URL`/
+`bkkclubcrawl.com` redirect; per the checkout-architecture audit, Stage D
+will use server-only `APP_URL_BCC`/`APP_URL_BNT` env names, not
+`NEXT_PUBLIC_*`), Stage E (publish), Stage F (legacy cleanup). No
+`NightlifeAntigravity` changes have been made. `new-in-bkk` is untouched:
+still Draft, still `visible_bcc=false`, still `visible_bnt=false`.
 
 ## Where we are
 Phase 4 adds an internal admin dashboard to create Products, generate their
