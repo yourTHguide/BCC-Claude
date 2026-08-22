@@ -12,8 +12,9 @@
 //     focused header shows "Done" rather than "Save".
 
 import { useCallback, useEffect, useState } from 'react'
-import { CoverFields, GalleryFields, coverSummary, gallerySummary } from './sections/mediaSections'
-import { SectionListGroup, FocusedEditorChrome } from './sections/MobileSectionShell'
+import { CoverFields, GalleryFields, CoverSummaryCard, GallerySummaryCard } from './sections/mediaSections'
+import { FocusedEditorChrome } from './sections/MobileSectionShell'
+import { M } from './sections/styles'
 import { S } from './sections/styles'
 import type { MediaRow } from './sections/types'
 
@@ -208,17 +209,14 @@ export default function MediaEditor({ productId }: { productId: string }) {
         <GalleryFields gallery={gallery} {...handlers} />
       </div>
 
-      {/* ── Mobile: compact MEDIA list ↔ focused single-section view ── */}
+      {/* ── Mobile: visual MEDIA summary ↔ focused single-section view ── */}
       <div className="pe-mobile-only">
         {!activeId && (
-          <SectionListGroup
-            heading="Media"
-            rows={[
-              { id: 'cover', label: 'Cover', summary: coverSummary(cover) },
-              { id: 'gallery', label: 'Gallery', summary: gallerySummary(gallery) },
-            ]}
-            onSelect={(id) => setActiveId(id as 'cover' | 'gallery')}
-          />
+          <>
+            <p style={M.groupHeading}>Media</p>
+            <CoverSummaryCard cover={cover} onTap={() => setActiveId('cover')} />
+            <GallerySummaryCard gallery={gallery} onTap={() => setActiveId('gallery')} />
+          </>
         )}
 
         {activeId === 'cover' && (

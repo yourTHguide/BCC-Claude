@@ -86,7 +86,9 @@ function BasicsFields({ content, onChange }: ContentFieldsProps) {
 }
 function basicsSummary(content: ProductContent): string {
   const n = countFilled([content.tagline, content.short_description, content.full_description, content.duration_minutes])
-  return n === 0 ? 'Not started' : `${n} of 4 filled`
+  if (n === 0) return 'Not started'
+  if (n === 4) return 'Complete'
+  return `${n} of 4 filled`
 }
 
 // ── Highlights ──

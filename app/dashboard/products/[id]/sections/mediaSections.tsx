@@ -132,3 +132,59 @@ export function gallerySummary(gallery: MediaRow[]): string {
   const n = gallery.length
   return n === 0 ? 'Empty' : `${n} photo${n === 1 ? '' : 's'}`
 }
+
+// ── Visual mobile summary cards ──────────────────────────────────────────
+// The mobile MEDIA screen shouldn't read as an abstract text list — the
+// admin should see the actual cover and a strip of actual gallery photos
+// before ever tapping in. These are purely presentational (tap -> the same
+// focused Cover/Gallery editors above); no separate upload/edit path.
+
+export function CoverSummaryCard({ cover, onTap }: { cover: MediaRow | null; onTap: () => void }) {
+  return (
+    <button type="button" onClick={onTap} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+      <div style={S.card}>
+        <p style={S.sectionTitle}>Cover</p>
+        {cover ? (
+          <img src={cover.url} alt={cover.alt ?? ''} style={{ width: '100%', aspectRatio: '16 / 9', objectFit: 'cover', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.10)', display: 'block' }} />
+        ) : (
+          <div style={{ width: '100%', aspectRatio: '16 / 9', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', border: '1px dashed rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', color: 'rgba(255,255,255,0.35)' }}>
+            No cover yet
+          </div>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+          <span style={{ fontSize: '14px', fontWeight: 600, color: '#fff' }}>{cover ? 'Change Cover' : 'Add Cover'}</span>
+          <span style={{ color: 'rgba(255,255,255,0.30)', fontSize: '15px' }}>›</span>
+        </div>
+      </div>
+    </button>
+  )
+}
+
+export function GallerySummaryCard({ gallery, onTap }: { gallery: MediaRow[]; onTap: () => void }) {
+  const preview = gallery.slice(0, 5)
+  return (
+    <button type="button" onClick={onTap} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+      <div style={S.card}>
+        <p style={S.sectionTitle}>Gallery</p>
+        {preview.length > 0 ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px' }}>
+            {preview.map((row) => (
+              <img key={row.id} src={row.url} alt={row.alt ?? ''} style={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'cover', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.10)' }} />
+            ))}
+          </div>
+        ) : (
+          <div style={{ width: '100%', aspectRatio: '5 / 1', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', border: '1px dashed rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', color: 'rgba(255,255,255,0.35)' }}>
+            No gallery images yet
+          </div>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+          <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>{gallerySummary(gallery)}</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontWeight: 600, color: '#fff' }}>
+            Manage Gallery
+            <span style={{ color: 'rgba(255,255,255,0.30)', fontSize: '15px' }}>›</span>
+          </span>
+        </div>
+      </div>
+    </button>
+  )
+}

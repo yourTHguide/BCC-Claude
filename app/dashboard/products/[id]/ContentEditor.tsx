@@ -47,16 +47,21 @@ function toPutBody(c: ProductContent) {
 
 export interface ContentEditorProps {
   productId: string
-  // Optional operational data for the read-only Quick Facts card. Omit to
-  // hide Quick Facts entirely (e.g. if a caller doesn't have it yet).
+  // Optional operational data for the Quick Facts card. Omit to hide Quick
+  // Facts entirely (e.g. if a caller doesn't have it yet).
   quickFactsSource?: {
     defaultPrice: number | null
     defaultStartTime: string | null
     nextOpenDate: string | null
   } | null
+  // Quick Facts is a shortcut into fields this tab doesn't own (Start
+  // Time/Price live on the product, Next Date lives in Schedule) — the
+  // parent page owns tab-switching, so it hands down where to send the
+  // admin. `focus` tells the Overview tab which row to open immediately.
+  onNavigate?: (target: { tab: 'schedule' } | { tab: 'overview'; focus: 'price' | 'time' }) => void
 }
 
-export default function ContentEditor({ productId, quickFactsSource }: ContentEditorProps) {
+export default function ContentEditor({ productId, quickFactsSource, onNavigate }: ContentEditorProps) {
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [content, setContent] = useState<ProductContent>(EMPTY_CONTENT)
   const [saving, setSaving] = useState(false)
@@ -175,6 +180,10 @@ export default function ContentEditor({ productId, quickFactsSource }: ContentEd
                 defaultStartTime={quickFactsSource.defaultStartTime}
                 durationMinutes={content.duration_minutes}
                 nextOpenDate={quickFactsSource.nextOpenDate}
+                onTapNextDate={() => onNavigate?.({ tab: 'schedule' })}
+                onTapStartTime={() => onNavigate?.({ tab: 'overview', focus: 'time' })}
+                onTapPrice={() => onNavigate?.({ tab: 'overview', focus: 'price' })}
+                onTapDuration={() => openSection('basics')}
               />
             )}
             <SectionListGroup

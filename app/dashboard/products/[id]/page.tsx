@@ -6,6 +6,8 @@ import { useParams, useSearchParams } from 'next/navigation'
 import ScheduleEditor from './ScheduleEditor'
 import ContentEditor from './ContentEditor'
 import MediaEditor from './MediaEditor'
+import { SectionListGroup, FocusedEditorChrome } from './sections/MobileSectionShell'
+import { M } from './sections/styles'
 
 interface Product {
   id: string
@@ -51,6 +53,18 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return (<div><p style={C.label}>{label}</p><p style={C.value}>{children}</p></div>)
 }
 
+const baht = (n: number | null) => (n == null ? 'Not set' : `฿${n.toLocaleString()}`)
+const hhmmDisplay = (t: string | null) => (t ? t.slice(0, 5) : 'Not set')
+
+function draftFromProduct(p: Product) {
+  return {
+    price: p.default_price != null ? String(p.default_price) : '',
+    time: p.default_start_time ? p.default_start_time.slice(0, 5) : '',
+    bcc: p.visible_bcc,
+    bnt: p.visible_bnt,
+  }
+}
+
 function ProductDetailInner() {
   const params = useParams<{ id: string }>()
   const search = useSearchParams()
@@ -75,6 +89,11 @@ function ProductDetailInner() {
   const [opDraft, setOpDraft] = useState({ price: '', time: '', bcc: false, bnt: false })
   const [opSaving, setOpSaving] = useState(false)
   const [opMsg, setOpMsg] = useState<{ ok: boolean; text: string } | null>(null)
+
+  // Mobile-only: which single Operational field is focused (null = compact
+  // summary list). Quick Facts (in the Content tab) can jump straight here
+  // via onNavigate below.
+  const [mobileOpField, setMobileOpField] = useState<'price' | 'time' | null>(null)
 
   async function loadProduct() {
     if (!params?.id) return
@@ -101,20 +120,63 @@ function ProductDetailInner() {
   // calls loadProduct() and so lands here with the persisted values.
   useEffect(() => {
     if (!product) return
-    setOpDraft({
-      price: product.default_price != null ? String(product.default_price) : '',
-      time: product.default_start_time ? product.default_start_time.slice(0, 5) : '',
-      bcc: product.visible_bcc,
-      bnt: product.visible_bnt,
-    })
+    setOpDraft(draftFromProduct(product))
   }, [product])
 
   const opDirty = product != null && (
-    opDraft.price !== (product.default_price != null ? String(product.default_price) : '') ||
-    opDraft.time !== (product.default_start_time ? product.default_start_time.slice(0, 5) : '') ||
+    opDraft.price !== draftFromProduct(product).price ||
+    opDraft.time !== draftFromProduct(product).time ||
     opDraft.bcc !== product.visible_bcc ||
     opDraft.bnt !== product.visible_bnt
   )
+
+  // Back out of a mobile Price/Time focused editor WITHOUT saving — discard
+  // whatever was typed by resetting the shared opDraft back to the
+  // server-confirmed values, so an abandoned edit can never leak into a
+  // later, unrelated save (e.g. tapping a visibility switch right after).
+  function closeMobileOpField() {
+    if (product) setOpDraft(draftFromProduct(product))
+    setMobileOpField(null)
+  }
+
+  // Mobile-only: Storefront Visibility switches apply immediately (no
+  // separate Save step — see CORE UX PRINCIPLE #8, switches are the one
+  // exception to tap-then-save). Reads straight from `product`, never from
+  // `opDraft`, so it can't be affected by an edit in progress elsewhere.
+  async function toggleVisibilityNow(key: 'visible_bcc' | 'visible_bnt') {
+    if (!product || opSaving) return
+    const next = !product[key]
+    if (key === 'visible_bcc' && product.status === 'active' && product.visible_bcc && !next) {
+      const ok = confirm(
+        `Turn off BCC visibility for "${product.name}"? It will immediately disappear from bkkclubcrawl.com and become unbookable there, even though it stays Active.`
+      )
+      if (!ok) return
+    }
+    setOpSaving(true)
+    setOpMsg(null)
+    try {
+      const res = await fetch(`/api/admin/products/${product.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          defaultPrice: product.default_price,
+          defaultStartTime: product.default_start_time ? product.default_start_time.slice(0, 5) : null,
+          visibleBcc: key === 'visible_bcc' ? next : product.visible_bcc,
+          visibleBnt: key === 'visible_bnt' ? next : product.visible_bnt,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setOpMsg({ ok: false, text: data.error || 'Could not save changes. Please try again.' })
+        return
+      }
+      await loadProduct()
+    } catch {
+      setOpMsg({ ok: false, text: 'Server error. Please try again.' })
+    } finally {
+      setOpSaving(false)
+    }
+  }
 
   async function handleSaveOperational() {
     if (!product || opSaving || !opDirty) return
@@ -149,6 +211,7 @@ function ProductDetailInner() {
       }
       setOpMsg({ ok: true, text: 'Saved.' })
       await loadProduct()
+      setMobileOpField(null)
     } catch {
       setOpMsg({ ok: false, text: 'Server error. Please try again.' })
     } finally {
@@ -162,6 +225,14 @@ function ProductDetailInner() {
     setPendingBnt(product.visible_bnt)
     setActionError(null)
     setPanel('activate')
+  }
+
+  // Quick Facts (Content tab) is a shortcut into fields this page owns
+  // across tabs — switch tab and, for Overview, jump straight to the
+  // relevant focused editor instead of landing on the summary list.
+  function handleNavigateFromQuickFacts(target: { tab: 'schedule' } | { tab: 'overview'; focus: 'price' | 'time' }) {
+    setTab(target.tab)
+    if (target.tab === 'overview') setMobileOpField(target.focus)
   }
 
   async function handleActivate() {
@@ -235,127 +306,243 @@ function ProductDetailInner() {
               {product.slug} · status: {product.status}
             </p>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
-              <div style={C.tabBar}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+              <div style={{ ...C.tabBar, flexWrap: 'wrap', overflowX: 'auto' }}>
                 <button style={C.tab(tab === 'overview')} onClick={() => setTab('overview')}>Overview</button>
                 <button style={C.tab(tab === 'schedule')} onClick={() => setTab('schedule')}>Schedule</button>
                 <button style={C.tab(tab === 'content')} onClick={() => setTab('content')}>Content</button>
                 <button style={C.tab(tab === 'media')} onClick={() => setTab('media')}>Media</button>
               </div>
-              <Link href={`/dashboard/products/${params.id}/preview`} style={{ ...C.ghostBtn, height: '34px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', textDecoration: 'none', marginBottom: '10px' }}>
-                Preview Event Page →
-              </Link>
+              {/* Mobile already surfaces this as the "Preview Product" row inside
+                  the Overview tab — avoid showing it twice / crowding the tab
+                  bar into horizontal overflow on narrow screens. A wrapper
+                  carries the desktop-only class: the Link's own inline
+                  `display` style would otherwise always beat a class-based
+                  `display: none`, media query or not. */}
+              <div className="pe-desktop-only">
+                <Link href={`/dashboard/products/${params.id}/preview`} style={{ ...C.ghostBtn, height: '34px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', textDecoration: 'none', marginBottom: '10px' }}>
+                  Preview Event Page →
+                </Link>
+              </div>
             </div>
+            <style>{`
+              .pe-mobile-only { display: none; }
+              @media (max-width: 768px) {
+                .pe-desktop-only { display: none; }
+                .pe-mobile-only { display: block; }
+              }
+            `}</style>
 
-            {tab === 'overview' && (
-            <div style={C.narrow}>
-              <div style={C.card}>
-                <p style={{ ...C.label, color: '#EA003A', marginBottom: '14px' }}>Operational</p>
-                <Field label="Status">{product.status}</Field>
+            {tab === 'overview' && (() => {
+              const activateDeactivate = (
+                <>
+                  {actionError && <div style={C.actionErr}>{actionError}</div>}
 
+                  {product.status === 'draft' && panel === 'none' && (
+                    <button style={C.primaryBtn(false)} onClick={openActivatePanel}>Publish…</button>
+                  )}
+
+                  {product.status === 'draft' && panel === 'activate' && (
+                    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '16px' }}>
+                      <p style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 10px' }}>Publish this product</p>
+
+                      {events && events.upcomingOpen === 0 && (
+                        <div style={C.warn}>No upcoming open Event Instances yet — it will be Active but nothing will be bookable until dates are open.</div>
+                      )}
+                      {product.default_price == null && (
+                        <div style={C.warn}>No default price set — instances without their own price override won&rsquo;t be bookable.</div>
+                      )}
+
+                      <p style={C.label}>Storefront visibility</p>
+                      <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                        <button type="button" style={C.toggle(pendingBcc)} onClick={() => setPendingBcc((v) => !v)}>{pendingBcc ? '✓ ' : ''}Show on BCC</button>
+                        <button type="button" style={C.toggle(pendingBnt)} onClick={() => setPendingBnt((v) => !v)}>{pendingBnt ? '✓ ' : ''}Show on BNT (not live yet)</button>
+                      </div>
+                      {!pendingBcc && (
+                        <p style={{ ...C.hint, color: '#FFC400', margin: '0 0 8px' }}>
+                          BCC is the only storefront checkout currently supports — publishing requires &ldquo;Show on BCC&rdquo;.
+                        </p>
+                      )}
+
+                      <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
+                        <button style={C.primaryBtn(!pendingBcc || busy)} disabled={!pendingBcc || busy} onClick={handleActivate}>
+                          {busy ? 'Publishing…' : 'Confirm Publish'}
+                        </button>
+                        <button style={C.ghostBtn} disabled={busy} onClick={() => { setPanel('none'); setActionError(null) }}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {product.status === 'active' && (
+                    <button style={C.dangerBtn} disabled={busy} onClick={handleDeactivate}>
+                      {busy ? 'Deactivating…' : 'Deactivate'}
+                    </button>
+                  )}
+                </>
+              )
+
+              const identityCard = (
+                // Informational system metadata, not something an admin operates
+                // day-to-day — kept read-only and visually secondary to the
+                // Operational controls (smaller type, muted border, no accent).
+                <div style={{ ...C.card, padding: '14px 16px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <p style={{ fontWeight: 600, fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.30)', margin: '0 0 10px' }}>Identity</p>
+                  <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.40)', lineHeight: 1.9 }}>
+                    <div>Product ID <span style={{ color: 'rgba(255,255,255,0.55)' }}>{product.id}</span></div>
+                    <div>Created <span style={{ color: 'rgba(255,255,255,0.55)' }}>{new Date(product.created_at).toLocaleString()}</span></div>
+                    <div>Updated <span style={{ color: 'rgba(255,255,255,0.55)' }}>{product.updated_at ? new Date(product.updated_at).toLocaleString() : '—'}</span></div>
+                  </div>
+                </div>
+              )
+
+              return (
+              <div style={C.narrow}>
                 {opMsg && (
                   <div style={{ ...(opMsg.ok ? C.banner : C.actionErr), margin: '0 0 14px' }}>{opMsg.ok ? '✓ ' : ''}{opMsg.text}</div>
                 )}
 
-                <div style={{ marginBottom: '16px' }}>
-                  <p style={C.label}>Default Price (THB)</p>
-                  <input
-                    style={{ height: '38px', width: '100%', maxWidth: '220px', borderRadius: '8px', padding: '0 12px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', fontFamily: 'Inter, sans-serif', fontSize: '14px', boxSizing: 'border-box' } as React.CSSProperties}
-                    type="number"
-                    min={1}
-                    placeholder="e.g. 1200"
-                    value={opDraft.price}
-                    onChange={(e) => setOpDraft((v) => ({ ...v, price: e.target.value }))}
-                  />
-                </div>
+                {/* ── Desktop: unchanged expanded form ── */}
+                <div className="pe-desktop-only">
+                  <div style={C.card}>
+                    <p style={{ ...C.label, color: '#EA003A', marginBottom: '14px' }}>Operational</p>
+                    <Field label="Status">{product.status}</Field>
 
-                <div style={{ marginBottom: '16px' }}>
-                  <p style={C.label}>Default Start Time</p>
-                  <input
-                    style={{ height: '38px', width: '100%', maxWidth: '220px', borderRadius: '8px', padding: '0 12px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', fontFamily: 'Inter, sans-serif', fontSize: '14px', boxSizing: 'border-box' } as React.CSSProperties}
-                    type="time"
-                    value={opDraft.time}
-                    onChange={(e) => setOpDraft((v) => ({ ...v, time: e.target.value }))}
-                  />
-                </div>
-
-                <div style={{ marginBottom: '16px' }}>
-                  <p style={C.label}>Storefront visibility</p>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button type="button" style={C.toggle(opDraft.bcc)} onClick={() => setOpDraft((v) => ({ ...v, bcc: !v.bcc }))}>
-                      {opDraft.bcc ? '✓ ' : ''}Visible on BCC
-                    </button>
-                    <button type="button" style={C.toggle(opDraft.bnt)} onClick={() => setOpDraft((v) => ({ ...v, bnt: !v.bnt }))}>
-                      {opDraft.bnt ? '✓ ' : ''}Visible on BNT
-                    </button>
-                  </div>
-                  <p style={C.hint}>BNT storefront/checkout isn&rsquo;t built yet — this flag is stored but not enforced anywhere.</p>
-                </div>
-
-                <div style={{ marginBottom: '20px' }}>
-                  <button style={C.primaryBtn(opSaving || !opDirty)} disabled={opSaving || !opDirty} onClick={handleSaveOperational}>
-                    {opSaving ? 'Saving…' : 'Save Changes'}
-                  </button>
-                </div>
-
-                {actionError && <div style={C.actionErr}>{actionError}</div>}
-
-                {product.status === 'draft' && panel === 'none' && (
-                  <button style={C.primaryBtn(false)} onClick={openActivatePanel}>Publish…</button>
-                )}
-
-                {product.status === 'draft' && panel === 'activate' && (
-                  <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '16px' }}>
-                    <p style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 10px' }}>Publish this product</p>
-
-                    {events && events.upcomingOpen === 0 && (
-                      <div style={C.warn}>No upcoming open Event Instances yet — it will be Active but nothing will be bookable until dates are open.</div>
-                    )}
-                    {product.default_price == null && (
-                      <div style={C.warn}>No default price set — instances without their own price override won&rsquo;t be bookable.</div>
-                    )}
-
-                    <p style={C.label}>Storefront visibility</p>
-                    <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                      <button type="button" style={C.toggle(pendingBcc)} onClick={() => setPendingBcc((v) => !v)}>{pendingBcc ? '✓ ' : ''}Show on BCC</button>
-                      <button type="button" style={C.toggle(pendingBnt)} onClick={() => setPendingBnt((v) => !v)}>{pendingBnt ? '✓ ' : ''}Show on BNT (not live yet)</button>
+                    <div style={{ marginBottom: '16px' }}>
+                      <p style={C.label}>Default Price (THB)</p>
+                      <input
+                        style={{ height: '38px', width: '100%', maxWidth: '220px', borderRadius: '8px', padding: '0 12px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', fontFamily: 'Inter, sans-serif', fontSize: '14px', boxSizing: 'border-box' } as React.CSSProperties}
+                        type="number"
+                        min={1}
+                        placeholder="e.g. 1200"
+                        value={opDraft.price}
+                        onChange={(e) => setOpDraft((v) => ({ ...v, price: e.target.value }))}
+                      />
                     </div>
-                    {!pendingBcc && (
-                      <p style={{ ...C.hint, color: '#FFC400', margin: '0 0 8px' }}>
-                        BCC is the only storefront checkout currently supports — publishing requires &ldquo;Show on BCC&rdquo;.
-                      </p>
-                    )}
 
-                    <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
-                      <button style={C.primaryBtn(!pendingBcc || busy)} disabled={!pendingBcc || busy} onClick={handleActivate}>
-                        {busy ? 'Publishing…' : 'Confirm Publish'}
+                    <div style={{ marginBottom: '16px' }}>
+                      <p style={C.label}>Default Start Time</p>
+                      <input
+                        style={{ height: '38px', width: '100%', maxWidth: '220px', borderRadius: '8px', padding: '0 12px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', fontFamily: 'Inter, sans-serif', fontSize: '14px', boxSizing: 'border-box' } as React.CSSProperties}
+                        type="time"
+                        value={opDraft.time}
+                        onChange={(e) => setOpDraft((v) => ({ ...v, time: e.target.value }))}
+                      />
+                    </div>
+
+                    <div style={{ marginBottom: '16px' }}>
+                      <p style={C.label}>Storefront visibility</p>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button type="button" style={C.toggle(opDraft.bcc)} onClick={() => setOpDraft((v) => ({ ...v, bcc: !v.bcc }))}>
+                          {opDraft.bcc ? '✓ ' : ''}Visible on BCC
+                        </button>
+                        <button type="button" style={C.toggle(opDraft.bnt)} onClick={() => setOpDraft((v) => ({ ...v, bnt: !v.bnt }))}>
+                          {opDraft.bnt ? '✓ ' : ''}Visible on BNT
+                        </button>
+                      </div>
+                      <p style={C.hint}>BNT storefront/checkout isn&rsquo;t built yet — this flag is stored but not enforced anywhere.</p>
+                    </div>
+
+                    <div style={{ marginBottom: '20px' }}>
+                      <button style={C.primaryBtn(opSaving || !opDirty)} disabled={opSaving || !opDirty} onClick={handleSaveOperational}>
+                        {opSaving ? 'Saving…' : 'Save Changes'}
                       </button>
-                      <button style={C.ghostBtn} disabled={busy} onClick={() => { setPanel('none'); setActionError(null) }}>Cancel</button>
                     </div>
+
+                    {activateDeactivate}
                   </div>
-                )}
+                  {identityCard}
+                </div>
 
-                {product.status === 'active' && (
-                  <button style={C.dangerBtn} disabled={busy} onClick={handleDeactivate}>
-                    {busy ? 'Deactivating…' : 'Deactivate'}
-                  </button>
-                )}
-              </div>
+                {/* ── Mobile: compact rows, switches apply instantly, Price/Time tap-to-edit ── */}
+                <div className="pe-mobile-only">
+                  {mobileOpField === null ? (
+                    <>
+                      <p style={M.groupHeading}>Operational</p>
+                      <div style={M.listCard}>
+                        <div style={{ ...M.row(true), cursor: 'default' }}>
+                          <span style={M.rowLabel}>Status</span>
+                          <span style={M.rowSummary}>{product.status.charAt(0).toUpperCase() + product.status.slice(1)}</span>
+                        </div>
+                        <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                          <p style={{ ...M.rowLabel, marginBottom: '10px' }}>Storefront Visibility</p>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.65)' }}>BCC</span>
+                              <button type="button" disabled={opSaving} style={C.toggle(product.visible_bcc)} onClick={() => toggleVisibilityNow('visible_bcc')}>
+                                {product.visible_bcc ? 'ON' : 'OFF'}
+                              </button>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.65)' }}>BNT</span>
+                              <button type="button" disabled={opSaving} style={C.toggle(product.visible_bnt)} onClick={() => toggleVisibilityNow('visible_bnt')}>
+                                {product.visible_bnt ? 'ON' : 'OFF'}
+                              </button>
+                            </div>
+                          </div>
+                          <p style={C.hint}>BNT storefront/checkout isn&rsquo;t built yet — stored but not enforced anywhere.</p>
+                        </div>
+                        <button type="button" style={M.row()} onClick={() => setMobileOpField('price')}>
+                          <span style={M.rowLabel}>Default Price</span>
+                          <span style={M.rowSummary}>{baht(product.default_price)}<span style={M.chevron}>›</span></span>
+                        </button>
+                        <button type="button" style={{ ...M.row(), borderBottom: 'none' }} onClick={() => setMobileOpField('time')}>
+                          <span style={M.rowLabel}>Default Start Time</span>
+                          <span style={M.rowSummary}>{hhmmDisplay(product.default_start_time)}<span style={M.chevron}>›</span></span>
+                        </button>
+                      </div>
 
-              {/* Identity: informational system metadata, not something an admin
-                  operates day-to-day — kept read-only and visually secondary
-                  to the Operational controls above (smaller type, muted
-                  border, no accent color), same fields as before. */}
-              <div style={{ ...C.card, padding: '14px 16px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                <p style={{ fontWeight: 600, fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.30)', margin: '0 0 10px' }}>Identity</p>
-                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.40)', lineHeight: 1.9 }}>
-                  <div>Product ID <span style={{ color: 'rgba(255,255,255,0.55)' }}>{product.id}</span></div>
-                  <div>Created <span style={{ color: 'rgba(255,255,255,0.55)' }}>{new Date(product.created_at).toLocaleString()}</span></div>
-                  <div>Updated <span style={{ color: 'rgba(255,255,255,0.55)' }}>{product.updated_at ? new Date(product.updated_at).toLocaleString() : '—'}</span></div>
+                      <div style={{ ...M.listCard, marginTop: '4px' }}>
+                        <Link href={`/dashboard/products/${params.id}/preview`} style={{ ...M.row(), textDecoration: 'none', borderBottom: 'none' }}>
+                          <span style={M.rowLabel}>Preview Product</span>
+                          <span style={M.chevron}>›</span>
+                        </Link>
+                      </div>
+
+                      <div style={{ marginTop: '16px' }}>{activateDeactivate}</div>
+                      <div style={{ marginTop: '16px' }}>{identityCard}</div>
+                    </>
+                  ) : (
+                    <FocusedEditorChrome
+                      title={mobileOpField === 'price' ? 'Default Price' : 'Default Start Time'}
+                      onBack={closeMobileOpField}
+                      onSave={handleSaveOperational}
+                      saving={opSaving}
+                    >
+                      <div style={C.card}>
+                        {mobileOpField === 'price' ? (
+                          <>
+                            <p style={C.label}>Default Price (THB)</p>
+                            <input
+                              style={{ height: '38px', width: '100%', borderRadius: '8px', padding: '0 12px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', fontFamily: 'Inter, sans-serif', fontSize: '14px', boxSizing: 'border-box' } as React.CSSProperties}
+                              type="number"
+                              min={1}
+                              placeholder="e.g. 1200"
+                              autoFocus
+                              value={opDraft.price}
+                              onChange={(e) => setOpDraft((v) => ({ ...v, price: e.target.value }))}
+                            />
+                            <p style={C.hint}>Used whenever an Event Date has no price override. Leave empty to clear.</p>
+                          </>
+                        ) : (
+                          <>
+                            <p style={C.label}>Default Start Time</p>
+                            <input
+                              style={{ height: '38px', width: '100%', borderRadius: '8px', padding: '0 12px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', fontFamily: 'Inter, sans-serif', fontSize: '14px', boxSizing: 'border-box' } as React.CSSProperties}
+                              type="time"
+                              autoFocus
+                              value={opDraft.time}
+                              onChange={(e) => setOpDraft((v) => ({ ...v, time: e.target.value }))}
+                            />
+                            <p style={C.hint}>Used whenever an Event Date has no start-time override.</p>
+                          </>
+                        )}
+                      </div>
+                    </FocusedEditorChrome>
+                  )}
                 </div>
               </div>
-            </div>
-            )}
+              )
+            })()}
 
             {tab === 'schedule' && (
               <div style={C.contentWrap}>
@@ -372,6 +559,7 @@ function ProductDetailInner() {
                     defaultStartTime: product.default_start_time,
                     nextOpenDate: events?.nextOpenDate ?? null,
                   }}
+                  onNavigate={handleNavigateFromQuickFacts}
                 />
               </div>
             )}

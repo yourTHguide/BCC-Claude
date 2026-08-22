@@ -1,6 +1,64 @@
 # Phase 4 — Internal Product & Schedule Builder — Checkpoint
 
-_Last updated: 2026-08-22 (Mobile-first Admin Product Editor — Stage A COMPLETE + a correction pass covering Schedule naming, mobile Event Dates cards, and editable Operational). Compact resume doc for continuing in a fresh conversation._
+_Last updated: 2026-08-22 (Mobile-first Admin Product Editor — Stage A COMPLETE + two correction passes: Schedule naming/mobile Event Dates/editable Operational, then functional-parity pass making Quick Facts/Overview/Media genuinely operable from mobile). Compact resume doc for continuing in a fresh conversation._
+
+### Stage A functional-parity pass (locks "mobile = desktop, minus space")
+
+Principle: mobile must reach every canonical field desktop can reach — desktop
+just shows more at once. This pass closed the remaining "read-only dashboard"
+spots, UI-only (the one API route this whole track ever needed, `PATCH
+/api/admin/products/[id]`, already existed from the prior correction pass):
+
+- **Quick Facts (Content tab) are now shortcuts, not a dead end.** Removed
+  "read-only, not editable here." Each of the 4 rows (Next Date/Start Time/
+  Price/Duration) is tappable: Duration opens this tab's own Basics section;
+  Start Time and Price switch to the Overview tab AND auto-open that field's
+  focused editor in one tap (`ContentEditor`'s new `onNavigate` prop, wired
+  by `page.tsx`'s `handleNavigateFromQuickFacts`); Next Date switches to
+  Schedule. A missing value shows "Not set" and is still tappable — still
+  zero new fields/routes, still derived exactly like `ProductPage.tsx`.
+- **Overview/Operational got the same desktop/mobile split as Content/Media/
+  Schedule** (it never had one before — same always-expanded form on every
+  screen size, which is why it read as "a dashboard" on a phone despite
+  already being wired to real PATCH calls). Desktop: unchanged. Mobile:
+  Status (plain, since Draft<->Active stays exclusively behind Activate/
+  Deactivate — no raw status editor), Storefront Visibility as two switches
+  that **apply immediately** (the one explicit inline-control exception —
+  everything else is tap-then-save), Default Price/Default Start Time as
+  tap-to-edit rows opening a single-field focused editor, a Preview Product
+  row, then Activate/Deactivate (shared JSX with desktop, extracted once).
+  Immediate switches read straight from `product` (never from `opDraft`),
+  so they can't be affected by an abandoned edit sitting in a sibling field.
+  Tapping Back on a Price/Time focused editor resets the shared `opDraft`
+  back to `draftFromProduct(product)` — required specifically because Price/
+  Time and the switches share one draft object; without this reset, an
+  unsaved Price edit would silently ride along on the next switch toggle's
+  PATCH. Verified via a mocked-fetch harness that renders the REAL
+  `dashboard/products/[id]/page.tsx` (not a copy) from a route outside
+  `/dashboard` so neither `middleware.ts` nor `dashboard/layout.tsx` gate it
+  — no auth file touched: typed 9999 into Price, hit Back, then toggled BCC
+  off; the resulting PATCH carried `defaultPrice: 1200` (the original,
+  confirmed value), not 9999, alongside the confirm-dialog-gated
+  `visibleBcc: false`.
+- **Media's mobile summary is now visual**, not text-only. `CoverSummaryCard`
+  and `GallerySummaryCard` (new, in `sections/mediaSections.tsx`) show the
+  actual cover image / a 5-photo gallery strip on the main Media screen,
+  tapping either opens the exact same focused Cover/Gallery editors that
+  already existed (upload/replace/delete/reorder/alt-text) — zero new media
+  routes, zero new upload paths.
+- **Content**: `Basics` summary now reads "Complete" instead of "4 of 4
+  filled" once every field is set — the only Content-tab change.
+- **Fixed a pre-existing horizontal-overflow bug** in the shared tab-bar
+  header (found while screenshotting the above): the "Preview Event Page"
+  ghost link, sitting next to 4 tab buttons with no wrap, forced sideways
+  scroll below 768px. Hid it on mobile (redundant now that Overview has its
+  own "Preview Product" row) behind a wrapper div — putting the
+  `pe-desktop-only` class directly on the `<Link>` doesn't work, because its
+  own inline `display: 'inline-flex'` style always wins over a class-based
+  `display: none`, media query or not.
+- **Explicitly deferred** (flagged, not built — matches "don't overbuild in
+  one pass"): schedule type/weekday/start-date/generation-horizon have no
+  edit API today, only Extend exists. A future stage, not this one.
 
 ### Stage A correction pass (same track, after the initial Stage A commit)
 

@@ -1,13 +1,16 @@
 'use client'
 
-// Read-only, derived-only "Quick Facts" surface for the mobile shell. This
-// is NOT an editor and never will be one in Stage A — Quick Facts is
-// computed from the Product's schedule/price and content.duration_minutes,
-// exactly like ProductPage.tsx's own Quick Facts block. There is no
-// quick_facts column and no quick-facts editor route; this component only
-// re-derives the same values the public page already derives, so an admin
-// can see at a glance what the public page will show without duplicating
-// the source of truth.
+// "Quick Facts" — derived, but no longer a dead end. Every value here is
+// still computed the same way ProductPage.tsx derives it (no second data
+// model, no quick_facts column, no quick-facts editor route) — what changed
+// is that each row is now a shortcut into the ONE canonical field that
+// actually controls it:
+//   Next Date   -> Schedule tab (Event Dates)
+//   Start Time  -> products.default_start_time (Overview tab)
+//   Price       -> products.default_price (Overview tab)
+//   Duration    -> product_content.duration_minutes (this tab's Basics section)
+// A missing value shows "Not set" and is still tappable — derived does not
+// mean inaccessible.
 
 import { M } from './styles'
 
@@ -40,36 +43,49 @@ export interface QuickFactsInput {
   defaultStartTime: string | null
   durationMinutes: number | null
   nextOpenDate: string | null
+  onTapNextDate: () => void
+  onTapStartTime: () => void
+  onTapPrice: () => void
+  onTapDuration: () => void
 }
 
-export default function QuickFacts({ defaultPrice, defaultStartTime, durationMinutes, nextOpenDate }: QuickFactsInput) {
-  const facts: { label: string; value: string }[] = []
-  if (nextOpenDate) facts.push({ label: 'Next Date', value: formatEventDate(nextOpenDate) })
-  const timeLabel = hhmm(defaultStartTime)
-  if (timeLabel) facts.push({ label: 'Start Time', value: timeLabel })
-  const durLabel = durationLabel(durationMinutes)
-  if (durLabel) facts.push({ label: 'Duration', value: durLabel })
-  const priceLabel = baht(defaultPrice)
-  if (priceLabel) facts.push({ label: 'Price', value: `${priceLabel} / person` })
+export default function QuickFacts({
+  defaultPrice,
+  defaultStartTime,
+  durationMinutes,
+  nextOpenDate,
+  onTapNextDate,
+  onTapStartTime,
+  onTapPrice,
+  onTapDuration,
+}: QuickFactsInput) {
+  const rows: { label: string; value: string; onTap: () => void }[] = [
+    { label: 'Next Date', value: nextOpenDate ? formatEventDate(nextOpenDate) : 'Not set', onTap: onTapNextDate },
+    { label: 'Start Time', value: hhmm(defaultStartTime) ?? 'Not set', onTap: onTapStartTime },
+    { label: 'Price', value: baht(defaultPrice) ?? 'Not set', onTap: onTapPrice },
+    { label: 'Duration', value: durationLabel(durationMinutes) ?? 'Not set', onTap: onTapDuration },
+  ]
 
   return (
-    <div style={M.quickFactsCard}>
+    <div style={{ marginBottom: '18px' }}>
       <p style={M.quickFactsLabel}>Quick Facts</p>
-      <p style={M.quickFactsHint}>Auto-generated from schedule, time, duration and price — read-only, not editable here.</p>
-      {facts.length === 0 ? (
-        <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>
-          Nothing to show yet — set a default price/time on the Overview tab and a duration under Basics.
-        </p>
-      ) : (
-        <div style={M.quickFactsGrid}>
-          {facts.map((f) => (
-            <div key={f.label}>
-              <p style={M.quickFactItemLabel}>{f.label}</p>
-              <p style={M.quickFactItemValue}>{f.value}</p>
-            </div>
-          ))}
-        </div>
-      )}
+      <p style={M.quickFactsHint}>Auto-generated from schedule, time, duration and price. Tap any value to edit it where it&rsquo;s controlled.</p>
+      <div style={M.listCard}>
+        {rows.map((row, i) => (
+          <button
+            key={row.label}
+            type="button"
+            style={{ ...M.row(), ...(i === rows.length - 1 ? { borderBottom: 'none' } : {}) }}
+            onClick={row.onTap}
+          >
+            <span style={M.rowLabel}>{row.label}</span>
+            <span style={M.rowSummary}>
+              {row.value}
+              <span style={M.chevron}>›</span>
+            </span>
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
