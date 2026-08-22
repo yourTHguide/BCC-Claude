@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useSearchParams } from 'next/navigation'
-import InstancesPanel from './InstancesPanel'
+import ScheduleEditor from './ScheduleEditor'
 import ContentEditor from './ContentEditor'
 import MediaEditor from './MediaEditor'
 
@@ -63,7 +63,7 @@ function ProductDetailInner() {
   const [status, setStatus] = useState<'loading' | 'ready' | 'notfound' | 'error'>('loading')
   const [product, setProduct] = useState<Product | null>(null)
   const [events, setEvents] = useState<{ total: number; upcomingOpen: number; nextOpenDate: string | null } | null>(null)
-  const [tab, setTab] = useState<'overview' | 'instances' | 'content' | 'media'>('overview')
+  const [tab, setTab] = useState<'overview' | 'schedule' | 'content' | 'media'>('overview')
 
   // Publish/Deactivate panel state
   const [panel, setPanel] = useState<'none' | 'activate'>('none')
@@ -174,7 +174,7 @@ function ProductDetailInner() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
               <div style={C.tabBar}>
                 <button style={C.tab(tab === 'overview')} onClick={() => setTab('overview')}>Overview</button>
-                <button style={C.tab(tab === 'instances')} onClick={() => setTab('instances')}>Schedule / Instances</button>
+                <button style={C.tab(tab === 'schedule')} onClick={() => setTab('schedule')}>Schedule</button>
                 <button style={C.tab(tab === 'content')} onClick={() => setTab('content')}>Content</button>
                 <button style={C.tab(tab === 'media')} onClick={() => setTab('media')}>Media</button>
               </div>
@@ -237,16 +237,26 @@ function ProductDetailInner() {
                 )}
               </div>
 
-              <div style={C.card}>
-                <p style={{ ...C.label, color: '#EA003A', marginBottom: '14px' }}>Identity</p>
-                <Field label="Product ID">{product.id}</Field>
-                <Field label="Created">{new Date(product.created_at).toLocaleString()}</Field>
-                <Field label="Updated">{product.updated_at ? new Date(product.updated_at).toLocaleString() : '—'}</Field>
+              {/* Identity: informational system metadata, not something an admin
+                  operates day-to-day — kept read-only and visually secondary
+                  to the Operational controls above (smaller type, muted
+                  border, no accent color), same fields as before. */}
+              <div style={{ ...C.card, padding: '14px 16px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <p style={{ fontWeight: 600, fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.30)', margin: '0 0 10px' }}>Identity</p>
+                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.40)', lineHeight: 1.9 }}>
+                  <div>Product ID <span style={{ color: 'rgba(255,255,255,0.55)' }}>{product.id}</span></div>
+                  <div>Created <span style={{ color: 'rgba(255,255,255,0.55)' }}>{new Date(product.created_at).toLocaleString()}</span></div>
+                  <div>Updated <span style={{ color: 'rgba(255,255,255,0.55)' }}>{product.updated_at ? new Date(product.updated_at).toLocaleString() : '—'}</span></div>
+                </div>
               </div>
             </div>
             )}
 
-            {tab === 'instances' && <InstancesPanel productId={params.id} />}
+            {tab === 'schedule' && (
+              <div style={C.contentWrap}>
+                <ScheduleEditor productId={params.id} />
+              </div>
+            )}
 
             {tab === 'content' && (
               <div style={C.contentWrap}>

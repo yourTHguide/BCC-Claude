@@ -53,6 +53,7 @@ export function SectionListGroup({
 export function FocusedEditorChrome({
   title,
   onBack,
+  backLabel = 'Back',
   onSave,
   saving,
   showSave = true,
@@ -61,6 +62,7 @@ export function FocusedEditorChrome({
 }: {
   title: string
   onBack: () => void
+  backLabel?: string
   onSave?: () => void
   saving?: boolean
   showSave?: boolean
@@ -71,7 +73,7 @@ export function FocusedEditorChrome({
     <div>
       <div style={M.focusedHeader}>
         <button type="button" style={M.backBtn} onClick={onBack}>
-          ← Back
+          ← {backLabel}
         </button>
         <span style={M.focusedTitle}>{title}</span>
         {showSave ? (
