@@ -47,9 +47,6 @@ const C = {
   dangerBtn: { height: '42px', padding: '0 20px', borderRadius: '9px', border: '1px solid rgba(234,0,58,0.35)', background: 'rgba(234,0,58,0.08)', color: '#ff6b8a', fontWeight: 600, fontSize: '14px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' } as React.CSSProperties,
 }
 
-const baht = (n: number | null) => (n == null ? '—' : `฿${n.toLocaleString()}`)
-const hhmm = (t: string | null) => (t ? t.slice(0, 5) : '—')
-
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (<div><p style={C.label}>{label}</p><p style={C.value}>{children}</p></div>)
 }
@@ -72,6 +69,13 @@ function ProductDetailInner() {
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
 
+  // Operational editing (default price/time, BCC/BNT visibility). Separate
+  // from the activate/deactivate flow above — this PATCHes
+  // /api/admin/products/[id] directly and never touches `status`.
+  const [opDraft, setOpDraft] = useState({ price: '', time: '', bcc: false, bnt: false })
+  const [opSaving, setOpSaving] = useState(false)
+  const [opMsg, setOpMsg] = useState<{ ok: boolean; text: string } | null>(null)
+
   async function loadProduct() {
     if (!params?.id) return
     try {
@@ -91,6 +95,66 @@ function ProductDetailInner() {
     loadProduct()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params?.id])
+
+  // Re-sync the operational draft to the server-confirmed values every time
+  // `product` changes — including right after a successful PATCH, which
+  // calls loadProduct() and so lands here with the persisted values.
+  useEffect(() => {
+    if (!product) return
+    setOpDraft({
+      price: product.default_price != null ? String(product.default_price) : '',
+      time: product.default_start_time ? product.default_start_time.slice(0, 5) : '',
+      bcc: product.visible_bcc,
+      bnt: product.visible_bnt,
+    })
+  }, [product])
+
+  const opDirty = product != null && (
+    opDraft.price !== (product.default_price != null ? String(product.default_price) : '') ||
+    opDraft.time !== (product.default_start_time ? product.default_start_time.slice(0, 5) : '') ||
+    opDraft.bcc !== product.visible_bcc ||
+    opDraft.bnt !== product.visible_bnt
+  )
+
+  async function handleSaveOperational() {
+    if (!product || opSaving || !opDirty) return
+
+    // Turning OFF BCC visibility while the product is live immediately makes
+    // it unbookable on the storefront — warn, same as the existing
+    // Deactivate confirmation, before sending it.
+    if (product.status === 'active' && product.visible_bcc && !opDraft.bcc) {
+      const ok = confirm(
+        `Turn off BCC visibility for "${product.name}"? It will immediately disappear from bkkclubcrawl.com and become unbookable there, even though it stays Active.`
+      )
+      if (!ok) return
+    }
+
+    setOpSaving(true)
+    setOpMsg(null)
+    try {
+      const res = await fetch(`/api/admin/products/${product.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          defaultPrice: opDraft.price === '' ? null : Number(opDraft.price),
+          defaultStartTime: opDraft.time === '' ? null : opDraft.time,
+          visibleBcc: opDraft.bcc,
+          visibleBnt: opDraft.bnt,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setOpMsg({ ok: false, text: data.error || 'Could not save changes. Please try again.' })
+        return
+      }
+      setOpMsg({ ok: true, text: 'Saved.' })
+      await loadProduct()
+    } catch {
+      setOpMsg({ ok: false, text: 'Server error. Please try again.' })
+    } finally {
+      setOpSaving(false)
+    }
+  }
 
   function openActivatePanel() {
     if (!product) return
@@ -188,10 +252,51 @@ function ProductDetailInner() {
               <div style={C.card}>
                 <p style={{ ...C.label, color: '#EA003A', marginBottom: '14px' }}>Operational</p>
                 <Field label="Status">{product.status}</Field>
-                <Field label="Default price">{baht(product.default_price)}</Field>
-                <Field label="Default start time">{hhmm(product.default_start_time)}</Field>
-                <Field label="Visible on BCC">{product.visible_bcc ? 'Yes' : 'No'}</Field>
-                <Field label="Visible on BNT">{product.visible_bnt ? 'Yes (not live yet — BNT storefront/checkout isn’t built)' : 'No'}</Field>
+
+                {opMsg && (
+                  <div style={{ ...(opMsg.ok ? C.banner : C.actionErr), margin: '0 0 14px' }}>{opMsg.ok ? '✓ ' : ''}{opMsg.text}</div>
+                )}
+
+                <div style={{ marginBottom: '16px' }}>
+                  <p style={C.label}>Default Price (THB)</p>
+                  <input
+                    style={{ height: '38px', width: '100%', maxWidth: '220px', borderRadius: '8px', padding: '0 12px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', fontFamily: 'Inter, sans-serif', fontSize: '14px', boxSizing: 'border-box' } as React.CSSProperties}
+                    type="number"
+                    min={1}
+                    placeholder="e.g. 1200"
+                    value={opDraft.price}
+                    onChange={(e) => setOpDraft((v) => ({ ...v, price: e.target.value }))}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <p style={C.label}>Default Start Time</p>
+                  <input
+                    style={{ height: '38px', width: '100%', maxWidth: '220px', borderRadius: '8px', padding: '0 12px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', fontFamily: 'Inter, sans-serif', fontSize: '14px', boxSizing: 'border-box' } as React.CSSProperties}
+                    type="time"
+                    value={opDraft.time}
+                    onChange={(e) => setOpDraft((v) => ({ ...v, time: e.target.value }))}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <p style={C.label}>Storefront visibility</p>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button type="button" style={C.toggle(opDraft.bcc)} onClick={() => setOpDraft((v) => ({ ...v, bcc: !v.bcc }))}>
+                      {opDraft.bcc ? '✓ ' : ''}Visible on BCC
+                    </button>
+                    <button type="button" style={C.toggle(opDraft.bnt)} onClick={() => setOpDraft((v) => ({ ...v, bnt: !v.bnt }))}>
+                      {opDraft.bnt ? '✓ ' : ''}Visible on BNT
+                    </button>
+                  </div>
+                  <p style={C.hint}>BNT storefront/checkout isn&rsquo;t built yet — this flag is stored but not enforced anywhere.</p>
+                </div>
+
+                <div style={{ marginBottom: '20px' }}>
+                  <button style={C.primaryBtn(opSaving || !opDirty)} disabled={opSaving || !opDirty} onClick={handleSaveOperational}>
+                    {opSaving ? 'Saving…' : 'Save Changes'}
+                  </button>
+                </div>
 
                 {actionError && <div style={C.actionErr}>{actionError}</div>}
 

@@ -1,6 +1,50 @@
 # Phase 4 — Internal Product & Schedule Builder — Checkpoint
 
-_Last updated: 2026-08-22 (Mobile-first Admin Product Editor — Stage A COMPLETE, branched from the BNT integration Stage A commit). Compact resume doc for continuing in a fresh conversation._
+_Last updated: 2026-08-22 (Mobile-first Admin Product Editor — Stage A COMPLETE + a correction pass covering Schedule naming, mobile Event Dates cards, and editable Operational). Compact resume doc for continuing in a fresh conversation._
+
+### Stage A correction pass (same track, after the initial Stage A commit)
+
+Three fixes on top of the initial Stage A pass, all still UI-only except one
+small additive route:
+
+1. **Nav rename, no architecture change.** Top-level tab "Schedule /
+   Instances" -> "Schedule". `ScheduleEditor.tsx` replaces
+   `InstancesPanel.tsx`. Product -> Schedule -> Event Instance is untouched.
+2. **Event Dates are genuinely mobile-first.** The old table forced
+   horizontal scroll on mobile to see Start/Capacity/Bookings/Actions.
+   Desktop keeps the exact table. Mobile gets 3 screens: a read-only
+   Schedule summary (type/day/start date/generate-through + Extend), an
+   Event Dates card list (no horizontal scroll — date/status/time/price/
+   bookings/capacity all visible per card), and a focused Edit Event Date
+   editor. That editor's "Save Changes" bundles start-time/price/capacity
+   into one `PATCH /api/admin/events/[id]` call (verified: that route only
+   ever touches keys present in its body, so this is safe); Close/Reopen
+   and Delete stay separate immediate actions — identical action boundaries
+   to the desktop table. No new routes for this part.
+3. **Operational is now actually editable**, per explicit follow-up
+   request. Before this, `GET /api/admin/products/[id]` was read-only and
+   activate/deactivate only ever touched `visible_bcc`/`visible_bnt` as part
+   of the guarded Draft<->Active transition — there was no way to edit
+   `default_price`, `default_start_time`, or flip visibility on an
+   already-created product. **Added `PATCH /api/admin/products/[id]`**
+   (same file as the existing `GET`): partial-update semantics (only keys
+   present in the body change, same pattern as `PATCH /api/admin/events/
+   [id]`), accepts only `defaultPrice`/`defaultStartTime`/`visibleBcc`/
+   `visibleBnt` — **deliberately never `status`**, so Draft<->Active stays
+   exclusively behind activate/deactivate's guarded transitions and this
+   route can't bypass them. The Overview tab's Operational card now has
+   live inputs/toggles for those 4 fields plus a "Save Changes" button
+   (disabled when nothing changed); turning BCC visibility off while the
+   product is Active shows a confirm() first (same pattern as the existing
+   Deactivate confirm), since that immediately affects checkout (gate 5
+   checks `visible_bcc` directly). Identity (Product ID/Created/Updated)
+   stays read-only, visually secondary.
+   Verified via a throwaway harness mirroring the exact handler logic (real
+   route is behind middleware.ts + dashboard/layout.tsx auth gates this
+   environment can't authenticate through): Save disabled with no changes,
+   enabled after an edit, PATCH body carries all 4 current values on save,
+   confirm() fires only when BCC transitions true->false while Active (not
+   on unrelated edits), and the resulting state matches the confirmed edit.
 
 ## Mobile-first Admin Product Editor (separate track — UI-only, no data model changes)
 
