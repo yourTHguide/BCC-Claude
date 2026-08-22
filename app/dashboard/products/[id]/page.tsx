@@ -4,8 +4,8 @@ import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useSearchParams } from 'next/navigation'
 import InstancesPanel from './InstancesPanel'
-import ContentTab from './ContentTab'
-import MediaTab from './MediaTab'
+import ContentEditor from './ContentEditor'
+import MediaEditor from './MediaEditor'
 
 interface Product {
   id: string
@@ -250,13 +250,20 @@ function ProductDetailInner() {
 
             {tab === 'content' && (
               <div style={C.contentWrap}>
-                <ContentTab productId={params.id} />
+                <ContentEditor
+                  productId={params.id}
+                  quickFactsSource={{
+                    defaultPrice: product.default_price,
+                    defaultStartTime: product.default_start_time,
+                    nextOpenDate: events?.nextOpenDate ?? null,
+                  }}
+                />
               </div>
             )}
 
             {tab === 'media' && (
               <div style={C.contentWrap}>
-                <MediaTab productId={params.id} />
+                <MediaEditor productId={params.id} />
               </div>
             )}
           </>

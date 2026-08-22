@@ -1,6 +1,144 @@
 # Phase 4 — Internal Product & Schedule Builder — Checkpoint
 
-_Last updated: 2026-08-22 (BNT integration Stage A — COMPLETE, public Product Read API live on the branch). Compact resume doc for continuing in a fresh conversation._
+_Last updated: 2026-08-22 (Mobile-first Admin Product Editor — Stage A COMPLETE, branched from the BNT integration Stage A commit). Compact resume doc for continuing in a fresh conversation._
+
+## Mobile-first Admin Product Editor (separate track — UI-only, no data model changes)
+
+A third, separately-scoped track: the `/dashboard/products/[id]` Content and
+Media tabs get a responsive, mobile-first editing shell, planned as
+**A. Section-component refactor + mobile shell (content read/write only) →
+B–E. TBD (not scoped yet) → F. Desktop layout refinement**. This track is
+explicitly **UI-only** — it changes zero routes, zero schema, zero save
+semantics beyond what already existed. Branched from
+`claude/phase4c-content-media-audit-dvu5c1` @ `46db54d` (the BNT integration
+Stage A commit) — this is the "current Phase 4 admin branch" referenced
+below, not `main`.
+
+### Stage A — mobile section shell for Content + Media — COMPLETE
+
+**The problem this solves:** before Stage A, `/dashboard/products/[id]`'s
+Content tab was one ~600px-tall form with every field open at once
+(tagline, 3 descriptions, duration, 4 meeting-point fields, 3 repeatable
+lists, an itinerary builder, 2 more repeatable lists) and no way to jump to
+just one part of it on a phone. Stage A does not add or remove any field —
+it restructures how the *same* fields are reached and saved.
+
+**Mobile shell architecture.** New `app/dashboard/products/[id]/sections/`
+directory holds the pieces every section shares:
+- `types.ts` — `ProductContent`/`MeetingPoint`/`MediaRow` (the exact shapes
+  `GET /api/admin/products/[id]/content` and `.../media` already return —
+  no new fields added here).
+- `Controls.tsx` — `StringListEditor`/`ItineraryEditor`, moved verbatim out
+  of the old `ContentTab.tsx`.
+- `contentSections.tsx` — the 6 EVENT PAGE CONTENT sections, each a pure
+  `{ id, label, Fields, summary }` tuple: `Fields` is a controlled
+  `(content, onChange) => JSX` editor for that section's slice;
+  `summary(content)` is a **display-only** derivation ("3 items", "Added",
+  "Not started") never sent to the server. Sections: **Basics**
+  (tagline/short & full description/duration — added as a 6th section per
+  explicit follow-up decision so these stay mobile-editable; not one of the
+  5 originally sketched in the mockup), **Highlights**, **What's Included**,
+  **How The Night Goes** (itinerary), **Meeting Point**, **Good To Know**
+  (`whats_not_included` + `important_info` together — matches
+  `ProductPage.tsx`'s actual public "GOOD TO KNOW" section 1:1, which
+  already renders those two fields side by side).
+- `mediaSections.tsx` — **Cover** and **Gallery**, same pattern, but their
+  handlers (`onUploadCover`, `onDelete`, `onMove`, …) call the existing
+  media routes directly and immediately — there is no deferred draft for
+  media, so their focused-editor chrome shows "Done" instead of "Save".
+- `MobileSectionShell.tsx` — `SectionListGroup` (the compact tappable list
+  with live summaries) and `FocusedEditorChrome` (the sticky
+  "← Back / Title / Save" header). Purely presentational, no data
+  knowledge — this is the one reusable "mobile-first section shell"
+  component both editors below are built from.
+- `QuickFacts.tsx` — read-only, re-derives Next Date/Start Time/Duration/
+  Price from the same inputs `ProductPage.tsx` already uses (product
+  default price/time, next open Event Instance date, `duration_minutes`).
+  **No editor, no new field, no new route** — it is explicitly labeled
+  "Auto-generated from schedule, time, duration and price — read-only, not
+  editable here" and shown once, above the mobile section list.
+
+**Orchestrators** (replace the old `ContentTab.tsx` / `MediaTab.tsx`,
+same import site in `page.tsx`, same tab structure — Overview / Schedule-
+Instances / Content / Media are unchanged on both breakpoints):
+- `ContentEditor.tsx` — loads the one `product_content` row, and renders
+  responsively via a CSS breakpoint at 768px (`.pe-desktop-only` /
+  `.pe-mobile-only`, same technique `ProductPage.tsx` already uses for its
+  sticky mobile bar — both trees are in the DOM, CSS decides which one
+  paints, so there's no client JS breakpoint detection to get wrong or
+  flash on hydration). Desktop: all 6 sections stacked, one "Save Content"
+  button — pixel-identical structure to the pre-Stage-A form. Mobile: the
+  Quick Facts card, then the compact list; tapping a row opens
+  `FocusedEditorChrome` around just that section's `Fields`.
+- `MediaEditor.tsx` — same shape for Cover/Gallery, all upload/delete/
+  reorder/alt-edit logic moved verbatim from the old `MediaTab.tsx`.
+
+**Desktop is intentionally untouched behaviorally.** Same 4 tabs, same
+stacked forms, same single Save button, same Cover/Gallery panel — Stage A
+only moved the JSX into shared components; Stage F owns any future desktop
+layout redesign.
+
+### Save semantics — the part audited before writing any editor code
+
+`PUT /api/admin/products/[id]/content` (`app/api/admin/products/[id]/
+content/route.ts`) is a **whole-row upsert**: it builds one `product_content`
+row from the request body and every field the validators don't see as a
+present value becomes `null`/`[]`/`{}` — there is no partial-update path,
+and the route was correctly never asked to grow one (that would be a schema/
+API change, out of Stage A's scope). Before Stage A, this was safe by
+construction because `ContentTab.tsx` was one form holding the *entire*
+content object in memory and always PUT all of it. Splitting the UI into
+independently-tappable sections would have broken that guarantee if a
+focused section's Save PUT'd only its own field — every sibling field would
+have been wiped.
+
+Stage A's fix, enforced in `ContentEditor.tsx`:
+- The full `ProductContent` is loaded once and held as `content` (the
+  last-saved baseline).
+- **Desktop:** every section's `Fields` component is bound directly to
+  `content`; the one Save button PUTs `content` in full — unchanged from
+  before.
+- **Mobile:** opening a section clones the *entire current baseline* into a
+  local `draft`. That section's `Fields` component can only patch its own
+  keys (e.g. `HighlightsFields` only ever calls `onChange({ highlights })`),
+  so every other key in `draft` stays byte-identical to `content`. **Save**
+  PUTs `draft` in full (all fields, touched or not) and only then replaces
+  `content` with the server's response. **Back** discards `draft` without
+  ever calling the API — no request is sent, so an abandoned edit can't leak
+  into a later save from another section.
+- Media's routes are already row-scoped (`POST` one upload, `PATCH`/
+  `DELETE` one media row by id) with no whole-row upsert, so this risk does
+  not apply there — Stage A changed nothing about how those calls are made.
+
+**Verified**, via a temporary local mock harness (mocked `fetch`, no real
+Supabase reachable in this environment — real product data will need this
+re-verified in Preview, see PR description) driven with Playwright:
+1. Opening **Highlights**, adding a 4th item, and tapping **Save** produced
+   one `PUT` whose body carried the new highlight *and* every other field
+   (`tagline`, `meetingPoint`, all 5 itinerary steps, `whatsIncluded`,
+   `whatsNotIncluded`, `importantInfo`) unchanged from the loaded baseline —
+   11/11 automated assertions passed.
+2. Opening **Meeting Point**, editing `display_name`, then tapping **Back**
+   (not Save) fired **zero** PUT requests, and reopening Meeting Point
+   showed the original unmodified value — confirming discard-on-Back works
+   and can't accidentally persist.
+3. `npx tsc --noEmit` and `npm run build` both clean before and after.
+
+### Not done / explicitly out of scope for Stage A
+- Ticket Types, Category, SEO, Minimum Notice, Cancellation Policy,
+  product-level capacity, product-level booking status — not touched, not
+  added anywhere in this stage.
+- No show/hide toggles were added for optional sections — a section still
+  renders publicly purely because `ProductPage.tsx` finds non-empty data in
+  it, exactly as before.
+- `ProductPage.tsx` (public renderer), `/dashboard/products/[id]/preview`
+  (authenticated Draft Preview), and `/events/[slug]` (public route) were
+  **not modified at all** — verified by `git diff` showing zero changes to
+  any of the three.
+- Desktop's tab bar and per-tab layout were not restructured — still
+  Overview / Schedule-Instances / Content / Media, unchanged.
+- Stages B–E of this track are unscoped placeholders; **Stage F** (desktop
+  layout refinement) is explicitly reserved and not started.
 
 ## BNT integration (separate track from the New in Bangkok onboarding below)
 A second, separately-audited storefront (`bestnightlifethailand.com`, repo
