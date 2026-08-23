@@ -819,7 +819,15 @@ export default function Dashboard() {
     setLoading(true)
     const start = `${calYear}-${String(calMonth+1).padStart(2,'0')}-01`
     const end = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${new Date(calYear,calMonth+1,0).getDate()}`
-    const { data } = await supabase.from('event_dates').select('*').gte('event_date',start).lte('event_date',end)
+    // Deterministic order: open events first, then oldest-created within a
+    // date/slug tie, so which event a day's dot/pill defaults to never
+    // depends on Postgres's unordered-scan return order (was the root
+    // cause of a real bug: Sept 1 New in Bangkok + a long-closed legacy
+    // Solo Night both fall on the same date, and an unordered fetch
+    // happened to return the closed one first).
+    const { data } = await supabase.from('event_dates').select('*')
+      .gte('event_date',start).lte('event_date',end)
+      .order('event_date').order('is_open',{ascending:false}).order('created_at')
     setEvents(data||[])
     setLoading(false)
   }, [calYear, calMonth])
@@ -1004,6 +1012,20 @@ export default function Dashboard() {
               const day = i+1
               const dateStr = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`
               const dayEvents = eventsByDate[dateStr] || []
+              // A closed, still-Pending-verdict event has never had any real
+              // operational activity — treat it as legacy noise on mobile's
+              // tiny dot row rather than an equal, normal-weight selectable
+              // event. Anything open, or anything a human has touched (verdict
+              // moved off the default), stays fully prominent. Reused from the
+              // same signal Stage 9l's Host Operations filter already uses
+              // (operation_verdict !== 'Pending') — no new query, only fields
+              // already loaded here.
+              const prominentEvents = dayEvents.filter(ev => ev.is_open || ev.operation_verdict !== 'Pending')
+              const legacyEvents = dayEvents.filter(ev => !ev.is_open && ev.operation_verdict === 'Pending')
+              // Mobile shows legacy dots only when there's nothing prominent
+              // that day, so a day is never silently empty; desktop pills are
+              // unaffected (still list every event, unchanged).
+              const mobileDayEvents = prominentEvents.length > 0 ? prominentEvents : legacyEvents
               const isPast = new Date(dateStr+'T00:00:00') < today
               const isToday = new Date(dateStr+'T00:00:00').toDateString() === today.toDateString()
               const isSelected = selectedEvent?.event_date === dateStr
@@ -1020,7 +1042,16 @@ export default function Dashboard() {
                     opacity: isPast ? 0.5 : 1,
                     transition:'all 0.15s',
                   }}
-                  onClick={() => dayEvents.length > 0 && setSelectedEvent(dayEvents[0])}
+                  onClick={() => {
+                    // Fallback for a tap that lands on the cell but not on a
+                    // specific dot/pill (e.g. the day number, empty space).
+                    // Deterministic now that dayEvents is ordered open-first:
+                    // prefers the prominent/open event over a closed legacy
+                    // one instead of whatever Postgres happened to return
+                    // first.
+                    const fallback = prominentEvents[0] || dayEvents[0]
+                    if (fallback) setSelectedEvent(fallback)
+                  }}
                 >
                   {/* Day number */}
                   <div className="mb-0.5 sm:mb-1.5" style={{
@@ -1030,18 +1061,33 @@ export default function Dashboard() {
                     textAlign:'center',
                   }}>{day}</div>
 
-                  {/* Mobile: dots only, one per event, no names/text */}
-                  {dayEvents.length > 0 && (
+                  {/* Mobile: dots only, no names/text. Each dot is its own
+                      event_dates record and independently tappable (was the
+                      bug: only the whole cell was clickable, always opening
+                      dayEvents[0] no matter which dot you touched). Legacy
+                      (closed + never-touched) events only appear here when
+                      there's nothing prominent that day. */}
+                  {mobileDayEvents.length > 0 && (
                     <div className="flex sm:hidden" style={{ justifyContent:'center', flexWrap:'wrap', gap:'3px' }}>
-                      {dayEvents.map(ev => (
+                      {mobileDayEvents.map(ev => (
                         <div
                           key={ev.id}
-                          style={{
-                            width:'6px', height:'6px', borderRadius:'50%',
-                            background: ev.is_open ? (nightColors[ev.night_slug]||'#EA003A') : 'transparent',
-                            border: ev.is_open ? 'none' : '1px solid rgba(255,255,255,0.35)',
-                          }}
-                        />
+                          onClick={e => { e.stopPropagation(); setSelectedEvent(ev) }}
+                          // Invisible padded wrapper gives a real finger-sized
+                          // tap target around the small visible dot inside it.
+                          style={{ padding:'6px', margin:'-6px' }}
+                        >
+                          <div
+                            style={{
+                              width: ev.is_open ? '6px' : '4px',
+                              height: ev.is_open ? '6px' : '4px',
+                              borderRadius:'50%',
+                              background: ev.is_open ? (nightColors[ev.night_slug]||'#EA003A') : 'transparent',
+                              border: ev.is_open ? 'none' : '1px solid rgba(255,255,255,0.30)',
+                              opacity: ev.is_open ? 1 : 0.6,
+                            }}
+                          />
+                        </div>
                       ))}
                     </div>
                   )}
