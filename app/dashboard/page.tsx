@@ -582,7 +582,12 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
 
           {/* Guest attendance */}
           <div style={{ marginBottom:'16px' }}>
-            <p style={{ ...S.label, marginBottom:'10px' }}>GUEST ATTENDANCE</p>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'10px' }}>
+              <p style={{ ...S.label, marginBottom:0 }}>GUEST ATTENDANCE</p>
+              <Link href="/dashboard/checkin" style={{ ...S.btn, ...S.btnGhost, textDecoration:'none', display:'inline-flex', alignItems:'center', height:'28px', fontSize:'11px', padding:'0 10px' }}>
+                Scan Ticket
+              </Link>
+            </div>
             {bookings.length===0 && otaBookings.length===0 && (
               <p style={{ fontSize:'13px', color:'rgba(255,255,255,0.35)' }}>No guests yet.</p>
             )}

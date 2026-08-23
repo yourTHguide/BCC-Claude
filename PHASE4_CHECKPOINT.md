@@ -109,9 +109,73 @@ deleted after) — confirmed a real QR PNG data URI is produced, the booking
 reference formats as `NEW-5A6CCF`, the date resolves to "Tuesday, September
 1, 2026" (matches the product's actual Tuesday schedule), and the Google
 Calendar link correctly converts 20:30 Bangkok → 13:30 UTC. Booking count
-and `new-in-bkk` state reconfirmed unchanged after cleanup. **Not done
-yet:** 9d (QR check-in resolver + Event Operations UI) and 9e (secure the
-routes this lifecycle depends on).
+and `new-in-bkk` state reconfirmed unchanged after cleanup.
+
+**Stage 9d — QR check-in resolver + smallest reusable Event Operations
+slice — APPLIED 2026-08-23.** This is deliberately built as the FIRST
+reusable foundation of a future consolidated SNX Event Operations layer, not
+a New-in-Bangkok- or BCC-specific check-in system — both the ticket page
+(9c) and this stage now resolve a booking through the same shared
+`lib/bookingResolution.ts` (extracted from 9c's inline queries during this
+stage), so the underlying `Product → Event Instance → Booking → Attendance`
+contract is one function any future UI can call, not duplicated per
+consumer.
+
+New `GET/POST /api/admin/checkin/[token]` — admin-authed (`requireAdmin()`,
+also covered automatically by `middleware.ts`'s existing
+`/api/admin/:path*` matcher, no middleware change needed), resolves a ticket
+token to a booking/event/product summary. `POST` performs the check-in:
+blocks with 409 if the booking is `cancelled`/`refunded`; if already
+`attendance_status='checked_in'`, returns `alreadyCheckedIn: true` WITHOUT
+re-running the update (idempotent repeat-scan handling, not a silent
+fresh-scan no-op); otherwise flips `attendance_status` to `'checked_in'` —
+the exact existing column/enum the manual dropdown in `/dashboard` already
+used, no new attendance state introduced.
+
+New `app/dashboard/checkin/page.tsx` (manual ticket-code entry — accepts a
+bare token or a pasted `/checkin/<token>` URL) and
+`app/dashboard/checkin/[token]/page.tsx` (the check-in confirmation screen:
+shows product/event, guest name, quantity, booking reference, payment
+status, and a "Check in N guests" button, or an "Already checked in" state).
+**No custom camera/QR-scanning code was written** — the QR itself already
+encodes the full `/dashboard/checkin/{token}` URL (Stage 9c), so scanning it
+with any phone's native camera app opens this exact page directly, already
+behind the existing dashboard auth gate. The manual-entry page is purely the
+fallback for no-camera / bad-lighting situations. A "Scan Ticket" link was
+added to the existing per-event dashboard panel
+(`app/dashboard/page.tsx`, next to "GUEST ATTENDANCE") — the existing
+manual attendance dropdown there is completely unchanged and remains the
+fallback if scanning fails, exactly as required.
+
+**Explicit constraint, reported rather than worked around, per instruction:**
+a Booking with `quantity > 1` checks in as one all-or-nothing unit — there
+is no way to check in "2 of 3 guests" with the current schema, because
+`bookings.attendance_status` is one value per booking row, not per guest.
+Building partial/per-guest check-in would need a materially larger
+data-model change (a new per-guest/per-seat table), which was explicitly
+out of scope this session — not built, not simulated with a workaround. The
+UI surfaces `quantity` as informational context only ("Check in 3 guests" as
+a single confirm), never as a counter.
+
+Verified: `npx tsc --noEmit` and `npm run build` both clean; all three new
+routes (`/api/admin/checkin/[token]`, `/dashboard/checkin`,
+`/dashboard/checkin/[token]`) list with no regressions elsewhere. Functional
+logic verified via direct SQL against production with two more marked,
+temporary bookings (`notes LIKE 'STAGE9D_VERIFICATION_TEMP%'`, both deleted
+after): (1) a confirmed booking's guarded update
+(`attendance_status <> 'checked_in'`) correctly flips it to `checked_in`
+once, and a second run of the identical guarded update against the
+now-already-`checked_in` row correctly affects 0 rows — proving the
+repeat-scan branch the route takes (return `alreadyCheckedIn` without
+re-running the write) lines up with what the database itself would allow;
+(2) a `status='cancelled'` booking was confirmed to reach the route's
+pre-write 409 gate before any update is attempted. Booking count and
+`new-in-bkk` state reconfirmed unchanged (still 7 bookings, `new-in-bkk`
+still `status='draft'`, both `visible_*=false`) after cleanup. **Not done
+yet:** 9e (secure `update-attendance`, which the manual-fallback path in
+`/dashboard` still calls unauthenticated — the new `/api/admin/checkin`
+route is already admin-authed from the start, so 9e's remaining scope is
+narrower than originally audited).
 
 ## BNT integration (separate track from the New in Bangkok onboarding below)
 A second, separately-audited storefront (`bestnightlifethailand.com`, repo

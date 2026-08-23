@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { getServiceSupabase } from '@/lib/supabase'
+import { resolveBookingByToken } from '@/lib/bookingResolution'
 import { formatEventDateLong, formatStartTime } from '@/lib/dates'
 import { formatBookingReference } from '@/lib/bookingReference'
 import { revealMeetingPointForTicket } from '@/lib/meetingPointReveal'
@@ -10,58 +11,28 @@ export const dynamic = 'force-dynamic'
 
 // Real booking confirmation / digital ticket (Stage 9c) — replaces the
 // static, param-only thank-you screen for anyone who follows a QR/token
-// link, backed by canonical Booking → Event Date → Product data. Resolved
-// ONLY by the opaque `ticket_token` (never a booking UUID, Stripe session
-// id, or any other guessable identifier), so knowing this URL is equivalent
-// to being the ticket holder — that's what lets revealMeetingPointForTicket
-// disclose 'after_booking' location details here that the public product
-// page/API never would.
+// link, backed by canonical Booking → Event Date → Product data via the
+// shared resolveBookingByToken (lib/bookingResolution.ts — also used by the
+// admin check-in resolver, Stage 9d). Resolved ONLY by the opaque
+// `ticket_token` (never a booking UUID, Stripe session id, or any other
+// guessable identifier), so knowing this URL is equivalent to being the
+// ticket holder — that's what lets revealMeetingPointForTicket disclose
+// 'after_booking' location details here that the public product page/API
+// never would.
 export default async function TicketPage({ params }: { params: { token: string } }) {
   const supabase = getServiceSupabase()
-
-  const { data: booking } = await supabase
-    .from('bookings')
-    .select('id, event_id, product_id, night_name, event_date, guest_name, quantity, status, ticket_token')
-    .eq('ticket_token', params.token)
-    .maybeSingle()
+  const booking = await resolveBookingByToken(supabase, params.token)
 
   // Uniform 404 — an unknown token and a malformed one look identical to the
   // caller, same fail-closed convention as /events/[slug] and the products
   // API.
   if (!booking) notFound()
 
-  // Canonical event_id/product_id are only present for bookings made through
-  // the dynamic checkout path (Stage 6+; every New in Bangkok booking will
-  // have them). A pre-Stage-9b or legacy-path booking falls back to the
-  // night_name/event_date already stored directly on the row — still a
-  // valid ticket, just without product content (no meeting point, no
-  // canonical product name/start-time override).
-  let productName = booking.night_name
-  let productSlug: string | null = null
-  let startTime: string | null = null
-  let durationMinutes = 180 // matches the checkout/email default assumption
-  let meetingPoint = null as ReturnType<typeof revealMeetingPointForTicket>
-
-  if (booking.event_id && booking.product_id) {
-    const [{ data: event }, { data: product }, { data: content }] = await Promise.all([
-      supabase.from('event_dates').select('start_time_override').eq('id', booking.event_id).maybeSingle(),
-      supabase.from('products').select('slug, name, default_start_time').eq('id', booking.product_id).maybeSingle(),
-      supabase
-        .from('product_content')
-        .select('meeting_point, duration_minutes')
-        .eq('product_id', booking.product_id)
-        .maybeSingle(),
-    ])
-    if (product) {
-      productName = product.name
-      productSlug = product.slug
-      startTime = event?.start_time_override ?? product.default_start_time
-    }
-    if (content) {
-      durationMinutes = content.duration_minutes || 180
-      meetingPoint = revealMeetingPointForTicket(content.meeting_point)
-    }
-  }
+  const productName = booking.productName
+  const productSlug = booking.productSlug
+  const startTime = booking.startTime
+  const durationMinutes = booking.durationMinutes
+  const meetingPoint = revealMeetingPointForTicket(booking.meetingPointRaw)
 
   const isCancelled = booking.status === 'cancelled' || booking.status === 'refunded'
 
@@ -70,17 +41,17 @@ export default async function TicketPage({ params }: { params: { token: string }
   // free — scanning this URL with no admin session redirects to /login,
   // same as any other dashboard route. Contains only the app origin + the
   // opaque token, never PII/UUIDs/Stripe identifiers.
-  const checkinUrl = `${appUrl}/dashboard/checkin/${booking.ticket_token}`
+  const checkinUrl = `${appUrl}/dashboard/checkin/${booking.ticketToken}`
   const qrDataUrl = isCancelled ? null : await generateTicketQrDataUrl(checkinUrl)
 
   const reference = formatBookingReference(productSlug, booking.id)
-  const dateLabel = formatEventDateLong(booking.event_date)
+  const dateLabel = formatEventDateLong(booking.eventDate)
   const timeLabel = formatStartTime(startTime)
 
   const googleUrl = !isCancelled && startTime
     ? googleCalendarUrl({
         title: productName,
-        eventDate: booking.event_date,
+        eventDate: booking.eventDate,
         startTime,
         durationMinutes,
         location: meetingPoint?.address || meetingPoint?.display_name || undefined,
@@ -89,9 +60,9 @@ export default async function TicketPage({ params }: { params: { token: string }
     : null
   const icsUrl = !isCancelled && startTime
     ? icsDataUrl({
-        uid: booking.ticket_token!,
+        uid: booking.ticketToken!,
         title: productName,
-        eventDate: booking.event_date,
+        eventDate: booking.eventDate,
         startTime,
         durationMinutes,
         location: meetingPoint?.address || meetingPoint?.display_name || undefined,
@@ -208,7 +179,7 @@ export default async function TicketPage({ params }: { params: { token: string }
         <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '16px' }}>
           <div style={{ textAlign: 'left' }}>
             <p style={{ ...S.sectionLabel, marginBottom: '4px' }}>Guest</p>
-            <p style={{ fontSize: '14px', color: '#fff' }}>{booking.guest_name || 'Guest'}</p>
+            <p style={{ fontSize: '14px', color: '#fff' }}>{booking.guestName || 'Guest'}</p>
           </div>
           <div style={{ textAlign: 'right' }}>
             <p style={{ ...S.sectionLabel, marginBottom: '4px' }}>Guests</p>
