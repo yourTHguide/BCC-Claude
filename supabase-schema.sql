@@ -445,3 +445,35 @@ ON CONFLICT (id) DO UPDATE SET
   public = EXCLUDED.public,
   file_size_limit = EXCLUDED.file_size_limit,
   allowed_mime_types = EXCLUDED.allowed_mime_types;
+
+-- ============================================================
+-- STAGE 9 — New in Bangkok booking lifecycle (Booking → Ticket → Check-in)
+-- ============================================================
+-- Additive on top of everything above. Reuses the existing Product/
+-- Event-Instance/checkout/webhook architecture; adds only what's needed for
+-- a canonical Booking → digital ticket/QR → host check-in chain that any
+-- future SNX product can reuse (New in Bangkok is the first, not a
+-- special case). Per-stage application:
+--   • Stage 9a (bookings.event_id/product_id/ticket_token) → APPLIED
+--     2026-08-23 (migration 20260823000001_stage9a_booking_identity.sql)
+
+-- ── [9a] bookings canonical identity + ticket token ──────────
+-- Nullable — existing bookings (pre-Stage-9a, incl. all of BCC's historical
+-- data) keep these NULL permanently; no backfill performed or required.
+-- ON DELETE SET NULL on both FKs: a booking is a financial/audit record and
+-- must never be deleted or block deletion of its event/product just because
+-- it once linked to it (mirrors event_dates.schedule_id's precedent above,
+-- not event_dates.product_id's stricter default-RESTRICT FK).
+ALTER TABLE bookings
+  ADD COLUMN IF NOT EXISTS event_id UUID REFERENCES event_dates(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS product_id UUID REFERENCES products(id) ON DELETE SET NULL,
+  -- Opaque, unique, server-generated (app/api/webhook/route.ts) — never a DB
+  -- default, so token format/entropy is one reviewable app-side concern.
+  -- MVP semantics: one Booking = one QR = the whole booking incl. quantity.
+  -- No per-guest/per-seat row yet; a future guest-level ticket system adds a
+  -- new `tickets` table without touching this column.
+  ADD COLUMN IF NOT EXISTS ticket_token TEXT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_bookings_ticket_token
+  ON bookings(ticket_token);
+CREATE INDEX IF NOT EXISTS idx_bookings_event_id ON bookings(event_id);

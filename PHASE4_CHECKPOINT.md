@@ -1,6 +1,44 @@
 # Phase 4 — Internal Product & Schedule Builder — Checkpoint
 
-_Last updated: 2026-08-22 (BNT integration Stage A — COMPLETE, public Product Read API live on the branch). Compact resume doc for continuing in a fresh conversation._
+_Last updated: 2026-08-23 (Stage 9a — booking canonical identity + ticket token — APPLIED to production). Compact resume doc for continuing in a fresh conversation._
+
+## Stage 9 — New in Bangkok booking lifecycle (separate track from BNT integration below)
+Goal: make New in Bangkok commercially bookable end-to-end —
+`Product → Event Date → Stripe → Booking → confirmation/ticket → QR →
+Event Operations → host scan → checked-in` — reusing the existing Product/
+`eventId` checkout/webhook architecture unchanged, as the first product on a
+booking/check-in foundation any future SNX product (BCC, Builders Club,
+private events) can reuse. Approved scope, decided 2026-08-23:
+- **MVP QR semantics:** one Booking = one `ticket_token` = one QR,
+  representing the whole booking including its `quantity`. No per-guest/
+  per-seat table. A group booking of 3 shows "3 guests" to the host on one
+  scan, not 3 separate tickets. Documented on the `ticket_token` column
+  itself so this isn't rediscovered as an oversight later.
+- **Capacity enforcement is explicitly OUT of scope** for this launch —
+  product decision, not a technical gap (see "Not done yet" below).
+- **Security scope is narrow by design:** Stage 9e secures only
+  `update-attendance` + the new check-in resolver route (the two this
+  lifecycle depends on), not all 6 known-unauthenticated legacy ops routes.
+- New in Bangkok stays Draft (`status='draft'`, both `visible_*=false`)
+  through the entire Stage 9 sequence — publish only after a real paid
+  transaction has been verified through the full chain.
+- Reuses the existing Vercel project, Stripe account/config, and Supabase
+  project throughout — no parallel infrastructure.
+
+**Stage 9a — Booking canonical identity + ticket token — APPLIED
+2026-08-23.** Migration `supabase/migrations/20260823000001_stage9a_booking_identity.sql`
+(mirrored into `supabase-schema.sql`'s Phase 4 appendix): `bookings` gains
+`event_id` (nullable FK → `event_dates`, `ON DELETE SET NULL`),
+`product_id` (nullable FK → `products`, `ON DELETE SET NULL`), and
+`ticket_token` (nullable, unique `TEXT`, generated server-side by the
+webhook — not a DB default). All three additive/nullable; zero backfill
+performed or required. Verified directly against production
+(`oomhftxgvikzxlvqdcmr`) post-apply: correct column types/nullability, both
+FKs confirm `ON DELETE SET NULL`, both indexes exist, and all 7 pre-existing
+bookings are unchanged with the three new columns `NULL` — no destructive
+change. **Not done yet:** 9b (webhook populates these columns on new
+bookings) through 9e (see the staged plan in the Stage 9 architecture audit
+transcript for this session).
 
 ## BNT integration (separate track from the New in Bangkok onboarding below)
 A second, separately-audited storefront (`bestnightlifethailand.com`, repo
@@ -294,20 +332,51 @@ launching a new experience becomes an **admin task, not a code/SQL task**.
 
 ## Not done yet (remaining for New in Bangkok onboarding)
 - **`ProductPage.tsx`, authenticated Draft preview
-  (`/dashboard/products/[id]/preview`), public `/events/[slug]`** — not
-  started (Stages 8e–8k). Content UI (8c) and Media UI (8d) are both live;
-  New in Bangkok has real cover + gallery images uploaded, but
-  `product_content` is still empty (0 rows) — content entry is next.
+  (`/dashboard/products/[id]/preview`), public `/events/[slug]`** — **DONE.**
+  (This section previously said "not started (Stages 8e–8k)" — that was
+  stale prose that fell out of sync with the actual commits. Corrected
+  2026-08-23: `fa9acab` shipped the reusable `ProductPage` component +
+  authenticated Draft preview + public `/events/[slug]`, `0ef7087`/`9dcb531`
+  redesigned it onto the BEST Nightlife design system with the real logo,
+  and `46db54d` (BNT Stage A, `/api/products/[slug]`) built on top of it.
+  Verified directly against `git log` and the live route files, not assumed
+  from this doc — see the Stage 9 architecture audit below for the full
+  trace.)
 - **New in Bangkok stays Draft** through all of Stage 8 — Preview and
   production share the same Supabase project, so Activate/Publish is never
   used as a preview mechanism. Draft review happens via the authenticated
-  admin preview route once built (Stage 8f), not by flipping `status`.
+  admin preview route (`/dashboard/products/[id]/preview`), not by flipping
+  `status`. **Still true entering Stage 9** — New in Bangkok remains
+  `status='draft'`, `visible_bcc=false`, `visible_bnt=false` throughout the
+  Stage 9 booking-lifecycle work below; it is not activated/published until
+  a real paid end-to-end transaction (Product → Stripe → Booking → ticket →
+  QR → host scan → checked-in) has been verified.
 - **BNT storefront + BNT checkout** — not started; `visible_bnt` is inert.
 - **Archive** product-lifecycle state — intentionally deferred (not needed for
   New in Bangkok; Draft ⇄ Active is the full lifecycle for now).
-- **Security hardening** (deferred tech debt): old dashboard anon-key writes,
-  public `bookings` read (PII), unauthenticated legacy ops routes,
-  `daily_summary` SECURITY DEFINER. See the security tech-debt notes.
+- **Event Date capacity enforcement** — intentionally deferred, explicit
+  product decision (not a technical gap): `event_dates.capacity` exists and
+  is surfaced by `/api/events`, but nothing enforces it at checkout.
+  Deliberately left unenforced for New in Bangkok's launch so Guide can
+  observe real booking volume before deciding on a cap. Do not add a
+  New-in-Bangkok-specific limit; if/when capacity enforcement is built, it
+  must be generic to Event Dates (compatible with BCC) — see the race-safety
+  note in the Stage 9 audit below before ever implementing this.
+- **Security hardening** (deferred tech debt, unchanged by Stage 9 except
+  where noted): old dashboard anon-key writes/reads, public `bookings` read
+  policy (`USING (true)` — exposes guest name/email/phone AND, as of Stage
+  9a, `ticket_token` to anyone with the anon key, bypassing the QR resolver
+  entirely; not worsened by Stage 9a, but directly relevant to it — the
+  "opaque QR token" security property only defends against someone reading
+  the QR image, not direct DB access), 6 unauthenticated
+  `/api/*` ops routes — `cancel-booking`, `reschedule-booking`,
+  `delete-ota-booking`, `resend-confirmation`, `send-confirmed-meetup`, and
+  `update-attendance` (Stage 9e secures only `update-attendance` + the new
+  Stage 9d check-in resolver, since those are the two this booking lifecycle
+  directly depends on; the other 4 remain untouched, unauthenticated legacy
+  debt — do not assume Stage 9e fixed them), `daily_summary` SECURITY
+  DEFINER. None of this blocks New in Bangkok's launch; all pre-existing,
+  tracked here so it isn't rediscovered as a surprise later.
 
 ## How to resume
 1. `git fetch && git checkout phase4-stage0-baseline` (verify latest commit).
