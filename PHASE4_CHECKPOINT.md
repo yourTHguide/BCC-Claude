@@ -667,9 +667,13 @@ ask — found none; every optional field is checked before use. Verified:
 configuration (override set for all environments) confirming Preview now
 correctly ignores it and Production/local still respect it; the live QR
 was decoded a THIRD time post-correction-deploy and finally showed the
-Preview deployment's own host, not `bkkclubcrawl.com` — the fix is
-confirmed working by direct observation, not inferred from the code
-change alone.
+Preview deployment's own host, not `bkkclubcrawl.com`; then navigated
+there directly (unauthenticated, via the Browser tool) and got a clean
+`/login?redirect=/dashboard/checkin/[token]` redirect with a working
+"Admin Sign In" page — no client-side exception anywhere in the chain,
+and the intended path is correctly preserved for after login. The fix is
+confirmed working by direct observation at every step, not inferred from
+the code change alone.
 
 **2. Confirmation email is now genuinely product-driven — full rewrite,
 not a patch.** `emails/confirmation.ts` no longer contains ANY BCC-specific
