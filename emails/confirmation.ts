@@ -53,8 +53,8 @@ export function generateConfirmationEmail({
   // Present only when the webhook's booking INSERT actually succeeded and a
   // ticket_token was persisted — an insert failure must never reference a
   // token that doesn't exist in `bookings`. When absent, the "View Ticket &
-  // QR" CTA, QR image, and booking reference are all omitted — there is
-  // nothing to link to yet.
+  // QR" CTA and booking reference are both omitted — there is nothing to
+  // link to yet.
   ticket?: { token: string; reference: string } | null
   // Everything below comes from the SAME canonical resolution as `ticket`
   // (event_id/product_id) — all optional/absent together when that
@@ -133,13 +133,10 @@ export function generateConfirmationEmail({
       </ul>
     </div>` : ''
 
-  // The durable source of truth is this CTA/link, not the inline image —
-  // failure to render the QR (a plain <img>, inert on failure) never breaks
-  // the email or hides the CTA. Both read from the SAME appUrl, so they can
-  // never resolve to different hosts.
+  // The CTA/link is the sole canonical path to the ticket + QR — no inline
+  // QR image in the email itself (Guide's explicit decision).
   const ticketCtaHtml = ticket ? `
     <div style="text-align:center">
-      <img src="${appUrl}/api/tickets/${ticket.token}/qr" width="120" height="120" alt="Check-in QR code" style="display:block;margin:0 auto 14px;width:120px;height:120px;background:#fff;border-radius:8px;padding:6px;border:0" />
       <p style="margin:0 0 3px;font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.35)">Booking Reference</p>
       <p style="margin:0 0 18px;font-size:17px;font-weight:700;color:#EA003A;letter-spacing:0.04em">${esc(ticket.reference)}</p>
       <a href="${appUrl}/ticket/${ticket.token}" style="display:inline-block;background:linear-gradient(135deg,#EA003A,#820065);color:#fff;font-weight:600;font-size:14px;padding:14px 32px;border-radius:8px;text-decoration:none">View Ticket &amp; QR →</a>
