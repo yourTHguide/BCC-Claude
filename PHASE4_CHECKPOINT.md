@@ -36,9 +36,33 @@ performed or required. Verified directly against production
 (`oomhftxgvikzxlvqdcmr`) post-apply: correct column types/nullability, both
 FKs confirm `ON DELETE SET NULL`, both indexes exist, and all 7 pre-existing
 bookings are unchanged with the three new columns `NULL` — no destructive
-change. **Not done yet:** 9b (webhook populates these columns on new
-bookings) through 9e (see the staged plan in the Stage 9 architecture audit
-transcript for this session).
+change.
+
+**Stage 9b — Webhook persists canonical identity + ticket token — APPLIED
+2026-08-23.** `app/api/webhook/route.ts` now writes `event_id`/`product_id`
+(read from Stripe session metadata — already set by the dynamic checkout
+path since Stage 6; `null` for any booking that came through the legacy
+hardcoded-Price path, which never sets those metadata keys) and a fresh
+`ticket_token` (via new `lib/tickets.ts` → `generateTicketToken()`, 24
+random bytes/192 bits, base64url, generated unconditionally for every paid
+booking regardless of checkout path) on every new booking insert. No
+retry-on-collision logic — entropy makes a collision practically impossible,
+and a collision would surface as an explicit Postgres `23505` error rather
+than fail silently. Verified without a live Stripe webhook call (this
+session's network policy still blocks `next dev` from reaching the real
+Supabase project, and Vercel Preview carries SSO protection — same
+constraint recorded in Stage 8d): `npx tsc --noEmit` and `npm run build`
+both clean, no route regressions; then replicated the exact insert shape
+directly against production via a marked, unmistakable test booking
+(`notes LIKE 'STAGE9B_VERIFICATION_TEMP%'`) referencing `new-in-bkk`'s real
+`event_id`/`product_id` — insert succeeded with both FKs satisfied, a
+second insert reusing the same `ticket_token` correctly failed with
+`23505 duplicate key value violates unique constraint
+"uniq_bookings_ticket_token"`, then the test row was deleted and booking
+count confirmed back to baseline (7) with `new-in-bkk` still
+`status='draft'`, both `visible_*=false`. **Not done yet:** 9c (real
+confirmation/ticket page) through 9e (see the Stage 9 architecture audit
+transcript for this session for the full staged plan).
 
 ## BNT integration (separate track from the New in Bangkok onboarding below)
 A second, separately-audited storefront (`bestnightlifethailand.com`, repo

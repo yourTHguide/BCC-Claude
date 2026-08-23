@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe'
 import { getServiceSupabase } from '@/lib/supabase'
+import { generateTicketToken } from '@/lib/tickets'
 import { Resend } from 'resend'
 import { generateConfirmationEmail } from '@/emails/confirmation'
 
@@ -54,6 +55,18 @@ export async function POST(req: NextRequest) {
       ? session.total_details.amount_discount / 100
       : 0
 
+    // Canonical identifiers — only present when the session came from the
+    // dynamic (Product/Event-Instance) checkout path (Stage 6); the legacy
+    // hardcoded-Price path never sets these. Coerce to null rather than
+    // leaving undefined so the insert always sends an explicit value.
+    const eventId = meta.event_id || null
+    const productId = meta.product_id || null
+
+    // Every paid booking gets a ticket token, regardless of which checkout
+    // path produced it — the confirmation/ticket page and QR check-in
+    // (Stage 9c/9d) key off this, not off event_id/product_id being present.
+    const ticketToken = generateTicketToken()
+
     // ── Save booking to Supabase ──
     const { error: dbError } = await supabase
       .from('bookings')
@@ -61,6 +74,8 @@ export async function POST(req: NextRequest) {
         night_slug: meta.night_slug,
         night_name: meta.night_name,
         event_date: meta.event_date,
+        event_id: eventId,
+        product_id: productId,
         guest_name: guestName,
         guest_email: guestEmail,
         guest_phone: guestPhone,
@@ -74,6 +89,7 @@ export async function POST(req: NextRequest) {
         status: 'confirmed',
         stripe_session_id: session.id,
         stripe_payment_id: session.payment_intent,
+        ticket_token: ticketToken,
       })
 
     if (dbError) {
