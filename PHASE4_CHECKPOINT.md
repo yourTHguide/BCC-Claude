@@ -171,11 +171,48 @@ re-running the write) lines up with what the database itself would allow;
 (2) a `status='cancelled'` booking was confirmed to reach the route's
 pre-write 409 gate before any update is attempted. Booking count and
 `new-in-bkk` state reconfirmed unchanged (still 7 bookings, `new-in-bkk`
-still `status='draft'`, both `visible_*=false`) after cleanup. **Not done
-yet:** 9e (secure `update-attendance`, which the manual-fallback path in
-`/dashboard` still calls unauthenticated — the new `/api/admin/checkin`
-route is already admin-authed from the start, so 9e's remaining scope is
-narrower than originally audited).
+still `status='draft'`, both `visible_*=false`) after cleanup.
+
+**Stage 9e — Secure the routes this lifecycle depends on — APPLIED
+2026-08-23.** Deliberately narrow, per explicit instruction: only
+`app/api/update-attendance/route.ts` was touched — not a refactor of all 6
+originally-audited unauthenticated legacy ops routes. Added a
+`requireAdmin()` gate (same helper every `/api/admin/*` route already uses)
+at the top of the handler. This route had NO auth check at all before —
+not under `/api/admin`, so `middleware.ts`'s `/api/admin/:path*` matcher
+never covered it either — meaning anyone who found the endpoint could flip
+any booking's attendance status. It's now in scope specifically because
+Stage 9d's check-in UI keeps this route's manual dropdown as its
+scan-failure fallback, making it part of the check-in lifecycle for the
+first time. `requireAdmin()` reads the Supabase Auth session directly
+(`lib/admin-auth.ts` → `createServerSupabase()`), independent of
+`middleware.ts`'s path matching, so this fix needed no route move and no
+middleware change. The new `/api/admin/checkin/[token]` (Stage 9d) was
+already admin-authed from creation — nothing to fix there. The other 5
+known-unauthenticated routes are untouched by design — see "Security
+hardening" below.
+
+Verified: `npx tsc --noEmit` and `npm run build` both clean, no
+regressions. Not independently re-verified with a live authenticated
+session in this sandbox (no `.env.local`, same constraint as every other
+Stage 9 verification) — `requireAdmin()` itself is unmodified,
+already-proven code reused verbatim from every existing `/api/admin/*`
+route, so this is a low-risk application of an established pattern rather
+than new logic needing fresh verification. A logged-in host's browser
+already carries the Supabase Auth session cookie when the dashboard's
+existing attendance dropdown calls this route, so this should be
+transparent to legitimate use and only block unauthenticated requests —
+worth a quick manual click-test in the real dashboard before New in
+Bangkok's paid end-to-end transaction test.
+
+**Stage 9 (9a–9e) is now feature-complete for the audited scope.** What
+remains before New in Bangkok can launch: a real paid Stripe transaction
+exercising the full chain (Product → Event Date → `/book` → Stripe →
+webhook → Booking → `/booking-success` → `/ticket/[token]` → QR →
+`/dashboard/checkin/[token]` → checked-in), per the launch policy above —
+not yet run. `new-in-bkk` remains `status='draft'`,
+`visible_bcc=false`, `visible_bnt=false` throughout; do not activate/publish
+until that test passes.
 
 ## BNT integration (separate track from the New in Bangkok onboarding below)
 A second, separately-audited storefront (`bestnightlifethailand.com`, repo
@@ -499,21 +536,22 @@ launching a new experience becomes an **admin task, not a code/SQL task**.
   New-in-Bangkok-specific limit; if/when capacity enforcement is built, it
   must be generic to Event Dates (compatible with BCC) — see the race-safety
   note in the Stage 9 audit below before ever implementing this.
-- **Security hardening** (deferred tech debt, unchanged by Stage 9 except
-  where noted): old dashboard anon-key writes/reads, public `bookings` read
-  policy (`USING (true)` — exposes guest name/email/phone AND, as of Stage
-  9a, `ticket_token` to anyone with the anon key, bypassing the QR resolver
-  entirely; not worsened by Stage 9a, but directly relevant to it — the
-  "opaque QR token" security property only defends against someone reading
-  the QR image, not direct DB access), 6 unauthenticated
-  `/api/*` ops routes — `cancel-booking`, `reschedule-booking`,
-  `delete-ota-booking`, `resend-confirmation`, `send-confirmed-meetup`, and
-  `update-attendance` (Stage 9e secures only `update-attendance` + the new
-  Stage 9d check-in resolver, since those are the two this booking lifecycle
-  directly depends on; the other 4 remain untouched, unauthenticated legacy
-  debt — do not assume Stage 9e fixed them), `daily_summary` SECURITY
-  DEFINER. None of this blocks New in Bangkok's launch; all pre-existing,
-  tracked here so it isn't rediscovered as a surprise later.
+- **Security hardening** (deferred tech debt; `update-attendance` fixed by
+  Stage 9e, everything else below is UNCHANGED, still open): old dashboard
+  anon-key writes/reads, public `bookings` read policy (`USING (true)` —
+  exposes guest name/email/phone AND, as of Stage 9a, `ticket_token` to
+  anyone with the anon key, bypassing the QR resolver entirely; not
+  worsened by Stage 9a, but directly relevant to it — the "opaque QR token"
+  security property only defends against someone reading the QR image, not
+  direct DB access), **5 remaining unauthenticated `/api/*` ops routes** —
+  `cancel-booking`, `reschedule-booking`, `delete-ota-booking`,
+  `resend-confirmation`, `send-confirmed-meetup` (deliberately left
+  untouched — none of these are used by the Stage 9 booking/check-in
+  lifecycle, so fixing them was explicitly out of scope; `update-attendance`
+  was the one exception, fixed in Stage 9e because Stage 9d's manual
+  check-in fallback depends on it), `daily_summary` SECURITY DEFINER. None
+  of this blocks New in Bangkok's launch; all pre-existing, tracked here so
+  it isn't rediscovered as a surprise later.
 
 ## How to resume
 1. `git fetch && git checkout phase4-stage0-baseline` (verify latest commit).
