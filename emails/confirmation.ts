@@ -1,3 +1,6 @@
+import { formatStartTime } from '@/lib/dates'
+import { revealMeetingPointForTicket } from '@/lib/meetingPointReveal'
+
 export function generateConfirmationEmail({
   guestName,
   nightName,
@@ -6,6 +9,8 @@ export function generateConfirmationEmail({
   totalPaid,
   promoCode,
   ticket,
+  startTime,
+  meetingPointRaw,
 }: {
   guestName: string
   nightName: string
@@ -17,8 +22,17 @@ export function generateConfirmationEmail({
   // ticket_token was persisted (Stage 9g) — a failed insert must never
   // reference a token that doesn't exist in `bookings`. When absent, the
   // email renders exactly as it did before Stage 9 (the "legacy BCC
-  // confirmation flow" the ticket feature must not regress).
+  // confirmation flow" the ticket feature must not regress) — including the
+  // hardcoded "9:30 PM" meet-up time below, which only ever applied to BCC.
   ticket?: { token: string; reference: string } | null
+  // Stage 9 (mobile-QA pass): the event's real effective start time and raw
+  // meeting_point — only meaningful alongside `ticket` (both come from the
+  // same canonical event_id/product_id resolution). Sanitized here via the
+  // SAME revealMeetingPointForTicket used by the ticket page, so the email
+  // and the ticket page can never disagree about what's safe to disclose —
+  // 'public'/'after_booking' reveal, 'private'/unset/invalid reveal nothing.
+  startTime?: string | null
+  meetingPointRaw?: unknown | null
 }) {
   // Parse the YYYY-MM-DD string into LOCAL date components (not new Date(eventDate),
   // which parses as UTC midnight and can roll the date back a day depending on server TZ)
@@ -32,43 +46,56 @@ export function generateConfirmationEmail({
   })
   const firstName = guestName?.split(' ')[0] || 'Guest'
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://bkkclubcrawl.com'
+  const timeLabel = formatStartTime(startTime ?? null)
+  const meetingPoint = revealMeetingPointForTicket(meetingPointRaw ?? null)
 
-  const ticketSectionHtml = ticket ? `
-  <!-- YOUR TICKET -->
-  <tr><td style="background:#1A0015;padding:0 32px 24px;border-left:1px solid rgba(255,255,255,0.06);border-right:1px solid rgba(255,255,255,0.06)">
+  // Canonical hierarchy for any booking with a resolvable ticket: Booking
+  // Confirmed → product → date/time/guests → meeting point (per the
+  // Product's existing visibility rules) → a strong "View Ticket & QR" CTA.
+  // Deliberately does NOT reproduce the ticket page's Google Maps
+  // link/Add-to-Calendar/WhatsApp-support — those live at the CTA's
+  // destination, not duplicated here. Replaces the legacy BOOKING SUMMARY
+  // table + old YOUR TICKET section entirely when `ticket` is present;
+  // when absent, neither this nor the summary table below render — the
+  // legacy summary table (with BCC's hardcoded "9:30 PM") is untouched.
+  const canonicalSectionHtml = ticket ? `
+  <!-- BOOKING CONFIRMED (canonical) -->
+  <tr><td style="background:#1A0015;padding:28px 32px 0;border-left:1px solid rgba(255,255,255,0.06);border-right:1px solid rgba(255,255,255,0.06)">
+    <p style="margin:0;font-size:15px;color:rgba(255,255,255,0.70)">Hey ${firstName}, your booking is confirmed.</p>
+  </td></tr>
+  <tr><td style="background:#1A0015;padding:20px 32px 24px;border-left:1px solid rgba(255,255,255,0.06);border-right:1px solid rgba(255,255,255,0.06)">
     <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
-      <tr><td style="padding:24px;text-align:center">
-        <p style="margin:0 0 16px;font-size:11px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#EA003A">YOUR TICKET</p>
-        <img src="${appUrl}/api/tickets/${ticket.token}/qr" width="160" height="160" alt="Check-in QR code" style="display:block;margin:0 auto 16px;width:160px;height:160px;background:#fff;border-radius:8px;padding:8px;border:0" />
+      <tr><td style="padding:28px 24px;text-align:center">
+        <p style="margin:0 0 4px;font-size:20px;font-weight:700;color:#fff">${nightName}</p>
+        <p style="margin:0 0 22px;font-size:14px;color:rgba(255,255,255,0.60)">
+          ${formattedDate}${timeLabel ? ` · ${timeLabel}` : ''} · ${quantity} guest${quantity > 1 ? 's' : ''}
+        </p>
+        ${meetingPoint ? `
+        <div style="text-align:left;background:rgba(255,255,255,0.03);border-radius:8px;padding:14px 16px;margin-bottom:22px">
+          <p style="margin:0 0 4px;font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.35)">Meeting Point</p>
+          ${meetingPoint.display_name ? `<p style="margin:0 0 2px;font-size:14px;font-weight:600;color:#fff">${meetingPoint.display_name}</p>` : ''}
+          ${meetingPoint.address ? `<p style="margin:0;font-size:13px;color:rgba(255,255,255,0.60)">${meetingPoint.address}</p>` : ''}
+        </div>` : `
+        <div style="text-align:left;background:rgba(255,255,255,0.03);border-radius:8px;padding:14px 16px;margin-bottom:22px">
+          <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.60);line-height:1.6">The exact meeting point will be shared closer to the event.</p>
+        </div>`}
+        <p style="margin:0 0 18px;font-size:13px;color:rgba(255,255,255,0.45)">฿${totalPaid.toLocaleString()} paid${promoCode ? ` · promo ${promoCode}` : ''}</p>
+        <img src="${appUrl}/api/tickets/${ticket.token}/qr" width="140" height="140" alt="Check-in QR code" style="display:block;margin:0 auto 16px;width:140px;height:140px;background:#fff;border-radius:8px;padding:8px;border:0" />
         <p style="margin:0 0 4px;font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.35)">Booking Reference</p>
         <p style="margin:0 0 20px;font-size:18px;font-weight:700;color:#EA003A;letter-spacing:0.04em">${ticket.reference}</p>
-        <a href="${appUrl}/ticket/${ticket.token}" style="display:inline-block;background:linear-gradient(135deg,#EA003A,#820065);color:#fff;font-weight:600;font-size:14px;padding:14px 32px;border-radius:8px;text-decoration:none">View Your Ticket →</a>
-        <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.40);line-height:1.6">Your full ticket — including the meet-up location once shared — is always available at that link. Show the QR code above at check-in.</p>
+        <a href="${appUrl}/ticket/${ticket.token}" style="display:inline-block;background:linear-gradient(135deg,#EA003A,#820065);color:#fff;font-weight:600;font-size:14px;padding:14px 32px;border-radius:8px;text-decoration:none">View Ticket &amp; QR →</a>
+        <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.40);line-height:1.6">Your full ticket — QR, directions, and Add to Calendar — is always available at that link.</p>
       </td></tr>
     </table>
   </td></tr>` : ''
 
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>You're booked — Bangkok Club Crawl</title>
-</head>
-<body style="margin:0;padding:0;background:#0D000A;font-family:'Helvetica Neue',Arial,sans-serif">
-
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#0D000A;padding:40px 20px">
-<tr><td align="center">
-<table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px">
-
-  <!-- HEADER -->
-  <tr><td style="background:linear-gradient(135deg,#EA003A,#820065);border-radius:12px 12px 0 0;padding:36px 32px;text-align:center">
-    <p style="margin:0 0 8px;font-weight:700;font-size:13px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(255,255,255,0.70)">BANGKOK CLUB CRAWL</p>
-    <h1 style="margin:0;font-size:28px;font-weight:700;color:#fff;line-height:1.2">You're booked for tonight.</h1>
-    <p style="margin:12px 0 0;font-size:16px;color:rgba(255,255,255,0.80);font-style:italic">${nightName}</p>
-  </td></tr>
-
-  <!-- BOOKING SUMMARY -->
+  // Legacy BOOKING SUMMARY table — byte-identical to pre-Stage-9, including
+  // the hardcoded "9:30 PM" (BCC's actual meet-up time; this table only
+  // renders when there's no canonical `ticket`, so it never misrepresents a
+  // different product's real time). Kept as its own block so the `ticket`
+  // branch above can't accidentally regress this path.
+  const legacySummaryHtml = `
+  <!-- BOOKING SUMMARY (legacy) -->
   <tr><td style="background:#1A0015;padding:28px 32px;border-left:1px solid rgba(255,255,255,0.06);border-right:1px solid rgba(255,255,255,0.06)">
     <p style="margin:0 0 20px;font-size:15px;color:rgba(255,255,255,0.70)">Hey ${firstName},<br><br>
     Your booking is confirmed. Here's everything you need for the night.</p>
@@ -126,9 +153,22 @@ export function generateConfirmationEmail({
         </table>
       </td></tr>
     </table>
-  </td></tr>
-${ticketSectionHtml}
-  <!-- MEET-UP DETAILS -->
+  </td></tr>`
+
+  // BCC-crawl-specific promises (a fixed "9:30 PM" first-bar time, and a
+  // location "shared via WhatsApp by 7 PM") that directly contradict the
+  // canonical section above once it has New in Bangkok's REAL time (20:30)
+  // and its ALREADY-DISCLOSED meeting point — found by testing this
+  // template with real New in Bangkok data during the Stage 9 mobile-QA
+  // pass, not assumed. Gated to the legacy (no-ticket) path only, same as
+  // legacySummaryHtml above. The remaining sections below this one (RUN OF
+  // SHOW's 4-venue schedule, INCLUDED/NOT INCLUDED, DRESS CODE, TIPS) are
+  // ALSO BCC-crawl-specific and will show the same wrong copy for New in
+  // Bangkok — left untouched here as an explicitly reported follow-up
+  // (would need per-product content, e.g. from Phase 4's `product_content`,
+  // not a hardcoded template) rather than expanded into in this pass.
+  const legacyMeetupProcessHtml = `
+  <!-- MEET-UP DETAILS (legacy) -->
   <tr><td style="background:#1A0015;padding:0 32px 24px;border-left:1px solid rgba(255,255,255,0.06);border-right:1px solid rgba(255,255,255,0.06)">
     <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(234,0,58,0.08);border:1px solid rgba(234,0,58,0.20);border-left:3px solid #EA003A;border-radius:10px">
       <tr><td style="padding:20px 24px">
@@ -146,7 +186,7 @@ ${ticketSectionHtml}
     </table>
   </td></tr>
 
-  <!-- CONFIRMATION PROCESS -->
+  <!-- CONFIRMATION PROCESS (legacy) -->
   <tr><td style="background:#1A0015;padding:0 32px 24px;border-left:1px solid rgba(255,255,255,0.06);border-right:1px solid rgba(255,255,255,0.06)">
     <p style="margin:0 0 12px;font-size:11px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.40)">CONFIRMATION PROCESS</p>
     <p style="margin:0 0 10px;font-size:14px;color:rgba(255,255,255,0.65);line-height:1.7">
@@ -155,8 +195,29 @@ ${ticketSectionHtml}
     <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.45);line-height:1.7">
       If we don't reach the minimum, you'll receive an email with options to reschedule or receive a full refund.
     </p>
-  </td></tr>
+  </td></tr>`
 
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>You're booked — Bangkok Club Crawl</title>
+</head>
+<body style="margin:0;padding:0;background:#0D000A;font-family:'Helvetica Neue',Arial,sans-serif">
+
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#0D000A;padding:40px 20px">
+<tr><td align="center">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px">
+
+  <!-- HEADER -->
+  <tr><td style="background:linear-gradient(135deg,#EA003A,#820065);border-radius:12px 12px 0 0;padding:36px 32px;text-align:center">
+    <p style="margin:0 0 8px;font-weight:700;font-size:13px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(255,255,255,0.70)">BANGKOK CLUB CRAWL</p>
+    <h1 style="margin:0;font-size:28px;font-weight:700;color:#fff;line-height:1.2">${ticket ? 'Booking Confirmed' : "You're booked for tonight."}</h1>
+    <p style="margin:12px 0 0;font-size:16px;color:rgba(255,255,255,0.80);font-style:italic">${nightName}</p>
+  </td></tr>
+${ticket ? canonicalSectionHtml : legacySummaryHtml}
+${ticket ? '' : legacyMeetupProcessHtml}
   <!-- RUN OF SHOW -->
   <tr><td style="background:#1A0015;padding:0 32px 24px;border-left:1px solid rgba(255,255,255,0.06);border-right:1px solid rgba(255,255,255,0.06)">
     <p style="margin:0 0 16px;font-size:11px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.40)">YOUR NIGHT</p>

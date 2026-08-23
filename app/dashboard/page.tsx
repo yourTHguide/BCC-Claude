@@ -965,28 +965,36 @@ export default function Dashboard() {
 
       {/* Calendar Tab */}
       {activeTab === 'calendar' && (
-        <div style={{
-          padding:'24px',
-          // Reserves room for the fixed-position EventPanel on desktop
-          // (420px + margin). On any viewport under ~440px wide this calc()
-          // alone goes negative — invalid, and the actual cause of the
-          // reported "calendar needs landscape" overflow. CSS max() floors
-          // it at 280px (comfortably fits a 7-column grid) without changing
-          // the desktop value at all, since calc(100% - 440px) is already
-          // well above 280px on any screen wide enough to show the panel
-          // beside the calendar in the first place.
-          maxWidth: selectedEvent ? 'max(280px, calc(100% - 440px))' : '900px',
-          margin:'0 auto',
-          transition:'max-width 0.2s',
-        }}>
+        <div
+          className="px-2 py-3 sm:px-6 sm:py-6"
+          style={{
+            // Reserves room for the fixed-position EventPanel on desktop
+            // (420px + margin). On any viewport under ~440px wide this calc()
+            // alone goes negative — invalid, and the actual cause of the
+            // reported "calendar needs landscape" overflow. CSS max() floors
+            // it at 280px (comfortably fits a 7-column grid) without changing
+            // the desktop value at all, since calc(100% - 440px) is already
+            // well above 280px on any screen wide enough to show the panel
+            // beside the calendar in the first place.
+            maxWidth: selectedEvent ? 'max(280px, calc(100% - 440px))' : '900px',
+            margin:'0 auto',
+            transition:'max-width 0.2s',
+          }}
+        >
           {/* Day labels */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:'4px', marginBottom:'8px' }}>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:'4px', marginBottom:'6px' }}>
             {DAY_LABELS.map(d => (
-              <div key={d} style={{ textAlign:'center', fontWeight:600, fontSize:'11px', color:'rgba(255,255,255,0.30)', padding:'8px 0' }}>{d}</div>
+              <div key={d} className="py-1 sm:py-2" style={{ textAlign:'center', fontWeight:600, fontSize:'11px', color:'rgba(255,255,255,0.30)' }}>{d}</div>
             ))}
           </div>
 
-          {/* Calendar grid */}
+          {/* Calendar grid — compact dots-only on mobile (native month-
+              overview density: date number + small colored dots per event,
+              no names), the original name-labeled pills unchanged from the
+              sm breakpoint up. Both variants are always in the DOM; only
+              className (hidden / sm:hidden) picks which one paints, so
+              there's no client-only media-query state and no hydration
+              mismatch. */}
           <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:'4px' }}>
             {/* Empty offset cells */}
             {Array.from({length:offset}).map((_,i) => <div key={`e${i}`} />)}
@@ -1003,12 +1011,11 @@ export default function Dashboard() {
               return (
                 <div
                   key={day}
+                  className="min-h-[40px] sm:min-h-[80px] p-1 sm:p-2"
                   style={{
-                    minHeight:'80px',
                     borderRadius:'10px',
                     background: isSelected ? 'rgba(234,0,58,0.10)' : isToday ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.02)',
                     border: isSelected ? '1px solid rgba(234,0,58,0.40)' : isToday ? '1px solid rgba(234,0,58,0.25)' : '1px solid rgba(255,255,255,0.05)',
-                    padding:'8px',
                     cursor: dayEvents.length > 0 ? 'pointer' : 'default',
                     opacity: isPast ? 0.5 : 1,
                     transition:'all 0.15s',
@@ -1016,53 +1023,74 @@ export default function Dashboard() {
                   onClick={() => dayEvents.length > 0 && setSelectedEvent(dayEvents[0])}
                 >
                   {/* Day number */}
-                  <div style={{
+                  <div className="mb-0.5 sm:mb-1.5" style={{
                     fontWeight: isToday ? 700 : 400,
                     fontSize:'13px',
                     color: isToday ? '#EA003A' : 'rgba(255,255,255,0.60)',
-                    marginBottom:'6px',
+                    textAlign:'center',
                   }}>{day}</div>
 
-                  {/* Event pills */}
-                  {dayEvents.map(ev => (
-                    <div
-                      key={ev.id}
-                      onClick={e => { e.stopPropagation(); setSelectedEvent(ev) }}
-                      style={{
-                        background: ev.is_open ? (nightColors[ev.night_slug]||'#EA003A') : 'rgba(255,255,255,0.10)',
-                        borderRadius:'4px',
-                        padding:'2px 6px',
-                        fontSize:'10px',
-                        fontWeight:600,
-                        color: ev.is_open ? '#fff' : 'rgba(255,255,255,0.40)',
-                        marginBottom:'3px',
-                        whiteSpace:'nowrap',
-                        overflow:'hidden',
-                        textOverflow:'ellipsis',
-                        cursor:'pointer',
-                      }}
-                    >
-                      {ev.is_open ? '' : '✕ '}{ev.night_name.split(' ')[0]}
+                  {/* Mobile: dots only, one per event, no names/text */}
+                  {dayEvents.length > 0 && (
+                    <div className="flex sm:hidden" style={{ justifyContent:'center', flexWrap:'wrap', gap:'3px' }}>
+                      {dayEvents.map(ev => (
+                        <div
+                          key={ev.id}
+                          style={{
+                            width:'6px', height:'6px', borderRadius:'50%',
+                            background: ev.is_open ? (nightColors[ev.night_slug]||'#EA003A') : 'transparent',
+                            border: ev.is_open ? 'none' : '1px solid rgba(255,255,255,0.35)',
+                          }}
+                        />
+                      ))}
                     </div>
-                  ))}
+                  )}
+
+                  {/* Desktop: full name-labeled pills, unchanged */}
+                  <div className="hidden sm:block">
+                    {dayEvents.map(ev => (
+                      <div
+                        key={ev.id}
+                        onClick={e => { e.stopPropagation(); setSelectedEvent(ev) }}
+                        style={{
+                          background: ev.is_open ? (nightColors[ev.night_slug]||'#EA003A') : 'rgba(255,255,255,0.10)',
+                          borderRadius:'4px',
+                          padding:'2px 6px',
+                          fontSize:'10px',
+                          fontWeight:600,
+                          color: ev.is_open ? '#fff' : 'rgba(255,255,255,0.40)',
+                          marginBottom:'3px',
+                          whiteSpace:'nowrap',
+                          overflow:'hidden',
+                          textOverflow:'ellipsis',
+                          cursor:'pointer',
+                        }}
+                      >
+                        {ev.is_open ? '' : '✕ '}{ev.night_name.split(' ')[0]}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )
             })}
           </div>
 
-          {/* Legend */}
-          <div style={{ display:'flex', flexWrap:'wrap', gap:'12px', marginTop:'24px', padding:'16px', background:'rgba(255,255,255,0.02)', borderRadius:'10px', border:'1px solid rgba(255,255,255,0.05)' }}>
+          {/* Legend — compacted on mobile (smaller gap/padding) only; the
+              swatch shape/labels are untouched (still the original square
+              pills, not the new mobile dots) since the desktop legend
+              doesn't need to change beyond spacing. Color meaning unchanged. */}
+          <div className="flex flex-wrap gap-2 mt-4 p-3 sm:gap-3 sm:mt-6 sm:p-4" style={{ background:'rgba(255,255,255,0.02)', borderRadius:'10px', border:'1px solid rgba(255,255,255,0.05)' }}>
             {Object.entries(nightColors).slice(0,6).map(([slug,color]) => {
               const name = events.find(e=>e.night_slug===slug)?.night_name || slug
               return (
                 <div key={slug} style={{ display:'flex', alignItems:'center', gap:'6px' }}>
-                  <div style={{ width:'10px', height:'10px', borderRadius:'3px', background:color }} />
+                  <div style={{ width:'10px', height:'10px', borderRadius:'3px', background:color, flexShrink:0 }} />
                   <span style={{ fontSize:'11px', color:'rgba(255,255,255,0.40)' }}>{name.split(' ').slice(0,2).join(' ')}</span>
                 </div>
               )
             })}
             <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
-              <div style={{ width:'10px', height:'10px', borderRadius:'3px', background:'rgba(255,255,255,0.10)', border:'1px solid rgba(255,255,255,0.20)' }} />
+              <div style={{ width:'10px', height:'10px', borderRadius:'3px', background:'rgba(255,255,255,0.10)', border:'1px solid rgba(255,255,255,0.20)', flexShrink:0 }} />
               <span style={{ fontSize:'11px', color:'rgba(255,255,255,0.40)' }}>Closed</span>
             </div>
           </div>

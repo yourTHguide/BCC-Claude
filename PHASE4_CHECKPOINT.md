@@ -1,6 +1,6 @@
 # Phase 4 — Internal Product & Schedule Builder — Checkpoint
 
-_Last updated: 2026-08-23 (Stage 9a — booking canonical identity + ticket token — APPLIED to production). Compact resume doc for continuing in a fresh conversation._
+_Last updated: 2026-08-23 (Stage 9k — mobile-QA closure pass — APPLIED). Compact resume doc for continuing in a fresh conversation._
 
 ## Stage 9 — New in Bangkok booking lifecycle (separate track from BNT integration below)
 Goal: make New in Bangkok commercially bookable end-to-end —
@@ -484,7 +484,120 @@ would hit (owner/admin bypass the assignment filter by design, precisely
 so this is testable without provisioning a second account) — a true
 end-to-end test with a real staff-role login is future work, not blocking.
 
-## BNT integration (separate track from the New in Bangkok onboarding below)
+**Stage 9k — Final mobile-QA closure pass (pre-Stripe-test) — APPLIED
+2026-08-23.** Five items from Guide's second round of real-iPhone testing,
+all still before the real Stripe transaction:
+
+**Compact mobile calendar.** `app/dashboard/page.tsx`'s calendar cells
+showed full event-name pills on every viewport, which "technically fit"
+after Stage 9h's overflow fixes but were still visually dense/cumbersome on
+a phone. Redesigned as a native month-overview on mobile only: date number
++ small colored dots (one per event instance that day, using the exact same
+`nightColors[night_slug]` map the desktop pills already used — no new color
+system), no event names, `min-h-[40px]` cells (vs `80px`). Implemented as
+TWO always-present DOM variants gated by Tailwind `sm:hidden` / `hidden
+sm:block` (not JS media-query state, so no hydration mismatch) — the
+desktop name-labeled pills are **completely unchanged**, same markup, same
+`sm:` breakpoint as Stage 9h. The legend's spacing was compacted on mobile
+(smaller gap/padding via `sm:` classes); its swatch shape and labels were
+deliberately left as the original square pills, not the new mobile dots,
+since the desktop legend didn't need a shape change just to get tighter
+spacing. Verified: `npm run build`, then grepped the compiled CSS for the
+exact new arbitrary-value classes (`min-h-\[40px\]`, `sm:min-h-\[80px\]`,
+`sm:max-w-\[420px\]` etc.) to confirm Tailwind's JIT actually generated them
+— confirmed present (an earlier grep attempt in this same session
+under-escaped the brackets and produced a false "not found," corrected by
+re-checking with a looser pattern before trusting the negative result).
+
+**Alex Chen's actual customer ticket.** Discovered Alex's booking had
+drifted to `attendance_status='checked_in'` (Guide had used the "direct
+resolved check-in" bonus link from the prior round to test the button, not
+realizing it would actually check him in) — reset to `'expected'` via a
+direct, explicit UPDATE so a real fresh scan could be tested, per Guide's
+explicit instruction to leave it untouched/`expected`. No code change was
+needed for `/ticket/[token]` itself — it already worked generically for any
+booking with a `ticket_token` since Stage 9c; Alex's real link is in the
+preview links given below.
+
+**Check-in success spacing — corrected, not just re-described.** The
+Stage 9i "fix" from the previous round set `marginTop: '4px'` on the "Scan
+Next Ticket" button — technically present but nowhere near "should not
+visually touch." Increased to `28px` in
+`app/dashboard/checkin/[token]/page.tsx`. Re-verified (not re-assumed) that
+the state logic itself was already correct from Stage 9i: `isCheckedIn`
+(from `attendanceStatus`, not the `alreadyCheckedIn` response flag) still
+correctly makes the green button and the checked-in banner mutually
+exclusive, `justConfirmed` still only controls the banner's color/text
+(green "Checked In" vs amber "Already Checked In"), and "Scan Next Ticket"
+still always follows. Only the spacing constant needed to change.
+
+**Confirmation email — real hierarchy, real gap found and fixed.** Added
+`startTime`/`meetingPointRaw` params to `generateConfirmationEmail()`
+(`emails/confirmation.ts`) and wired the webhook to supply them via
+`resolveBookingByToken()` (the SAME shared resolver the ticket page and
+check-in route already use — no third copy of the event/product join).
+Restructured the canonical (ticket-present) path's top section to Guide's
+exact requested hierarchy — Booking Confirmed → product name → date · real
+time · guest count → meeting point (via `revealMeetingPointForTicket`, the
+identical function/rules the ticket page uses, so the email and the ticket
+page can never disagree about what's disclosable) → total paid → QR image
+→ booking reference → a renamed **"View Ticket & QR →"** CTA to
+`/ticket/[token]` — replacing the old BOOKING SUMMARY table + old "YOUR
+TICKET" section for that path only. The legacy (no-`ticket`) path's
+BOOKING SUMMARY table is byte-identical to pre-Stage-9, moved into its own
+`legacySummaryHtml` template string specifically so the two paths can't
+accidentally cross-contaminate.
+
+**Real bug found by testing this against real New in Bangkok data, not
+assumed:** the OLD hardcoded "MEET-UP DETAILS" ("Be at the first bar by
+9:30 PM sharp" / "shared via WhatsApp by 7 PM") and "CONFIRMATION PROCESS"
+("minimum of 5 participants") sections rendered UNCONDITIONALLY for every
+booking, including canonical ones — directly contradicting the new
+section's correct 20:30 and already-disclosed meeting point for New in
+Bangkok. Gated both to the legacy path only (`legacyMeetupProcessHtml`,
+same pattern as `legacySummaryHtml`). **Not fixed, explicitly flagged as a
+pre-existing, still-open gap:** the remaining "YOUR NIGHT" (hardcoded
+4-venue BCC schedule), "INCLUDED/NOT INCLUDED", "DRESS CODE", and "TIPS"
+sections are ALSO BCC-crawl-specific and still render unconditionally for
+every product, including New in Bangkok — factually wrong for a
+single-venue product once real customers see it. Left untouched this pass
+(would need per-product content, e.g. sourced from Phase 4's
+`product_content` fields, rather than more hardcoded template branches —
+real scope, not "extremely small/safe," and explicitly not requested this
+round). **Worth fixing before New in Bangkok's real ad spend/launch, not
+before this Stripe test** (nothing here blocks a single real transaction
+from working correctly).
+
+The CTA/QR both read from one shared `appUrl` variable
+(`process.env.NEXT_PUBLIC_APP_URL || 'https://bkkclubcrawl.com'`,
+unchanged) — there is no code path where they could resolve to different
+hosts, so "canonical production base URL" is structurally guaranteed, not
+just tested for this one case.
+
+New **temporary, admin-only** `app/dashboard/email-preview/[token]/page.tsx`
+(gated by `getAdminUser()`, same check every other `/dashboard` page uses;
+also subject to the Stage 9j staff-redirect since it's not in
+`STAFF_ALLOWED_PREFIXES`) renders the REAL `generateConfirmationEmail()`
+output in an iframe — nothing is sent, no Resend call. Because the QR/CTA
+correctly point at `bkkclubcrawl.com` (which doesn't have this Stage 9 code
+yet — not merged to `main`), the QR *inside the emailed iframe* renders
+broken in this preview; the page explains why directly above the iframe and
+additionally renders the same QR from `/api/tickets/[token]/qr` on the
+CURRENT preview deployment so Guide can still see what the QR image itself
+looks like. **Not yet decided:** whether this route is worth keeping as a
+permanent internal admin tool (previewing any booking's email without a
+real send) or should be deleted at Stage 9 closure — flagged, not resolved,
+since Guide didn't specify either way.
+
+Verified: `npx tsc --noEmit` and `npm run build` both clean. The email
+template itself was exercised standalone in Node (not just compiled) twice
+— once which caught the MEET-UP DETAILS/CONFIRMATION PROCESS contradiction
+above, and again after the fix confirming: canonical path shows the real
+20:30 time and meeting point with NO "9:30 PM"/"5 participants" text
+anywhere; legacy path (no `ticket`) is completely unchanged, still shows
+the hardcoded 9:30 PM, the 5-participant line, RUN OF SHOW, and DRESS CODE
+exactly as before Stage 9k. Alex Chen's booking reconfirmed `expected`;
+`new-in-bkk` reconfirmed `status='draft'`, both `visible_*=false`.
 A second, separately-audited storefront (`bestnightlifethailand.com`, repo
 `NightlifeAntigravity`, project `nightlife-antigravity`) will consume this
 canonical Product system as a read-only client — never direct DB access, never

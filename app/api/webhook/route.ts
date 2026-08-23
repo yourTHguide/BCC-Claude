@@ -3,6 +3,7 @@ import { stripe } from '@/lib/stripe'
 import { getServiceSupabase } from '@/lib/supabase'
 import { generateTicketToken } from '@/lib/tickets'
 import { formatBookingReference } from '@/lib/bookingReference'
+import { resolveBookingByToken } from '@/lib/bookingResolution'
 import { Resend } from 'resend'
 import { generateConfirmationEmail } from '@/emails/confirmation'
 
@@ -112,6 +113,14 @@ export async function POST(req: NextRequest) {
     // failure), not just for pre-Stage-9 bookings.
     const ticket = bookingId ? { token: ticketToken, reference: formatBookingReference(productSlug, bookingId) } : null
 
+    // Real effective start time + meeting point for the email's canonical
+    // hierarchy (Stage 9, mobile-QA pass) — reuses the SAME resolver the
+    // ticket page and check-in resolver already call, rather than a third
+    // copy of the event_dates/products/product_content join. Only attempted
+    // when there's a ticket to attach it to; resolveBookingByToken itself
+    // degrades to nulls when event_id/product_id are absent (legacy path).
+    const resolved = ticket ? await resolveBookingByToken(supabase, ticketToken) : null
+
     // ── Send confirmation email via Resend ──
     const emailHtml = generateConfirmationEmail({
       guestName,
@@ -121,6 +130,8 @@ export async function POST(req: NextRequest) {
       totalPaid,
       promoCode: promoCode || undefined,
       ticket,
+      startTime: resolved?.startTime ?? null,
+      meetingPointRaw: resolved?.meetingPointRaw ?? null,
     })
 
     const { error: emailError } = await getResend().emails.send({

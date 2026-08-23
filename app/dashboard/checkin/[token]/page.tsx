@@ -210,12 +210,14 @@ export default function CheckinTokenPage({ params }: { params: { token: string }
             )}
 
             {/* Prominent next action once this ticket is resolved (checked
-                in, already used, or blocked) — clear vertical breathing room
-                above it (marginTop, on top of the marginBottom already on
-                whichever element precedes it) since the host's next move at
-                the door is almost always the next guest. The small "Scan
-                another ticket" link at the top of the page covers the same
-                destination from a non-terminal state. */}
+                in, already used, or blocked). Generous marginTop — this and
+                the green "Check in" button are mutually exclusive by
+                construction (never both rendered at once, see the isBlocked/
+                isCheckedIn branch above), but the gap still needs to read as
+                clearly separate from whatever precedes it (the payment row,
+                or the checked-in banner) rather than sitting flush under it.
+                The small "Scan another ticket" link at the top of the page
+                covers the same destination from a non-terminal state. */}
             {showScanNext && (
               <Link
                 href="/dashboard/checkin"
@@ -223,7 +225,7 @@ export default function CheckinTokenPage({ params }: { params: { token: string }
                   display: 'block', textAlign: 'center', width: '100%', height: '46px', lineHeight: '46px',
                   borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg,#EA003A,#820065)',
                   color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '14px',
-                  textDecoration: 'none', marginTop: '4px',
+                  textDecoration: 'none', marginTop: '28px',
                 }}
               >
                 Scan Next Ticket
