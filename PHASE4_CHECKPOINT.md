@@ -1,6 +1,6 @@
 # Phase 4 — Internal Product & Schedule Builder — Checkpoint
 
-_Last updated: 2026-08-23 (Stage 9k — mobile-QA closure pass — APPLIED). Compact resume doc for continuing in a fresh conversation._
+_Last updated: 2026-08-23 (Stage 9l — QR host-resolution architecture fix + product-driven email + Host Ops filtering — APPLIED). Compact resume doc for continuing in a fresh conversation._
 
 ## Stage 9 — New in Bangkok booking lifecycle (separate track from BNT integration below)
 Goal: make New in Bangkok commercially bookable end-to-end —
@@ -598,6 +598,143 @@ anywhere; legacy path (no `ticket`) is completely unchanged, still shows
 the hardcoded 9:30 PM, the 5-participant line, RUN OF SHOW, and DRESS CODE
 exactly as before Stage 9k. Alex Chen's booking reconfirmed `expected`;
 `new-in-bkk` reconfirmed `status='draft'`, both `visible_*=false`.
+
+**Stage 9l — QR host-resolution architecture fix + fully product-driven
+email + Host Ops noise filter — APPLIED 2026-08-23.** Three items from
+Guide's THIRD round of real-device testing. **This stage supersedes two
+specific claims made in Stage 9k above** (recorded there accurately for
+what was true at the time, not restated retroactively): the "CTA/QR both
+read from one shared `appUrl`... unchanged" line, and the "Not fixed,
+explicitly flagged" note about RUN OF SHOW/DRESS CODE/TIPS still showing
+for every product — both are now different, per below.
+
+**1. Alex's QR scan failed with a client-side exception — root cause
+found, not guessed.** Guide physically scanned Alex's real QR and Safari
+showed "Application error: a client-side exception has occurred." Rather
+than assume a cause, the actual deployed QR was decoded byte-for-byte
+(fetched `/api/tickets/[token]/qr`'s real PNG output via a Vercel
+share-bypass link, decoded with `jsQR`+`pngjs`) — it correctly encoded
+`https://bkkclubcrawl.com/dashboard/checkin/preview-test-alexchen-...`, the
+real production domain, confirming the QR payload itself, hostname
+handling, and share-token behavior were all NOT the bug (that whole branch
+of the ask is verified clean). The actual defect: EVERY appUrl call site
+(`app/ticket/[token]/page.tsx`, `app/api/tickets/[token]/qr/route.ts`,
+`emails/confirmation.ts`) unconditionally hardcoded
+`NEXT_PUBLIC_APP_URL || 'https://bkkclubcrawl.com'` — so EVERY environment,
+including this Stage 9 feature-branch Preview deployment (not yet merged
+to `main`), generated a QR pointing at production. `bkkclubcrawl.com`
+doesn't have `/dashboard/checkin/[token]` yet, so the flow was untestable
+pre-merge by construction: navigating there fresh (reproduced directly via
+the Browser tool with the exact real token) gave a clean 404 in this
+session's test, not a matching client-side exception — the precise
+mechanics of Guide's exact crash text could not be reproduced from this
+sandbox (different device/browser/cache state), reported honestly rather
+than claimed as solved; what WAS conclusively fixed is the structural cause
+that made the flow untestable at all, which subsumes it regardless of the
+exact crash mechanism.
+
+Fix: new `lib/appUrl.ts` → `getAppUrl()`, resolution order (1)
+`NEXT_PUBLIC_APP_URL` if explicitly set, (2) Vercel's own `VERCEL_ENV==
+'production'` → `https://bkkclubcrawl.com`, (3) any other Vercel
+environment (Preview) → `https://${VERCEL_URL}` (Vercel sets this
+automatically per-deployment) — makes a Preview build's own
+tickets/QR/email self-consistent and actually scannable against itself,
+(4) local dev → the production domain (harmless default). Real
+transactional emails/tickets are UNCHANGED in effect (production still
+always resolves to `bkkclubcrawl.com`); what changes is that a Preview
+deployment no longer generates a QR pointing at a domain that doesn't have
+the code yet. All three call sites (plus the email-preview route, whose
+now-inaccurate "the QR will render broken here" messaging was corrected
+now that it doesn't) switched from the hardcoded pattern to
+`getAppUrl()`. Also audited `app/dashboard/checkin/[token]/page.tsx` itself
+line-by-line for any unguarded client-side throw (null access, unhandled
+rejection) per Guide's explicit ask — found none; every optional field is
+checked before use. Verified: `npx tsc --noEmit`/`npm run build` clean;
+`getAppUrl()` exercised standalone for all 4 branches (no env, Preview,
+Production, explicit override — override wins even in production) with the
+exact expected host for each.
+
+**2. Confirmation email is now genuinely product-driven — full rewrite,
+not a patch.** `emails/confirmation.ts` no longer contains ANY BCC-specific
+content or branching — the old `legacySummaryHtml`/
+`legacyMeetupProcessHtml`/RUN OF SHOW/INCLUDED-NOT-INCLUDED/DRESS
+CODE/TIPS blocks are gone entirely, replaced by ONE template driven purely
+by resolved Product/Event Content. `lib/bookingResolution.ts`'s
+`ResolvedBooking` gained `itinerary`, `whatsIncluded`, `whatsNotIncluded`,
+`importantInfo` (same `resolveBookingByToken()` query, no new resolver) —
+the webhook passes all four straight through, no BCC-specific defaults
+ever substituted when a Product's `product_content` lacks them. Header/
+footer brand identity changed from "BANGKOK CLUB CRAWL" to "BEST NIGHTLIFE
+THAILAND" (the product name stays prominent in the body — `<h1>` is now
+literally "Booking Confirmed", with the product name as its own line
+below). Layout was flattened per Guide's explicit "block inside a block"
+complaint — one content canvas with thin dividers between sections
+(Summary / Meeting Point / How The Night Goes / What's
+Included+Not-Included / Good To Know / Ticket-CTA), no nested
+background-boxed cards; What's Included/Not Included stack vertically
+(never the old 50/50 two-column table that would squeeze on mobile).
+
+**Real cross-branch data-shape bug found and handled, not assumed:**
+`product_content.whats_included` in the REAL New in Bangkok row holds
+`{icon, text}` objects, not plain strings — written by a separate,
+NOT-YET-MERGED branch's icon-system work
+(`claude/mobile-admin-editor-stage-a-kv6e43`, discovered via its own Vercel
+deployment history) whose corresponding ProductPage rendering isn't in
+this branch. This branch's `ProductPage.tsx` still types the column as
+`string[]` — a real, pre-existing type/data mismatch, NOT touched here
+(out of scope, unrelated file) — but the email needed to handle it
+correctly regardless: `ResolvedBooking.whatsIncluded` is now `unknown[]`
+with an explicit doc comment, and `emails/confirmation.ts` extracts display
+text defensively (`itemText()`: string as-is, or `.text` off an object),
+so it never renders `[object Object]` no matter which shape a given
+Product's row uses.
+
+QR remains embedded (`<img>`, inert on load failure — never breaks the
+email or hides the CTA) but the "View Ticket & QR" button is the
+unconditional, durable primary path; both read from the exact same
+`getAppUrl()` call, so they can never resolve to different hosts by
+construction. Verified end-to-end in Node (not just compiled) against
+three real scenarios: New in Bangkok with its full real content (all four
+optional sections render correctly, including the `{icon,text}`
+extraction, real 20:30 time, real meeting point, no BCC copy anywhere);
+Bangkok Club Crawl with `ticket` present but `product_content` still
+genuinely empty (today's real BCC state) — renders cleanly with NO
+itinerary/inclusions sections and NO fake substitute copy, exactly per
+"if a Product has no itinerary, do not show a fake/default BCC itinerary";
+and no-`ticket` at all (insert failure) — still shows Booking
+Confirmed/product/date/amount, correctly omits the CTA (nothing to link
+to). **Known, accepted consequence, not a regression:** Bangkok Club
+Crawl's email is now LEANER than before Stage 9l (no run-of-show/dress-code
+copy) because that content was never real canonical data, only hardcoded
+prose — populating `bangkok-club-crawl`'s `product_content` via the
+existing admin Content tab (Stage 8c) is the correct way to restore
+equivalent richness, not hardcoding it back into the template.
+
+**3. Host Operations now shows only actionable events.** `GET
+/api/admin/host/events` previously returned every upcoming `event_dates`
+row regardless of state — Guide's screenshot showed closed dates with zero
+bookings cluttering the list. Added a filter (query + presentation only,
+`event_dates` rows themselves untouched): an event now qualifies if
+`is_open`, OR `event_date` is today (Bangkok), OR `operation_verdict` has
+moved past the default `'Pending'`, OR it has ≥1 confirmed `bookings`/
+`ota_bookings` row. Applies to owner/admin too (not just staff) — this IS
+the Host Operations view regardless of who's looking at it; the owner's
+full/unfiltered access stays on the existing `/dashboard` calendar,
+unchanged. "Scan Ticket" remains at the top of `/dashboard/host`, above
+the list, unchanged from Stage 9j. Verified by replicating the exact
+filter as a single SQL query against real production `event_dates`/
+`bookings`/`ota_bookings` — confirmed it correctly drops closed,
+zero-booking, `Pending`-verdict future dates (e.g. a closed "Solo
+Traveler's Night") while keeping today's date regardless of state, open
+dates, and New in Bangkok's real test event (open + has Alex Chen's
+booking).
+
+Alex Chen's booking reconfirmed `expected` (reset again — Guide's own
+testing of the "direct resolved check-in" link had flipped it to
+`checked_in` a second time); `new-in-bkk` reconfirmed `status='draft'`,
+both `visible_*=false`.
+
+## BNT integration (separate track from the New in Bangkok onboarding below)
 A second, separately-audited storefront (`bestnightlifethailand.com`, repo
 `NightlifeAntigravity`, project `nightlife-antigravity`) will consume this
 canonical Product system as a read-only client — never direct DB access, never

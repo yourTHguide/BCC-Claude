@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
 import { generateTicketQrPngBuffer } from '@/lib/qrTicket'
+import { getAppUrl } from '@/lib/appUrl'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,7 +24,11 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://bkkclubcrawl.com'
+  // See lib/appUrl.ts — resolves to THIS deployment's own host on Preview
+  // (so the encoded URL is actually reachable pre-merge) and to
+  // bkkclubcrawl.com on production, matching /ticket/[token]'s own QR
+  // exactly (same function, same inputs, so they can never diverge).
+  const appUrl = getAppUrl()
   const checkinUrl = `${appUrl}/dashboard/checkin/${params.token}`
   const png = await generateTicketQrPngBuffer(checkinUrl)
 

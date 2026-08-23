@@ -27,6 +27,22 @@ export interface ResolvedBooking {
   startTime: string | null
   durationMinutes: number
   meetingPointRaw: unknown | null
+  // Product-driven optional content (Stage 9, confirmation-email refactor) —
+  // empty arrays, never a default/placeholder value, when the Product has no
+  // canonical content for that section (or no event_id/product_id at all).
+  // Consumers must render nothing for an empty array, never fall back to
+  // hardcoded per-product copy.
+  itinerary: { title: string; description: string }[]
+  // `unknown[]` deliberately, not `string[]` — real production data for
+  // New in Bangkok stores `{icon, text}` objects here (from a separate,
+  // not-yet-merged branch's icon-system work), while this branch's
+  // ProductPage.tsx still types this column as `string[]`. Rather than
+  // assume either shape is the only one that will ever exist, consumers
+  // must extract display text defensively (see whatsIncludedText() in
+  // emails/confirmation.ts) instead of rendering the raw value.
+  whatsIncluded: unknown[]
+  whatsNotIncluded: string[]
+  importantInfo: string[]
 }
 
 // `supabase` is intentionally untyped (`any`) — getServiceSupabase() returns
@@ -54,6 +70,10 @@ export async function resolveBookingByToken(
   let startTime: string | null = null
   let durationMinutes = 180
   let meetingPointRaw: unknown | null = null
+  let itinerary: { title: string; description: string }[] = []
+  let whatsIncluded: unknown[] = []
+  let whatsNotIncluded: string[] = []
+  let importantInfo: string[] = []
 
   if (booking.event_id && booking.product_id) {
     const [{ data: event }, { data: product }, { data: content }] = await Promise.all([
@@ -61,7 +81,7 @@ export async function resolveBookingByToken(
       supabase.from('products').select('slug, name, default_start_time').eq('id', booking.product_id).maybeSingle(),
       supabase
         .from('product_content')
-        .select('meeting_point, duration_minutes')
+        .select('meeting_point, duration_minutes, itinerary, whats_included, whats_not_included, important_info')
         .eq('product_id', booking.product_id)
         .maybeSingle(),
     ])
@@ -73,6 +93,10 @@ export async function resolveBookingByToken(
     if (content) {
       durationMinutes = content.duration_minutes || 180
       meetingPointRaw = content.meeting_point
+      itinerary = content.itinerary ?? []
+      whatsIncluded = content.whats_included ?? []
+      whatsNotIncluded = content.whats_not_included ?? []
+      importantInfo = content.important_info ?? []
     }
   }
 
@@ -91,5 +115,9 @@ export async function resolveBookingByToken(
     startTime,
     durationMinutes,
     meetingPointRaw,
+    itinerary,
+    whatsIncluded,
+    whatsNotIncluded,
+    importantInfo,
   }
 }

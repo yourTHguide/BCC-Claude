@@ -6,6 +6,7 @@ import { formatBookingReference } from '@/lib/bookingReference'
 import { revealMeetingPointForTicket } from '@/lib/meetingPointReveal'
 import { generateTicketQrDataUrl } from '@/lib/qrTicket'
 import { googleCalendarUrl, icsDataUrl } from '@/lib/calendarLinks'
+import { getAppUrl } from '@/lib/appUrl'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,7 +37,11 @@ export default async function TicketPage({ params }: { params: { token: string }
 
   const isCancelled = booking.status === 'cancelled' || booking.status === 'refunded'
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://bkkclubcrawl.com'
+  // getAppUrl() resolves to THIS deployment's own host on a Preview build
+  // (so the QR is actually scannable/testable pre-merge) and to the real
+  // bkkclubcrawl.com on production — see lib/appUrl.ts for why a hardcoded
+  // production-only URL here made the whole scan flow untestable pre-merge.
+  const appUrl = getAppUrl()
   // Under /dashboard so the existing middleware.ts auth gate protects it for
   // free — scanning this URL with no admin session redirects to /login,
   // same as any other dashboard route. Contains only the app origin + the

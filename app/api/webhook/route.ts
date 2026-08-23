@@ -108,23 +108,23 @@ export async function POST(req: NextRequest) {
 
     const bookingId = insertedRows?.[0]?.id ?? null
     // Only reference the ticket in the email when the row actually landed —
-    // this is also what keeps the pre-existing/legacy BCC email UNCHANGED
-    // for any booking where canonical ticket data isn't available (insert
-    // failure), not just for pre-Stage-9 bookings.
+    // an insert failure must never point the customer at a ticket_token
+    // that doesn't exist in `bookings`.
     const ticket = bookingId ? { token: ticketToken, reference: formatBookingReference(productSlug, bookingId) } : null
 
-    // Real effective start time + meeting point for the email's canonical
-    // hierarchy (Stage 9, mobile-QA pass) — reuses the SAME resolver the
+    // Everything the product-driven email needs beyond the raw Stripe
+    // metadata — real effective start time, meeting point, and optional
+    // itinerary/inclusions/important-info — reuses the SAME resolver the
     // ticket page and check-in resolver already call, rather than a third
-    // copy of the event_dates/products/product_content join. Only attempted
-    // when there's a ticket to attach it to; resolveBookingByToken itself
-    // degrades to nulls when event_id/product_id are absent (legacy path).
+    // copy of the event_dates/products/product_content join.
+    // resolveBookingByToken() itself degrades to nulls/empty-arrays (never
+    // BCC-specific defaults) when event_id/product_id are absent.
     const resolved = ticket ? await resolveBookingByToken(supabase, ticketToken) : null
 
     // ── Send confirmation email via Resend ──
     const emailHtml = generateConfirmationEmail({
       guestName,
-      nightName: meta.night_name,
+      nightName: resolved?.productName ?? meta.night_name,
       eventDate: meta.event_date,
       quantity,
       totalPaid,
@@ -132,6 +132,10 @@ export async function POST(req: NextRequest) {
       ticket,
       startTime: resolved?.startTime ?? null,
       meetingPointRaw: resolved?.meetingPointRaw ?? null,
+      itinerary: resolved?.itinerary ?? [],
+      whatsIncluded: resolved?.whatsIncluded ?? [],
+      whatsNotIncluded: resolved?.whatsNotIncluded ?? [],
+      importantInfo: resolved?.importantInfo ?? [],
     })
 
     const { error: emailError } = await getResend().emails.send({
