@@ -214,6 +214,106 @@ not yet run. `new-in-bkk` remains `status='draft'`,
 `visible_bcc=false`, `visible_bnt=false` throughout; do not activate/publish
 until that test passes.
 
+**Stage 9f — Mobile visual QA fixes (post-9e, pre-Stripe-test) — APPLIED
+2026-08-23.** Guide visually reviewed the deployed Stage 9 pages on her
+phone via temporary Vercel-share-bypass links and found two real issues,
+both fixed:
+
+1. **Ticket QR not horizontally centered** (`app/ticket/[token]/page.tsx`).
+   Root cause: Tailwind's Preflight (`@tailwind base`, active project-wide —
+   confirmed via `tailwind.config.js`, no `corePlugins.preflight: false`)
+   sets `img { display: block }`, which silently defeats the
+   `text-align: center` the QR's parent card relied on — a block element
+   with a fixed width and no auto margins sits flush-left regardless of its
+   container's `text-align`. Fixed by adding `display: 'block', margin: '0
+   auto'` directly to the QR `<img>`'s inline style. Nothing else on the
+   ticket page was touched.
+
+2. **`/dashboard/checkin` was a manual-lookup page, not a scanner** — the
+   original Stage 9d build assumed a host would scan with their phone's
+   native camera app (since the QR already encodes the full
+   `/dashboard/checkin/{token}` URL) and only use in-app manual entry as a
+   fallback. Guide's review made clear the intended PRIMARY workflow is an
+   in-app live camera scanner — "SNX/BCC Operations → Scan Ticket → phone
+   camera → auto-resolve", not a code-paste field. Rebuilt
+   `app/dashboard/checkin/page.tsx` as a live camera scanner using the
+   `html5-qrcode` npm package (dependency-free — `npm install` added
+   exactly one package — actively used for camera permission + live QR
+   decoding; chosen over hand-rolling `getUserMedia`/canvas decoding or the
+   native `BarcodeDetector` API, which iOS Safari — the target device —
+   does not reliably support). Uses the library's lower-level `Html5Qrcode`
+   class (not its bundled `Html5QrcodeScanner` UI widget) so the viewport is
+   styled to match the existing dark BEST Nightlife palette rather than the
+   library's generic chrome. Dynamically `import()`ed inside `useEffect`
+   (never at module top level) so nothing camera-related runs during server
+   rendering; confirmed via a production build that the ~82 KB library
+   lands in its own lazily-loaded chunk, not inlined into any other route's
+   bundle. On a successful decode: extracts the token, calls `stop()` on
+   the camera, then navigates to the EXISTING
+   `/dashboard/checkin/[token]` resolver — **no new booking-resolution
+   logic was added**; the scanner is purely a token-acquisition front end
+   for the same `GET/POST /api/admin/checkin/[token]` + `resolveBookingByToken`
+   built in Stage 9d. A `scannedRef` guard prevents multiple rapid frame
+   decodes of the same code from firing more than one navigation. Camera
+   permission denial or an unavailable camera falls back gracefully to an
+   always-visible "Enter code manually" toggle (never a dead end). The
+   token-resolved screen (`app/dashboard/checkin/[token]/page.tsx`) gained
+   a prominent "Scan Next Ticket" button (matching the primary gradient
+   button style) shown whenever the ticket is in a terminal state —
+   just checked in, already used, or cancelled/refunded — so the operator's
+   next action at the door doesn't require finding the small back-link;
+   that link is kept too for anyone who wants it from a non-terminal state.
+   The existing per-event dashboard's "Scan Ticket" link
+   (`app/dashboard/page.tsx`) needed no change — it already pointed at
+   `/dashboard/checkin`, which is now the scanner.
+
+   **Explicit workflow distinction, recorded per instruction:** there are
+   now two separate check-in-adjacent surfaces, intentionally not merged —
+   (a) **the launch check-in workflow** is the direct scanner
+   (`/dashboard/checkin` → camera → `/dashboard/checkin/[token]`), fully
+   product/date-agnostic, requiring no calendar selection, and (b) **Event
+   Operations** (`/dashboard` → calendar → select a date → the existing
+   per-event slide-over panel) remains the existing admin workflow for
+   everything else about running a night (host assignment, verdicts, venue
+   route, host pay, and the pre-existing manual attendance dropdown, which
+   is UNCHANGED and still available as the check-in fallback if scanning
+   fails for a given guest). The scanner is deliberately NOT coupled to (b)
+   — it doesn't require or accept an event/date param — specifically so it
+   can become the future consolidated SNX Mobile Operations layer's global
+   "Scan" action without rearchitecting; when that broader nav/dashboard
+   redesign happens, only where the scanner is LINKED FROM should change,
+   not the scanner or the check-in API contract itself.
+
+   **Recorded as follow-up, deliberately NOT fixed this stage** (explicit
+   instruction: no broader redesign, only an "extremely small/safe" CSS fix
+   would have qualified, and none was identified as safe to attempt without
+   live device access to verify): the existing calendar
+   (`app/dashboard/page.tsx`'s date grid) is not comfortable in portrait on
+   a phone and effectively needs landscape to navigate, and the per-event
+   slide-over panel (the same file's `EventPanel` component, fixed
+   `width:'420px'`) has horizontal overflow / clipped headings and content
+   on narrow viewports. Both are pre-existing (not introduced by Stage 9)
+   and are exactly the kind of thing the future consolidated SNX Mobile
+   Operations redesign should address — not worth a risky blind CSS patch
+   here with no way to verify it on a real device from this session.
+
+   Verified: `npx tsc --noEmit` and `npm run build` both clean;
+   `html5-qrcode`'s installed type definitions
+   (`node_modules/html5-qrcode/html5-qrcode.d.ts`) were read directly to
+   confirm the `Html5Qrcode` constructor/`start()`/`stop()` signatures
+   before writing any code against them, rather than guessing the API;
+   confirmed via the build's chunk output that the library is lazily
+   code-split (`903.<hash>.js`, ~82 KB) and does not appear in
+   `/dashboard/checkin`'s own ~4 KB page bundle. Could not exercise real
+   camera permission prompts or a physical scan from this sandbox (no
+   camera-equipped browser available here); Guide verifies that part
+   directly on her iPhone via the preview links below. The Stage 9 preview
+   booking (`ticket_token='preview-test-9c8f2a1b4e6d3c5f7a9b1d2e4f6c8a0b'`,
+   guest "Jamie Rivera", 2 guests) is unchanged — still `attendance_status=
+   'expected'` — so Guide can exercise the full scan→resolve→check-in flow
+   herself rather than finding it pre-completed. `new-in-bkk` reconfirmed
+   still `status='draft'`, both `visible_*=false` after all of the above.
+
 ## BNT integration (separate track from the New in Bangkok onboarding below)
 A second, separately-audited storefront (`bestnightlifethailand.com`, repo
 `NightlifeAntigravity`, project `nightlife-antigravity`) will consume this

@@ -169,7 +169,7 @@ export default async function TicketPage({ params }: { params: { token: string }
           <img
             src={qrDataUrl}
             alt="Check-in QR code"
-            style={{ width: '220px', height: '220px', borderRadius: '10px', background: '#fff', padding: '10px' }}
+            style={{ display: 'block', margin: '0 auto', width: '220px', height: '220px', borderRadius: '10px', background: '#fff', padding: '10px' }}
           />
         )}
         <p style={{ ...S.sectionLabel, marginTop: '18px', marginBottom: '4px' }}>Booking Reference</p>

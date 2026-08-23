@@ -163,11 +163,11 @@ export default function CheckinTokenPage({ params }: { params: { token: string }
           </div>
 
           {(data.booking.status === 'cancelled' || data.booking.status === 'refunded') ? (
-            <p style={{ color: '#EA003A', fontSize: '13px' }}>
+            <p style={{ color: '#EA003A', fontSize: '13px', marginBottom: '18px' }}>
               This booking was {data.booking.status} — do not check in.
             </p>
           ) : data.alreadyCheckedIn ? (
-            <p style={{ color: 'rgba(255,255,255,0.50)', fontSize: '13px' }}>
+            <p style={{ color: 'rgba(255,255,255,0.50)', fontSize: '13px', marginBottom: '18px' }}>
               This ticket has already been used. No further action needed.
             </p>
           ) : (
@@ -183,6 +183,29 @@ export default function CheckinTokenPage({ params }: { params: { token: string }
             >
               {confirming ? 'Checking in…' : `Check in ${data.booking.quantity} guest${data.booking.quantity !== 1 ? 's' : ''}`}
             </button>
+          )}
+
+          {/* Prominent next action once this ticket is resolved (checked in
+              just now, already used, or blocked) — the host's next move at
+              the door is almost always the next guest, not staying on this
+              screen. The small "Scan another ticket" link at the top of the
+              page covers the same destination for anyone who wants it
+              without a terminal state. */}
+          {(justConfirmed ||
+            data.alreadyCheckedIn ||
+            data.booking.status === 'cancelled' ||
+            data.booking.status === 'refunded') && (
+            <Link
+              href="/dashboard/checkin"
+              style={{
+                display: 'block', textAlign: 'center', width: '100%', height: '46px', lineHeight: '46px',
+                borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg,#EA003A,#820065)',
+                color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '14px',
+                textDecoration: 'none',
+              }}
+            >
+              Scan Next Ticket
+            </Link>
           )}
         </div>
       )}
