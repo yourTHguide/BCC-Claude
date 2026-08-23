@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { clientDebugLog } from '@/lib/clientDebugLog'
 
 interface CheckinResponse {
   booking: {
@@ -35,10 +36,41 @@ export default function CheckinTokenPage({ params }: { params: { token: string }
   const [confirming, setConfirming] = useState(false)
   const [justConfirmed, setJustConfirmed] = useState(false)
 
+  // TEMPORARY diagnostic instrumentation (PHASE4_CHECKPOINT.md Stage 9 --
+  // real-iPhone crash). window-level listeners catch failures that never
+  // reach a React error boundary at all (a bare script error, an unhandled
+  // promise rejection); breadcrumbs at each phase below let us tell, from
+  // server logs, exactly how far a given load got before it stopped
+  // progressing. Remove this whole effect once the real cause is found.
+  useEffect(() => {
+    const onError = (e: ErrorEvent) => {
+      clientDebugLog('window_error', {
+        message: e.message,
+        filename: e.filename,
+        lineno: e.lineno,
+        colno: e.colno,
+        errorString: e.error ? String(e.error) : null,
+        errorStack: e.error?.stack || null,
+      })
+    }
+    const onRejection = (e: PromiseRejectionEvent) => {
+      clientDebugLog('unhandled_rejection', { reason: String(e.reason), reasonStack: e.reason?.stack || null })
+    }
+    window.addEventListener('error', onError)
+    window.addEventListener('unhandledrejection', onRejection)
+    return () => {
+      window.removeEventListener('error', onError)
+      window.removeEventListener('unhandledrejection', onRejection)
+    }
+  }, [])
+
   useEffect(() => {
     let cancelled = false
+    clientDebugLog('checkin_mounted', { token: params.token })
+    clientDebugLog('checkin_fetch_start')
     fetch(`/api/admin/checkin/${encodeURIComponent(params.token)}`)
       .then(async (res) => {
+        clientDebugLog('checkin_fetch_resolved', { status: res.status, ok: res.ok })
         if (cancelled) return
         if (res.status === 404) {
           setState('notfound')
@@ -48,16 +80,23 @@ export default function CheckinTokenPage({ params }: { params: { token: string }
           setState('error')
           return
         }
-        setData(await res.json())
+        const json = await res.json()
+        clientDebugLog('checkin_json_parsed', { keys: Object.keys(json || {}) })
+        setData(json)
         setState('ready')
       })
-      .catch(() => {
+      .catch((err) => {
+        clientDebugLog('checkin_fetch_error', { errorString: String(err), errorStack: err?.stack || null })
         if (!cancelled) setState('error')
       })
     return () => {
       cancelled = true
     }
   }, [params.token])
+
+  useEffect(() => {
+    if (state === 'ready') clientDebugLog('checkin_render_ready_committed')
+  }, [state])
 
   async function confirmCheckin() {
     setConfirming(true)

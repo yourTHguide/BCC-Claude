@@ -48,17 +48,37 @@ function toResponseShape(booking: ResolvedBooking, reference: string, alreadyChe
 }
 
 export async function GET(_req: NextRequest, { params }: { params: { token: string } }) {
+  // TEMPORARY (Stage 9 real-iPhone crash diagnosis) -- correlate against the
+  // client-side breadcrumbs in app/dashboard/checkin/[token]/page.tsx via
+  // Vercel runtime logs. Remove once the real root cause is found.
+  console.error('[CHECKIN-GET] start', { tokenPrefix: params.token.slice(0, 12) })
   const auth = await requireAdmin()
-  if ('response' in auth) return auth.response
+  if ('response' in auth) {
+    console.error('[CHECKIN-GET] auth failed')
+    return auth.response
+  }
 
   const supabase = getServiceSupabase()
   const booking = await resolveBookingByToken(supabase, params.token)
   if (!booking) {
+    console.error('[CHECKIN-GET] booking not found')
     return NextResponse.json({ error: 'Ticket not found' }, { status: 404 })
   }
 
   const reference = formatBookingReference(booking.productSlug, booking.id)
-  return NextResponse.json(toResponseShape(booking, reference, booking.attendanceStatus === 'checked_in'))
+  const shape = toResponseShape(booking, reference, booking.attendanceStatus === 'checked_in')
+  console.error('[CHECKIN-GET] resolved ok', {
+    hasGuestName: shape.booking.guestName != null,
+    quantity: shape.booking.quantity,
+    totalPaid: shape.booking.totalPaid,
+    status: shape.booking.status,
+    attendanceStatus: shape.booking.attendanceStatus,
+    eventDate: shape.event.eventDate,
+    hasStartTime: shape.event.startTime != null,
+    productName: shape.product.name,
+    productSlug: shape.product.slug,
+  })
+  return NextResponse.json(shape)
 }
 
 export async function POST(_req: NextRequest, { params }: { params: { token: string } }) {

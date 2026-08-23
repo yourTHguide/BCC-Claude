@@ -30,7 +30,13 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
+  // TEMPORARY (Stage 9 real-iPhone crash diagnosis) -- correlate auth/role
+  // resolution against the client-side breadcrumbs and the checkin route's
+  // own logging via Vercel runtime logs. Remove once the real root cause is
+  // found. Logs role only, never email/user id.
+  const pathnameForLog = headers().get('x-pathname') || ''
   const admin = await getAdminUser()
+  console.error('[DASHBOARD-LAYOUT]', { pathname: pathnameForLog, hasAdmin: !!admin, role: admin?.role ?? null })
   if (!admin) redirect('/login')
 
   if (admin.role === 'staff') {
