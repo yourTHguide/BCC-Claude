@@ -15,3 +15,26 @@ export function addDaysISO(iso: string, days: number): string {
   const dt = new Date(Date.UTC(y, m - 1, d) + days * 86_400_000)
   return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`
 }
+
+// Friendly long-form label for a YYYY-MM-DD date, e.g. "Tuesday, 1 September
+// 2026". Parses into LOCAL date components (not `new Date(iso)`, which parses
+// as UTC midnight and can roll the date back a day depending on server TZ) —
+// same fix already applied ad hoc in app/api/create-checkout/route.ts;
+// centralized here for new call sites (Stage 9c ticket page) to share.
+export function formatEventDateLong(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  const dateObj = new Date(y, m - 1, d)
+  return dateObj.toLocaleDateString('en', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
+// HH:MM (24h) from a Postgres TIME string ("20:30:00" or "20:30"). Matches
+// the slice-based convention already used by ProductPage's local `hhmm`.
+export function formatStartTime(time: string | null): string | null {
+  if (!time) return null
+  return time.slice(0, 5)
+}

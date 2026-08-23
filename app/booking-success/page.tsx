@@ -38,6 +38,7 @@ function SuccessContent() {
   const nightSlug = searchParams.get('night') ?? ''
   const qty = parseInt(searchParams.get('qty') ?? '1', 10)
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
+  const [ticketToken, setTicketToken] = useState<string | null>(null)
 
   useEffect(() => {
     if (sessionId) {
@@ -57,6 +58,41 @@ function SuccessContent() {
       setStatus('error')
     }
   }, [sessionId, nightSlug, qty])
+
+  // The Stripe webhook (async, server-to-server) may not have written the
+  // booking yet when the browser lands here — poll briefly for its
+  // ticket_token rather than treating "not there yet" as an error. Stops as
+  // soon as it's found, or after ~8 tries (~12s); if the webhook is slow or
+  // fails, the page still shows the existing generic reassurance + WhatsApp
+  // fallback below, unchanged.
+  useEffect(() => {
+    if (!sessionId) return
+    let cancelled = false
+    let attempts = 0
+
+    async function poll() {
+      if (cancelled) return
+      attempts += 1
+      try {
+        const res = await fetch(`/api/bookings/by-session?session_id=${encodeURIComponent(sessionId!)}`)
+        const data = await res.json()
+        if (!cancelled && data.ticketToken) {
+          setTicketToken(data.ticketToken)
+          return
+        }
+      } catch {
+        // network hiccup — just retry on the next tick
+      }
+      if (!cancelled && attempts < 8) {
+        setTimeout(poll, 1500)
+      }
+    }
+
+    poll()
+    return () => {
+      cancelled = true
+    }
+  }, [sessionId])
 
   return (
     <div style={{
@@ -153,14 +189,31 @@ function SuccessContent() {
             </p>
           </div>
 
-          <Link href="/" style={{
-            background: 'linear-gradient(135deg, #EA003A, #820065)',
-            color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 600,
-            fontSize: '15px', padding: '16px 32px', borderRadius: '8px',
-            textDecoration: 'none', display: 'inline-block',
-          }}>
-            Back to Bangkok Club Crawl
-          </Link>
+          {ticketToken ? (
+            <>
+              <Link href={`/ticket/${ticketToken}`} style={{
+                background: 'linear-gradient(135deg, #EA003A, #820065)',
+                color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 600,
+                fontSize: '15px', padding: '16px 32px', borderRadius: '8px',
+                textDecoration: 'none', display: 'inline-block', marginBottom: '16px',
+              }}>
+                View your ticket
+              </Link>
+              <br />
+              <Link href="/" style={{ color: 'rgba(255,255,255,0.50)', fontFamily: 'Inter, sans-serif', fontSize: '13px', textDecoration: 'none' }}>
+                Back to Bangkok Club Crawl
+              </Link>
+            </>
+          ) : (
+            <Link href="/" style={{
+              background: 'linear-gradient(135deg, #EA003A, #820065)',
+              color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 600,
+              fontSize: '15px', padding: '16px 32px', borderRadius: '8px',
+              textDecoration: 'none', display: 'inline-block',
+            }}>
+              Back to Bangkok Club Crawl
+            </Link>
+          )}
         </>
       )}
 

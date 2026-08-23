@@ -60,9 +60,58 @@ second insert reusing the same `ticket_token` correctly failed with
 `23505 duplicate key value violates unique constraint
 "uniq_bookings_ticket_token"`, then the test row was deleted and booking
 count confirmed back to baseline (7) with `new-in-bkk` still
-`status='draft'`, both `visible_*=false`. **Not done yet:** 9c (real
-confirmation/ticket page) through 9e (see the Stage 9 architecture audit
-transcript for this session for the full staged plan).
+`status='draft'`, both `visible_*=false`.
+
+**Stage 9c — Real confirmation/ticket page — APPLIED 2026-08-23.** New
+`app/ticket/[token]/page.tsx`: a server component resolved ONLY by the
+opaque `ticket_token` (uniform 404 for unknown/malformed tokens, same
+fail-closed convention as `/events/[slug]`), rendering product/event name,
+date/start time, guest name, quantity, a display-only booking reference
+(`lib/bookingReference.ts` — derived from product slug + booking id, never
+stored, never used for lookup), the meeting point (via new
+`lib/meetingPointReveal.ts`'s `revealMeetingPointForTicket` — deliberately
+DIFFERENT from the pre-purchase gate in `app/api/products/[slug]/route.ts`:
+both `public` AND `after_booking` now reveal full location, since resolving
+this page at all already required the token; `private`/unset/invalid still
+reveal nothing in any context), a server-generated QR (`lib/qrTicket.ts` +
+new `qrcode` npm dependency — fully local, no third-party QR API, so the
+check-in URL/token never leaves our infra) encoding
+`{appUrl}/dashboard/checkin/{ticket_token}` (under `/dashboard` so the
+existing `middleware.ts` auth gate protects the check-in resolver for free,
+once Stage 9d builds it — nothing to change there), and "Add to Calendar"
+via `lib/calendarLinks.ts` (a Google Calendar render link — just a URL, no
+API key — plus a downloadable `.ics` for Apple/Outlook; Bangkok's fixed
+UTC+7 offset, no DST, is hardcoded rather than pulling in a timezone
+library). A `status='cancelled'/'refunded'` booking renders a distinct
+"no longer valid" state instead of a live QR. New `GET
+/api/bookings/by-session?session_id=` (public, looked up by Stripe's own
+unpredictable session id — same trust model the page already used
+pre-Stage-9) lets `/booking-success` poll for the webhook-written
+`ticket_token` (up to ~8 tries / ~12s) and reveal a "View your ticket" link
+once ready — the existing static thank-you content is UNCHANGED as a
+fallback if the poll times out. QR payload contains only the app origin +
+opaque token — never PII, the booking UUID, or the Stripe session id, per
+the Stage 9 audit's explicit requirement.
+
+Verified: `npx tsc --noEmit` and `npm run build` both clean, `/ticket/[token]`
+and `/api/bookings/by-session` both list as new dynamic routes with no
+regressions elsewhere. Could not exercise the live page directly (no
+`.env.local` in this session — same `next dev`-can't-reach-Supabase
+constraint recorded since Stage 8d), so instead: (1) confirmed
+`new-in-bkk`'s real `product_content.meeting_point` already has
+`visibility='public'` with genuine content (Guide entered it — "Don't Open
+the Fridge", real address) matching the target UX exactly; (2) ran the
+actual `qrcode` library and every new pure function (reference formatting,
+date/time formatting, meeting-point reveal, Bangkok→UTC calendar math)
+standalone in Node against that real data plus a marked, temporary test
+booking inserted directly (`notes LIKE 'STAGE9C_VERIFICATION_TEMP%'`,
+deleted after) — confirmed a real QR PNG data URI is produced, the booking
+reference formats as `NEW-5A6CCF`, the date resolves to "Tuesday, September
+1, 2026" (matches the product's actual Tuesday schedule), and the Google
+Calendar link correctly converts 20:30 Bangkok → 13:30 UTC. Booking count
+and `new-in-bkk` state reconfirmed unchanged after cleanup. **Not done
+yet:** 9d (QR check-in resolver + Event Operations UI) and 9e (secure the
+routes this lifecycle depends on).
 
 ## BNT integration (separate track from the New in Bangkok onboarding below)
 A second, separately-audited storefront (`bestnightlifethailand.com`, repo
