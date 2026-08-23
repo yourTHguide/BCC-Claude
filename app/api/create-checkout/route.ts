@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { stripe, getPriceId, NIGHT_NAMES } from '@/lib/stripe'
 import { getServiceSupabase } from '@/lib/supabase'
+import { getAppUrl } from '@/lib/appUrl'
 
 // Format the YYYY-MM-DD string into a friendly label.
 // Parse into LOCAL date components (not new Date(eventDate), which parses as
@@ -31,7 +32,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://bkkclubcrawl.com'
+    // Same resolver every other Stage 9 URL-building call site uses (ticket
+    // page, QR route, confirmation email) — Preview deployments get their
+    // own success/cancel redirect instead of always pointing at production.
+    const appUrl = getAppUrl()
 
     // Phase 2 rollback flag. When 'true', Supabase Product + Event Instance is
     // the source of truth for what Stripe charges. Otherwise we fall back to
