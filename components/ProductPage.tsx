@@ -17,14 +17,16 @@
 //
 // Highlights/whats_included/whats_not_included/important_info are
 // ContentItem[] (string | {icon?, text}) — see lib/contentItems.ts. As of
-// Stage 4's revised scope, only What's Included is icon-led (IconItemList,
-// below): Highlights and Good To Know render as plain bullets regardless
-// of whether an item happens to carry an icon (BulletList, below) — their
-// visual hierarchy comes from layout/typography, not per-line icons. A
-// plain string always renders with a plain bullet either way. Where an
-// icon id IS resolved (What's Included), lib/contentIcons.tsx's registry
-// returns null for anything unknown — this component never throws on a
-// missing/removed icon id, it just falls back to the plain bullet.
+// Stage 4's revised scope, only What's Included is icon-led — rendered as a
+// compact card grid (IncludedCardGrid, below) rather than a plain list, per
+// the Stage 4.1 presentation refinement. Highlights and Good To Know render
+// as plain bullets regardless of whether an item happens to carry an icon
+// (BulletList, below) — their visual hierarchy comes from layout/
+// typography, not per-line icons. A plain string always renders gracefully
+// either way (BulletList's dot, or IncludedCardGrid's generic check-mark
+// badge). Where an icon id IS resolved (What's Included),
+// lib/contentIcons.tsx's registry returns null for anything unknown — this
+// component never throws on a missing/removed icon id.
 //
 // This component is the reference design system for BEST Nightlife products
 // generally (New in Bangkok, The Builders Club, future products, and
@@ -32,7 +34,7 @@
 // carries no BCC-specific branding, tracking, or routing. It is NOT wired to
 // any storefront's checkout/pixel setup; the caller owns that via `mode`.
 
-import { Calendar, Clock, Timer, Tag, MapPin } from 'lucide-react'
+import { Calendar, Clock, Timer, Tag, Check } from 'lucide-react'
 import { getItemText, getItemIcon, type ContentItem } from '@/lib/contentItems'
 import { resolveContentIcon } from '@/lib/contentIcons'
 
@@ -121,6 +123,19 @@ function formatEventDate(iso: string): string {
   return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
 }
 
+// No-API-key map preview: the classic `maps.google.com/maps?q=...&output=
+// embed` endpoint (distinct from the Google Maps Embed API, which requires
+// a billed API key) — the exact pattern components/WeekendsPage.tsx already
+// uses for Bangkok Club Crawl's "Where We Go" map, reused generically here.
+// Built only from the canonical display_name/address on this meeting point
+// (never a hardcoded venue) — returns null when neither is present, so
+// callers can skip the embed entirely rather than render a broken iframe.
+function mapEmbedSrc(mp: ProductPageMeetingPoint): string | null {
+  const query = [mp.display_name, mp.address].filter(Boolean).join(', ')
+  if (!query) return null
+  return `https://maps.google.com/maps?q=${encodeURIComponent(query)}&z=16&output=embed`
+}
+
 function CrimsonDot({ small = false }: { small?: boolean }) {
   const size = small ? '8px' : '10px'
   return (
@@ -173,38 +188,24 @@ function SectionHeadline({ children }: { children: React.ReactNode }) {
   )
 }
 
-// Icon-led, scannable list — What's Included only (Stage 4 revised scope).
-// An item with a resolvable icon id gets that icon; a plain string or an
-// item whose icon id doesn't resolve falls back to the same crimson-dot
-// bullet BulletList (below) uses, so old data never looks broken. `twoCol`
-// widens to a 2-column grid at >=640px — still plain rows, not boxed
-// cards, per "more scannable, not more visually heavy."
-function IconItemList({ items, small = false, twoCol = false }: { items: ContentItem[]; small?: boolean; twoCol?: boolean }) {
+// Icon-led card grid — What's Included only (Stage 4.1 refinement). Each
+// item gets its own compact card: centered icon badge, text below. A plain
+// string or an unresolvable icon id falls back to a generic check-mark
+// badge (Check) rather than an empty circle, so legacy data still reads as
+// "included," not broken. 2 columns on mobile, 3 on desktop (CSS below),
+// wrapping naturally — never a fixed card count.
+function IncludedCardGrid({ items }: { items: ContentItem[] }) {
   return (
-    <div
-      className={twoCol ? 'pp-icon-list pp-icon-list-2col' : 'pp-icon-list'}
-      style={{ display: 'grid', gridTemplateColumns: '1fr', gap: small ? '12px 20px' : '14px 20px' }}
-    >
+    <div className="pp-included-grid">
       {items.map((item, i) => {
         const text = getItemText(item)
-        const Icon = resolveContentIcon(getItemIcon(item))
+        const Icon = resolveContentIcon(getItemIcon(item)) ?? Check
         return (
-          <div key={i} style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-            {Icon ? (
-              <Icon size={small ? 15 : 17} strokeWidth={2} color="#EA003A" style={{ flexShrink: 0, marginTop: small ? '1px' : '2px' }} />
-            ) : (
-              <CrimsonDot small={small} />
-            )}
-            <p
-              style={{
-                fontFamily: 'Inter, sans-serif',
-                fontSize: small ? '13px' : '14px',
-                color: small ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.75)',
-                lineHeight: 1.6,
-              }}
-            >
-              {text}
-            </p>
+          <div key={i} className="pp-included-card">
+            <div className="pp-included-icon-badge">
+              <Icon size={20} strokeWidth={2} />
+            </div>
+            <p className="pp-included-text">{text}</p>
           </div>
         )
       })}
@@ -499,7 +500,7 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
             <div style={{ maxWidth: '600px', margin: '0 auto' }}>
               <Eyebrow>THE NIGHT</Eyebrow>
               <SectionHeadline>What&rsquo;s included.</SectionHeadline>
-              <IconItemList items={whatsIncluded} twoCol />
+              <IncludedCardGrid items={whatsIncluded} />
             </div>
           </section>
         )}
@@ -533,55 +534,70 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
           </section>
         )}
 
-        {/* MEETING POINT — its own moment, respecting public / after_booking / private.
-            No live map embed yet (no Google Maps Platform key configured) —
-            a stylized placeholder card stands in for one, "View on map"
-            still uses the real stored maps_url. */}
+        {/* MEETING POINT — its own moment, respecting public / after_booking /
+            private. The map preview (mapEmbedSrc, above) is the no-API-key
+            `maps.google.com/maps?...&output=embed` pattern already proven by
+            Bangkok Club Crawl's own "Where We Go" section — built from the
+            canonical display_name/address, never a hardcoded venue. Only
+            renders when visibility is 'public': after_booking never reaches
+            this component with address data at all on the real public route
+            (sanitized server-side in app/api/products/[slug]/route.ts); the
+            admin Draft Preview route intentionally does pass the full
+            meeting_point through for authenticated review, so this
+            visibility check is what keeps after_booking/private from
+            rendering location details there too. */}
         {meetingPointVisible && meetingPoint && (
           <section style={{ background: '#1A0015', padding: '44px 20px' }}>
             <div style={{ maxWidth: '600px', margin: '0 auto' }}>
               <Eyebrow>MEETING POINT</Eyebrow>
-              <div style={{ display: 'flex', gap: '18px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                {meetingPoint.visibility !== 'after_booking' && (
-                  <div className="pp-map-card" aria-hidden="true">
-                    <MapPin size={26} strokeWidth={1.75} color="#EA003A" />
-                  </div>
-                )}
-                <div style={{ flex: '1 1 220px', minWidth: 0 }}>
-                  {meetingPoint.display_name && (
-                    <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '17px', color: '#FFFFFF', marginBottom: '8px' }}>
-                      {meetingPoint.display_name}
-                    </p>
-                  )}
-                  {meetingPoint.visibility === 'after_booking' ? (
-                    <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', color: 'rgba(255,255,255,0.60)' }}>
-                      Full address sent after booking.
-                    </p>
-                  ) : (
-                    <>
-                      {meetingPoint.address && (
-                        <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', color: 'rgba(255,255,255,0.65)', lineHeight: 1.7 }}>
-                          {meetingPoint.address}
-                        </p>
-                      )}
-                      {meetingPoint.maps_url && (
-                        <a
-                          href={meetingPoint.maps_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', fontWeight: 600, color: '#EA003A', textDecoration: 'none', display: 'inline-block', marginTop: '6px' }}
-                        >
-                          View on map →
-                        </a>
-                      )}
-                      {meetingPoint.instructions && (
-                        <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, marginTop: '10px' }}>
-                          {meetingPoint.instructions}
-                        </p>
-                      )}
-                    </>
-                  )}
+              {meetingPoint.visibility !== 'after_booking' && mapEmbedSrc(meetingPoint) && (
+                <div className="pp-map-embed">
+                  <iframe
+                    title={meetingPoint.display_name || 'Meeting point map'}
+                    src={mapEmbedSrc(meetingPoint)!}
+                    width="100%"
+                    height="100%"
+                    style={{ border: 0, display: 'block' }}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    allowFullScreen
+                  />
                 </div>
+              )}
+              <div className="pp-meeting-card">
+                {meetingPoint.display_name && (
+                  <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '17px', color: '#FFFFFF', marginBottom: '8px' }}>
+                    {meetingPoint.display_name}
+                  </p>
+                )}
+                {meetingPoint.visibility === 'after_booking' ? (
+                  <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', color: 'rgba(255,255,255,0.60)' }}>
+                    Full address sent after booking.
+                  </p>
+                ) : (
+                  <>
+                    {meetingPoint.address && (
+                      <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', color: 'rgba(255,255,255,0.65)', lineHeight: 1.7 }}>
+                        {meetingPoint.address}
+                      </p>
+                    )}
+                    {meetingPoint.maps_url && (
+                      <a
+                        href={meetingPoint.maps_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', fontWeight: 600, color: '#EA003A', textDecoration: 'none', display: 'inline-block', marginTop: '6px' }}
+                      >
+                        Open in Google Maps →
+                      </a>
+                    )}
+                    {meetingPoint.instructions && (
+                      <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, marginTop: '10px' }}>
+                        {meetingPoint.instructions}
+                      </p>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           </section>
@@ -715,18 +731,43 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
           .pp-icon-list-2col { grid-template-columns: 1fr 1fr; }
         }
 
-        /* Meeting Point visual placeholder — no Google Maps Platform key is
-           configured yet, so this is a stylized location card, not a live
-           embed. "View on map" still links to the real stored maps_url. */
-        .pp-map-card {
-          width: 84px; height: 84px; flex-shrink: 0; border-radius: 12px;
+        /* What's Included — compact icon cards. 2-col mobile, 3-col from
+           640px, wrapping naturally (never a fixed count). Fixed min-height
+           keeps card heights consistent regardless of text length. */
+        .pp-included-grid {
+          display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+        }
+        @media (min-width: 640px) {
+          .pp-included-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+        .pp-included-card {
+          display: flex; flex-direction: column; align-items: center; justify-content: center;
+          text-align: center; gap: 10px; padding: 20px 14px; min-height: 128px;
+          background: rgba(255,255,255,0.04); border: 1px solid rgba(234,0,58,0.25);
+          border-radius: 12px; box-sizing: border-box;
+        }
+        .pp-included-icon-badge {
+          width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
           display: flex; align-items: center; justify-content: center;
-          background-color: #1F0A1C;
-          background-image:
-            linear-gradient(rgba(234,0,58,0.10) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(234,0,58,0.10) 1px, transparent 1px);
-          background-size: 14px 14px;
-          border: 1px solid rgba(234,0,58,0.25);
+          background: rgba(234,0,58,0.12); color: #EA003A;
+        }
+        .pp-included-text {
+          font-family: Inter, sans-serif; font-size: 13px; line-height: 1.4;
+          color: rgba(255,255,255,0.80);
+        }
+
+        /* Meeting Point — real map preview (mapEmbedSrc, no API key) on
+           top, venue details card below. width/height="100%" on the iframe
+           itself (not just CSS) is what makes it fill this fixed-height,
+           overflow:hidden container edge-to-edge with no stray border —
+           the same pattern Bangkok Club Crawl's own map already proves. */
+        .pp-map-embed {
+          width: 100%; height: 220px; border-radius: 12px; overflow: hidden;
+          margin-bottom: 16px; background: #1F0A1C; border: 1px solid rgba(234,0,58,0.25);
+        }
+        .pp-meeting-card {
+          background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 12px; padding: 18px 20px;
         }
 
         .pp-gallery-strip {
