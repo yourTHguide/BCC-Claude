@@ -118,9 +118,11 @@ function durationLabel(minutes: number | null): string | null {
   return `${m}m`
 }
 
+// Compact date for Quick Facts — day + month only (e.g. "1 Sep"), no
+// weekday. Generic formatting, not specific to any one product.
 function formatEventDate(iso: string): string {
   const d = new Date(`${iso}T00:00:00`)
-  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
 
 // No-API-key map preview: the classic `maps.google.com/maps?q=...&output=
@@ -276,7 +278,10 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
   if (dateLabel) quickFacts.push({ label: 'Next Date', value: dateLabel, Icon: Calendar })
   if (timeLabel) quickFacts.push({ label: 'Start Time', value: timeLabel, Icon: Clock })
   if (durLabel) quickFacts.push({ label: 'Duration', value: durLabel, Icon: Timer })
-  if (priceLabel) quickFacts.push({ label: 'Price', value: `${priceLabel} / person`, Icon: Tag })
+  // Compact value in Quick Facts (the "/ person" unit is redundant next to
+  // the "Price" label here) — the Book Now CTA and sticky bar still spell
+  // out "per person" / "PERSON" in full, unchanged.
+  if (priceLabel) quickFacts.push({ label: 'Price', value: priceLabel, Icon: Tag })
 
   const showStickyBar = true // both modes render a bottom bar; preview's is inert (see below)
 
@@ -408,25 +413,13 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
         {/* QUICK FACTS — the "day/time/duration/price" logistics, visible immediately */}
         {quickFacts.length > 0 && (
           <section style={{ background: '#1A0015', borderBottom: '1px solid rgba(255,255,255,0.08)', padding: '20px 20px' }}>
-            <div
-              style={{
-                maxWidth: '640px',
-                margin: '0 auto',
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: '20px 28px',
-              }}
-            >
+            <div className="pp-quickfacts-row">
               {quickFacts.map((fact) => (
-                <div key={fact.label} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                  <fact.Icon size={18} strokeWidth={2} color="#EA003A" style={{ flexShrink: 0, marginTop: '2px' }} />
+                <div key={fact.label} className="pp-quickfacts-item">
+                  <fact.Icon size={18} strokeWidth={2} color="#EA003A" className="pp-quickfacts-icon" style={{ flexShrink: 0, marginTop: '2px' }} />
                   <div>
-                    <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.40)', margin: '0 0 4px' }}>
-                      {fact.label}
-                    </p>
-                    <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '16px', color: '#FFFFFF', margin: 0 }}>
-                      {fact.value}
-                    </p>
+                    <p className="pp-quickfacts-label">{fact.label}</p>
+                    <p className="pp-quickfacts-value">{fact.value}</p>
                   </div>
                 </div>
               ))}
@@ -711,6 +704,29 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
           transition: opacity 0.2s ease;
         }
         .pp-btn-primary:hover { opacity: 0.9; }
+
+        /* Quick Facts — kept as CSS classes (not inline styles) specifically
+           so the mobile media query below can shrink gap/font/icon size:
+           an inline style on a property always beats a class's @media
+           override, whatever the viewport (see the .pe-desktop-only Link
+           comment in the admin editor for the same footgun). At narrow
+           phone widths the four items' label text (heavy letter-spacing)
+           was wider than the available row, wrapping Price onto a second
+           line even after shortening the date/price values themselves. */
+        .pp-quickfacts-row { max-width: 640px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 20px 28px; }
+        .pp-quickfacts-item { display: flex; align-items: flex-start; gap: 10px; }
+        .pp-quickfacts-label {
+          font-family: Inter, sans-serif; font-weight: 600; font-size: 9px; letter-spacing: 0.16em;
+          text-transform: uppercase; color: rgba(255,255,255,0.40); margin: 0 0 4px; white-space: nowrap;
+        }
+        .pp-quickfacts-value { font-family: Inter, sans-serif; font-weight: 600; font-size: 16px; color: #FFFFFF; margin: 0; white-space: nowrap; }
+        @media (max-width: 480px) {
+          .pp-quickfacts-row { gap: 8px 14px; }
+          .pp-quickfacts-item { gap: 6px; }
+          .pp-quickfacts-icon { width: 15px !important; height: 15px !important; }
+          .pp-quickfacts-label { font-size: 8px; letter-spacing: 0.03em; }
+          .pp-quickfacts-value { font-size: 14px; }
+        }
 
         .pp-timeline-row { display: flex; gap: 16px; align-items: flex-start; position: relative; }
         .pp-timeline-marker {
