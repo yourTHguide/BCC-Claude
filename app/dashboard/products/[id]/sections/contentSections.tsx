@@ -17,9 +17,13 @@
 // what ContentTab.tsx already did before Stage A; Stage A preserves it
 // exactly, just via composable pieces instead of one inline form.
 
+import type { CSSProperties } from 'react'
 import { S } from './styles'
-import { ItemListEditor, ItineraryEditor } from './Controls'
+import { ItemListEditor, TextListEditor, ItineraryEditor } from './Controls'
 import type { ProductContent, MeetingPoint } from './types'
+import { getItemText } from '@/lib/contentItems'
+import { resolveContentIcon } from '@/lib/contentIcons'
+import { WHATS_INCLUDED_PRESETS, type WhatsIncludedPreset } from './whatsIncludedPresets'
 
 export type ContentFieldsProps = {
   content: ProductContent
@@ -92,11 +96,14 @@ function basicsSummary(content: ProductContent): string {
 }
 
 // ── Highlights ──
+// Plain text only (Stage 4 revised scope) — no icon picker. Highlights'
+// visual hierarchy on the public page comes from layout/typography, not
+// per-line icons.
 function HighlightsFields({ content, onChange }: ContentFieldsProps) {
   return (
     <div style={S.card}>
       <p style={S.sectionTitle}>Highlights — why join</p>
-      <ItemListEditor
+      <TextListEditor
         items={content.highlights}
         onChange={(v) => onChange({ highlights: v })}
         placeholder="e.g. Hosted intros — nobody stays a stranger"
@@ -109,13 +116,65 @@ function highlightsSummary(content: ProductContent): string {
   return n === 0 ? 'Empty' : `${n} item${n === 1 ? '' : 's'}`
 }
 
+const QA: Record<string, CSSProperties> = {
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '18px' },
+  tile: {
+    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px',
+    padding: '12px 6px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.10)',
+    background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.75)', cursor: 'pointer',
+    fontFamily: 'Inter, sans-serif', fontSize: '11px', fontWeight: 600, textAlign: 'center', lineHeight: 1.3,
+  },
+  tileIcon: {
+    width: '30px', height: '30px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    background: 'rgba(234,0,58,0.12)', color: '#EA003A', flexShrink: 0,
+  },
+  yourItemsHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' },
+  yourItemsLabel: { fontWeight: 600, fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)' },
+  clearAll: { fontSize: '12px', fontWeight: 600, color: '#EA003A', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' },
+}
+
 // ── What's Included ──
+// The only icon-capable field (Stage 4 revised scope). Quick Add is
+// admin-only convenience: selecting a preset just appends a normal
+// {icon, text} ContentItem — no preset id is ever stored, and
+// components/ProductPage.tsx never imports whatsIncludedPresets.ts.
 function WhatsIncludedFields({ content, onChange }: ContentFieldsProps) {
+  const items = content.whats_included
+
+  function addPreset(preset: WhatsIncludedPreset) {
+    // Best-effort duplicate guard on exact preset taps only — never applies
+    // to custom-typed text, which admins should be free to repeat.
+    const already = items.some((it) => getItemText(it).trim().toLowerCase() === preset.text.trim().toLowerCase() && preset.text.trim() !== '')
+    if (already) return
+    onChange({ whats_included: [...items, { icon: preset.icon, text: preset.text }] })
+  }
+
   return (
     <div style={S.card}>
       <p style={S.sectionTitle}>What&rsquo;s included</p>
+      <p style={S.hint}>What guests get as part of this event.</p>
+      <p style={{ ...S.label, margin: '14px 0 8px' }}>Quick add (tap to add)</p>
+      <div style={QA.grid}>
+        {WHATS_INCLUDED_PRESETS.map((preset) => {
+          const Icon = resolveContentIcon(preset.icon)
+          return (
+            <button key={preset.id} type="button" style={QA.tile} onClick={() => addPreset(preset)}>
+              <span style={QA.tileIcon}>{Icon && <Icon size={15} />}</span>
+              {preset.label}
+            </button>
+          )
+        })}
+      </div>
+      <div style={QA.yourItemsHead}>
+        <p style={QA.yourItemsLabel}>Your items ({items.length})</p>
+        {items.length > 0 && (
+          <button type="button" style={QA.clearAll} onClick={() => onChange({ whats_included: [] })}>
+            Clear all
+          </button>
+        )}
+      </div>
       <ItemListEditor
-        items={content.whats_included}
+        items={items}
         onChange={(v) => onChange({ whats_included: v })}
         placeholder="e.g. Welcome drink"
       />
@@ -207,12 +266,13 @@ function meetingPointSummary(content: ProductContent): string {
 // Matches ProductPage.tsx's actual public "GOOD TO KNOW" section 1:1 — that
 // section renders whats_not_included ("Not included") and important_info
 // ("Important info") together, so this editor groups the same two fields.
+// Plain text only (Stage 4 revised scope) — no icon picker.
 function GoodToKnowFields({ content, onChange }: ContentFieldsProps) {
   return (
     <>
       <div style={S.card}>
         <p style={S.sectionTitle}>Good to know — not included</p>
-        <ItemListEditor
+        <TextListEditor
           items={content.whats_not_included}
           onChange={(v) => onChange({ whats_not_included: v })}
           placeholder="e.g. Transport to the venue"
@@ -220,7 +280,7 @@ function GoodToKnowFields({ content, onChange }: ContentFieldsProps) {
       </div>
       <div style={S.card}>
         <p style={S.sectionTitle}>Good to know — important info</p>
-        <ItemListEditor
+        <TextListEditor
           items={content.important_info}
           onChange={(v) => onChange({ important_info: v })}
           placeholder="e.g. Smart casual dress code"

@@ -2,9 +2,14 @@
 
 // Generic repeatable-field editors shared by content section components.
 // ItineraryEditor moved verbatim out of the pre-Stage-A ContentTab.tsx —
-// behavior unchanged. ItemListEditor is new in Stage 3, replacing the old
-// plain-string StringListEditor for the four icon-capable fields
-// (Highlights, What's Included, What's Not Included, Important Info).
+// behavior unchanged.
+//
+// ItemListEditor (icon + text + reorder + delete) is scoped to What's
+// Included only as of Stage 4's revised scope — Highlights, What's Not
+// Included, and Important Info use the plain-text TextListEditor below
+// instead. Both operate on ContentItem[] (string | {icon, text}), so
+// existing plain-string data and any already-structured item (from before
+// this scope narrowing) keep round-tripping correctly either way.
 
 import { useState, type CSSProperties } from 'react'
 import { S } from './styles'
@@ -43,13 +48,13 @@ function IconPickerPanel({ value, onSelect }: { value: string | null; onSelect: 
   )
 }
 
-// Structured item editor for Highlights / What's Included / What's Not
-// Included / Important Info. Each item is a ContentItem (string | {icon,
-// text}) — a plain string renders and edits exactly like before and is
-// written back as a plain string unless the admin assigns it an icon,
-// which is the only thing that upgrades it to object form (see
-// lib/contentItems.ts). Clearing an item's icon converts it back to a
-// plain string, so nothing here forces existing data into a new shape.
+// Structured item editor — icon + text + reorder + delete. Used by What's
+// Included only. Each item is a ContentItem (string | {icon, text}) — a
+// plain string renders and edits exactly like before and is written back
+// as a plain string unless the admin assigns it an icon, which is the only
+// thing that upgrades it to object form (see lib/contentItems.ts).
+// Clearing an item's icon converts it back to a plain string, so nothing
+// here forces existing data into a new shape.
 export function ItemListEditor({
   items,
   onChange,
@@ -121,6 +126,59 @@ export function ItemListEditor({
           </div>
         )
       })}
+      <button type="button" style={S.addBtn} onClick={() => onChange([...items, ''])}>
+        + Add custom item
+      </button>
+    </div>
+  )
+}
+
+// Plain-text repeatable list — Highlights, What's Not Included, Important
+// Info (Stage 4 revised scope: no icon picker for these). Items are still
+// ContentItem[], not string[]: if an item somehow already carries an icon
+// (e.g. from before this scope narrowing), editing its text preserves that
+// icon untouched rather than silently dropping it — this editor just has
+// no UI to set or change one. A brand-new item is always a plain string.
+export function TextListEditor({
+  items,
+  onChange,
+  placeholder,
+}: {
+  items: ContentItem[]
+  onChange: (next: ContentItem[]) => void
+  placeholder: string
+}) {
+  function update(i: number, text: string) {
+    const icon = getItemIcon(items[i])
+    const next = [...items]
+    next[i] = icon ? { icon, text } : text
+    onChange(next)
+  }
+  function remove(i: number) {
+    onChange(items.filter((_, idx) => idx !== i))
+  }
+  function move(i: number, dir: -1 | 1) {
+    const j = i + dir
+    if (j < 0 || j >= items.length) return
+    const next = [...items]
+    ;[next[i], next[j]] = [next[j], next[i]]
+    onChange(next)
+  }
+  return (
+    <div>
+      {items.map((item, i) => (
+        <div key={i} style={S.row}>
+          <input
+            style={S.input}
+            value={getItemText(item)}
+            placeholder={placeholder}
+            onChange={(e) => update(i, e.target.value)}
+          />
+          <button type="button" style={S.iconBtn} disabled={i === 0} onClick={() => move(i, -1)} title="Move up">↑</button>
+          <button type="button" style={S.iconBtn} disabled={i === items.length - 1} onClick={() => move(i, 1)} title="Move down">↓</button>
+          <button type="button" style={{ ...S.iconBtn, ...S.iconBtnDanger }} onClick={() => remove(i)} title="Delete">✕</button>
+        </div>
+      ))}
       <button type="button" style={S.addBtn} onClick={() => onChange([...items, ''])}>
         + Add
       </button>

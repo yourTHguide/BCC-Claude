@@ -30,10 +30,14 @@ const C = {
   wrap: { maxWidth: '1280px', margin: '0 auto', padding: '28px 24px' } as React.CSSProperties,
   narrow: { maxWidth: '640px' } as React.CSSProperties,
   contentWrap: { maxWidth: '760px' } as React.CSSProperties,
-  tabBar: { display: 'flex', gap: '4px', borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: '24px' } as React.CSSProperties,
+  // padding/font-size/gap live in the .pd-tabbar/.pd-tab CSS classes below
+  // (not here) so a @media rule can shrink them on narrow phones — an
+  // inline style on the same property always wins over a class, media
+  // query or not (see the .pe-desktop-only Link comment further down).
+  tabBar: { display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: '24px' } as React.CSSProperties,
   tab: (active: boolean): React.CSSProperties => ({
-    height: '38px', padding: '0 16px', border: 'none', borderBottom: active ? '2px solid #EA003A' : '2px solid transparent',
-    background: 'transparent', color: active ? '#fff' : 'rgba(255,255,255,0.50)', fontWeight: 600, fontSize: '13px',
+    border: 'none', borderBottom: active ? '2px solid #EA003A' : '2px solid transparent',
+    background: 'transparent', color: active ? '#fff' : 'rgba(255,255,255,0.50)',
     cursor: 'pointer', fontFamily: 'Inter, sans-serif',
   }),
   card: { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '20px 22px', marginBottom: '16px' } as React.CSSProperties,
@@ -307,11 +311,11 @@ function ProductDetailInner() {
             </p>
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
-              <div style={{ ...C.tabBar, flexWrap: 'wrap', overflowX: 'auto' }}>
-                <button style={C.tab(tab === 'overview')} onClick={() => setTab('overview')}>Overview</button>
-                <button style={C.tab(tab === 'schedule')} onClick={() => setTab('schedule')}>Schedule</button>
-                <button style={C.tab(tab === 'content')} onClick={() => setTab('content')}>Content</button>
-                <button style={C.tab(tab === 'media')} onClick={() => setTab('media')}>Media</button>
+              <div className="pd-tabbar" style={C.tabBar}>
+                <button className="pd-tab" style={C.tab(tab === 'overview')} onClick={() => setTab('overview')}>Overview</button>
+                <button className="pd-tab" style={C.tab(tab === 'schedule')} onClick={() => setTab('schedule')}>Schedule</button>
+                <button className="pd-tab" style={C.tab(tab === 'content')} onClick={() => setTab('content')}>Content</button>
+                <button className="pd-tab" style={C.tab(tab === 'media')} onClick={() => setTab('media')}>Media</button>
               </div>
               {/* Mobile already surfaces this as the "Preview Product" row inside
                   the Overview tab — avoid showing it twice / crowding the tab
@@ -327,9 +331,15 @@ function ProductDetailInner() {
             </div>
             <style>{`
               .pe-mobile-only { display: none; }
+              .pd-tabbar { gap: 6px; }
+              .pd-tab { height: 38px; padding: 0 16px; font-size: 13px; font-weight: 600; white-space: nowrap; }
               @media (max-width: 768px) {
                 .pe-desktop-only { display: none; }
                 .pe-mobile-only { display: block; }
+                /* Keep all 4 tabs on one row on phone widths — shrink
+                   padding/gap/font instead of wrapping or scrolling. */
+                .pd-tabbar { gap: 2px; }
+                .pd-tab { padding: 0 8px; font-size: 12px; }
               }
             `}</style>
 

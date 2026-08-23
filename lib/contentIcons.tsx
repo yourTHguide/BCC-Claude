@@ -31,6 +31,9 @@ import {
   IdCard,
   ShieldAlert,
   PartyPopper,
+  Camera,
+  Crown,
+  MoreHorizontal,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -56,6 +59,9 @@ export const CONTENT_ICONS = {
   'id-card': IdCard,
   'shield-alert': ShieldAlert,
   party: PartyPopper,
+  camera: Camera,
+  vip: Crown,
+  other: MoreHorizontal,
 } as const satisfies Record<string, LucideIcon>
 
 export type ContentIconId = keyof typeof CONTENT_ICONS
@@ -87,6 +93,9 @@ export const CONTENT_ICON_LABELS: Record<ContentIconId, string> = {
   'id-card': 'ID Required',
   'shield-alert': 'Warning',
   party: 'Party',
+  camera: 'Photo',
+  vip: 'VIP Access',
+  other: 'Other',
 }
 
 // Resolves a stored icon id to its component. Returns null for a missing,

@@ -16,12 +16,15 @@
 // supplies descriptive copy.
 //
 // Highlights/whats_included/whats_not_included/important_info are
-// ContentItem[] (string | {icon?, text}) — see lib/contentItems.ts. A plain
-// string (every row saved before Stage 3's icon-aware editor exists, and
-// still valid forever after) renders with a plain bullet, exactly as
-// before. An icon id is resolved via lib/contentIcons.tsx's registry,
-// which returns null for anything unknown — this component never throws
-// on a missing/removed icon id, it just falls back to the plain bullet.
+// ContentItem[] (string | {icon?, text}) — see lib/contentItems.ts. As of
+// Stage 4's revised scope, only What's Included is icon-led (IconItemList,
+// below): Highlights and Good To Know render as plain bullets regardless
+// of whether an item happens to carry an icon (BulletList, below) — their
+// visual hierarchy comes from layout/typography, not per-line icons. A
+// plain string always renders with a plain bullet either way. Where an
+// icon id IS resolved (What's Included), lib/contentIcons.tsx's registry
+// returns null for anything unknown — this component never throws on a
+// missing/removed icon id, it just falls back to the plain bullet.
 //
 // This component is the reference design system for BEST Nightlife products
 // generally (New in Bangkok, The Builders Club, future products, and
@@ -170,13 +173,12 @@ function SectionHeadline({ children }: { children: React.ReactNode }) {
   )
 }
 
-// Icon-led, scannable list — the successor to the plain-bullet BulletList.
-// An item with a resolvable icon id gets that icon; a plain string (every
-// row saved before Stage 3's icon-aware editor, and still valid forever
-// after) or an item whose icon id doesn't resolve falls back to the same
-// crimson-dot bullet this list always used, so old data never looks broken.
-// `twoCol` widens to a 2-column grid at >=640px — still plain rows, not
-// boxed cards, per "more scannable, not more visually heavy."
+// Icon-led, scannable list — What's Included only (Stage 4 revised scope).
+// An item with a resolvable icon id gets that icon; a plain string or an
+// item whose icon id doesn't resolve falls back to the same crimson-dot
+// bullet BulletList (below) uses, so old data never looks broken. `twoCol`
+// widens to a 2-column grid at >=640px — still plain rows, not boxed
+// cards, per "more scannable, not more visually heavy."
 function IconItemList({ items, small = false, twoCol = false }: { items: ContentItem[]; small?: boolean; twoCol?: boolean }) {
   return (
     <div
@@ -206,6 +208,37 @@ function IconItemList({ items, small = false, twoCol = false }: { items: Content
           </div>
         )
       })}
+    </div>
+  )
+}
+
+// Plain-bullet list — Highlights and Good To Know (Stage 4 revised scope).
+// Always a crimson-dot bullet, regardless of whether an item happens to
+// carry an icon field: these sections' visual hierarchy comes from
+// layout/typography, not per-line icons. getItemText still safely extracts
+// text from a structured item, so nothing here breaks or shows a raw
+// object if one exists — this is a rendering choice, not a data change.
+function BulletList({ items, small = false, twoCol = false }: { items: ContentItem[]; small?: boolean; twoCol?: boolean }) {
+  return (
+    <div
+      className={twoCol ? 'pp-icon-list pp-icon-list-2col' : 'pp-icon-list'}
+      style={{ display: 'grid', gridTemplateColumns: '1fr', gap: small ? '12px 20px' : '14px 20px' }}
+    >
+      {items.map((item, i) => (
+        <div key={i} style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+          <CrimsonDot small={small} />
+          <p
+            style={{
+              fontFamily: 'Inter, sans-serif',
+              fontSize: small ? '13px' : '14px',
+              color: small ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.75)',
+              lineHeight: 1.6,
+            }}
+          >
+            {getItemText(item)}
+          </p>
+        </div>
+      ))}
     </div>
   )
 }
@@ -433,7 +466,7 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
             <div style={{ maxWidth: '600px', margin: '0 auto' }}>
               <Eyebrow>HIGHLIGHTS</Eyebrow>
               <SectionHeadline>What makes this different.</SectionHeadline>
-              <IconItemList items={highlights} twoCol />
+              <BulletList items={highlights} twoCol />
             </div>
           </section>
         )}
@@ -568,7 +601,7 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
                     <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '13px', color: 'rgba(255,255,255,0.75)', marginBottom: '12px' }}>
                       Not included
                     </p>
-                    <IconItemList items={whatsNotIncluded} small />
+                    <BulletList items={whatsNotIncluded} small />
                   </div>
                 )}
                 {importantInfo.length > 0 && (
@@ -576,7 +609,7 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
                     <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '13px', color: 'rgba(255,255,255,0.75)', marginBottom: '12px' }}>
                       Important info
                     </p>
-                    <IconItemList items={importantInfo} small />
+                    <BulletList items={importantInfo} small />
                   </div>
                 )}
               </div>
