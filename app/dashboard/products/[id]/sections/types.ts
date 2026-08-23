@@ -4,6 +4,14 @@
 // `GET/PUT /api/admin/products/[id]/content` route already use (see
 // ContentTab.tsx history / the route itself) — Stage A introduces no new
 // fields, no new routes, no new data model.
+//
+// highlights/whats_included/whats_not_included/important_info are
+// ContentItem[] (see lib/contentItems.ts) as of Stage 3 — each entry is
+// either a plain string (all pre-existing data) or a {icon, text} object.
+// Nothing here forces an upgrade to object form; that only happens when an
+// admin assigns an icon to a specific item through ItemListEditor.
+
+import type { ContentItem } from '@/lib/contentItems'
 
 export interface ItineraryStep {
   title: string
@@ -25,11 +33,11 @@ export interface ProductContent {
   full_description: string | null
   duration_minutes: number | null
   meeting_point: MeetingPoint
-  highlights: string[]
+  highlights: ContentItem[]
   itinerary: ItineraryStep[]
-  whats_included: string[]
-  whats_not_included: string[]
-  important_info: string[]
+  whats_included: ContentItem[]
+  whats_not_included: ContentItem[]
+  important_info: ContentItem[]
   updated_at: string | null
 }
 

@@ -62,6 +62,33 @@ export type ContentIconId = keyof typeof CONTENT_ICONS
 
 export const CONTENT_ICON_IDS = Object.keys(CONTENT_ICONS) as ContentIconId[]
 
+// Human-readable labels for the admin icon picker (Stage 3). Public
+// ProductPage rendering never imports this — it only resolves ids to
+// components via resolveContentIcon below.
+export const CONTENT_ICON_LABELS: Record<ContentIconId, string> = {
+  users: 'Group / Friends',
+  host: 'Host',
+  wine: 'Drinks',
+  coffee: 'Coffee',
+  city: 'City / Venue',
+  globe: 'Travel',
+  smile: 'Fun / Social',
+  games: 'Games',
+  ticket: 'Ticket / Entry',
+  'map-pin': 'Location',
+  clock: 'Time',
+  calendar: 'Date',
+  tag: 'Price',
+  sparkles: 'Highlight',
+  heart: 'Favorite',
+  music: 'Music',
+  bus: 'Transport',
+  utensils: 'Food',
+  'id-card': 'ID Required',
+  'shield-alert': 'Warning',
+  party: 'Party',
+}
+
 // Resolves a stored icon id to its component. Returns null for a missing,
 // unknown, or since-deprecated id — callers render text-only in that case
 // rather than throwing. This is the "fail gracefully" contract: an icon

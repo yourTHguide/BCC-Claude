@@ -18,7 +18,7 @@
 // exactly, just via composable pieces instead of one inline form.
 
 import { S } from './styles'
-import { StringListEditor, ItineraryEditor } from './Controls'
+import { ItemListEditor, ItineraryEditor } from './Controls'
 import type { ProductContent, MeetingPoint } from './types'
 
 export type ContentFieldsProps = {
@@ -96,7 +96,7 @@ function HighlightsFields({ content, onChange }: ContentFieldsProps) {
   return (
     <div style={S.card}>
       <p style={S.sectionTitle}>Highlights — why join</p>
-      <StringListEditor
+      <ItemListEditor
         items={content.highlights}
         onChange={(v) => onChange({ highlights: v })}
         placeholder="e.g. Hosted intros — nobody stays a stranger"
@@ -114,7 +114,7 @@ function WhatsIncludedFields({ content, onChange }: ContentFieldsProps) {
   return (
     <div style={S.card}>
       <p style={S.sectionTitle}>What&rsquo;s included</p>
-      <StringListEditor
+      <ItemListEditor
         items={content.whats_included}
         onChange={(v) => onChange({ whats_included: v })}
         placeholder="e.g. Welcome drink"
@@ -212,7 +212,7 @@ function GoodToKnowFields({ content, onChange }: ContentFieldsProps) {
     <>
       <div style={S.card}>
         <p style={S.sectionTitle}>Good to know — not included</p>
-        <StringListEditor
+        <ItemListEditor
           items={content.whats_not_included}
           onChange={(v) => onChange({ whats_not_included: v })}
           placeholder="e.g. Transport to the venue"
@@ -220,7 +220,7 @@ function GoodToKnowFields({ content, onChange }: ContentFieldsProps) {
       </div>
       <div style={S.card}>
         <p style={S.sectionTitle}>Good to know — important info</p>
-        <StringListEditor
+        <ItemListEditor
           items={content.important_info}
           onChange={(v) => onChange({ important_info: v })}
           placeholder="e.g. Smart casual dress code"
