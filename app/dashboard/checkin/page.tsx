@@ -37,6 +37,22 @@ export default function ScanTicketPage() {
   useEffect(() => {
     let cancelled = false
     let instance: import('html5-qrcode').Html5Qrcode | null = null
+    // Root cause of the real-iPhone check-in crash (PHASE4_CHECKPOINT.md
+    // Stage 9): html5-qrcode's stop() throws SYNCHRONOUSLY (not a rejected
+    // promise) if called while the scanner isn't running/paused. The
+    // onScanSuccess callback below already stops the scanner before
+    // navigating away; when that navigation then unmounts this component,
+    // the cleanup below used to call stop() a SECOND time unconditionally —
+    // on an instance already stopped, throwing "Cannot stop, scanner is not
+    // running or paused" synchronously, which .catch(() => {}) can never
+    // intercept (the throw happens before stop() returns a promise to
+    // attach a handler to). React then attributes that cleanup-phase throw
+    // to the nearest error boundary, which by then renders over whatever
+    // route the navigation had already committed to. This ref tracks
+    // whether OUR code still considers the scanner running, set to false
+    // synchronously the moment we decide to stop it, so the cleanup never
+    // attempts a redundant stop() in the first place.
+    let running = false
 
     async function start() {
       try {
@@ -51,6 +67,7 @@ export default function ScanTicketPage() {
             // stop() finishes — navigate exactly once per scan.
             if (cancelled || scannedRef.current) return
             scannedRef.current = true
+            running = false
             const token = extractToken(decodedText)
             instance!
               .stop()
@@ -64,6 +81,7 @@ export default function ScanTicketPage() {
             // while aiming the camera, not an error.
           }
         )
+        running = true
         if (!cancelled) setCameraState('scanning')
       } catch (err: any) {
         if (!cancelled) {
@@ -81,8 +99,16 @@ export default function ScanTicketPage() {
 
     return () => {
       cancelled = true
-      if (instance) {
-        instance.stop().catch(() => {})
+      if (instance && running) {
+        running = false
+        // Defense in depth: still guard the (now much rarer) case with a
+        // real try/catch, not just .catch(), since a synchronous throw
+        // bypasses .catch() entirely.
+        try {
+          instance.stop().catch(() => {})
+        } catch {
+          // stop() can throw synchronously if the scanner isn't running.
+        }
       }
     }
   }, [router])
