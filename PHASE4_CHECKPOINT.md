@@ -633,26 +633,43 @@ than claimed as solved; what WAS conclusively fixed is the structural cause
 that made the flow untestable at all, which subsumes it regardless of the
 exact crash mechanism.
 
-Fix: new `lib/appUrl.ts` → `getAppUrl()`, resolution order (1)
-`NEXT_PUBLIC_APP_URL` if explicitly set, (2) Vercel's own `VERCEL_ENV==
-'production'` → `https://bkkclubcrawl.com`, (3) any other Vercel
-environment (Preview) → `https://${VERCEL_URL}` (Vercel sets this
-automatically per-deployment) — makes a Preview build's own
-tickets/QR/email self-consistent and actually scannable against itself,
-(4) local dev → the production domain (harmless default). Real
-transactional emails/tickets are UNCHANGED in effect (production still
-always resolves to `bkkclubcrawl.com`); what changes is that a Preview
-deployment no longer generates a QR pointing at a domain that doesn't have
-the code yet. All three call sites (plus the email-preview route, whose
-now-inaccurate "the QR will render broken here" messaging was corrected
-now that it doesn't) switched from the hardcoded pattern to
-`getAppUrl()`. Also audited `app/dashboard/checkin/[token]/page.tsx` itself
-line-by-line for any unguarded client-side throw (null access, unhandled
-rejection) per Guide's explicit ask — found none; every optional field is
-checked before use. Verified: `npx tsc --noEmit`/`npm run build` clean;
-`getAppUrl()` exercised standalone for all 4 branches (no env, Preview,
-Production, explicit override — override wins even in production) with the
-exact expected host for each.
+Fix: new `lib/appUrl.ts` → `getAppUrl()`. **First version shipped with
+override-checked-first priority (explicit `NEXT_PUBLIC_APP_URL` > Vercel
+`VERCEL_ENV`/`VERCEL_URL` > hardcoded default) on the ASSUMPTION that env
+var would be unset on Preview — deployed, then re-verified by decoding the
+actual live QR image again (same jsQR+pngjs method), and it STILL showed
+`bkkclubcrawl.com`, proving the assumption wrong rather than declaring the
+fix done on faith.** Added a temporary diagnostic route (`GET
+/api/debug-env`, committed, deployed, queried, then deleted — never left
+in the codebase) to see the real values directly: confirmed
+`NEXT_PUBLIC_APP_URL=https://bkkclubcrawl.com` is explicitly configured for
+**All Environments** in this Vercel project (not Production-only), while
+`VERCEL_ENV` and `VERCEL_URL` were exactly as expected
+(`"preview"`/the real deployment host). With override-first priority, that
+env var config meant the "fix" changed nothing on Preview — a real
+near-miss caught by re-verification, not assumed fixed after writing code
+that looked right. **Corrected priority, now shipped:** Preview
+(`VERCEL_ENV==='preview'`) is checked FIRST and unconditionally uses
+`VERCEL_URL`, ignoring `NEXT_PUBLIC_APP_URL` entirely — only Production and
+local dev fall through to the env var / hardcoded-default branch. Real
+transactional emails/tickets are still unaffected (production still always
+resolves to `bkkclubcrawl.com`, since `VERCEL_ENV` there is `'production'`,
+never `'preview'`); what changes is that a Preview deployment no longer
+generates a QR pointing at a domain that doesn't have the code yet. All
+three call sites (plus the email-preview route, whose "QR will render
+broken here" messaging was corrected to describe the real, now-working
+behavior) use `getAppUrl()`. Also audited
+`app/dashboard/checkin/[token]/page.tsx` line-by-line for any unguarded
+client-side throw (null access, unhandled rejection) per Guide's explicit
+ask — found none; every optional field is checked before use. Verified:
+`npx tsc --noEmit`/`npm run build` clean after the correction;
+`getAppUrl()` exercised standalone against the REAL confirmed env
+configuration (override set for all environments) confirming Preview now
+correctly ignores it and Production/local still respect it; the live QR
+was decoded a THIRD time post-correction-deploy and finally showed the
+Preview deployment's own host, not `bkkclubcrawl.com` — the fix is
+confirmed working by direct observation, not inferred from the code
+change alone.
 
 **2. Confirmation email is now genuinely product-driven — full rewrite,
 not a patch.** `emails/confirmation.ts` no longer contains ANY BCC-specific
