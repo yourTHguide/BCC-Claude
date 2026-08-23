@@ -1,6 +1,6 @@
 # Phase 4 — Internal Product & Schedule Builder — Checkpoint
 
-_Last updated: 2026-08-22 (Mobile-first Admin Product Editor — Stage A COMPLETE + two correction passes: Schedule naming/mobile Event Dates/editable Operational, then functional-parity pass making Quick Facts/Overview/Media genuinely operable from mobile). Compact resume doc for continuing in a fresh conversation._
+_Last updated: 2026-08-23 (SNX Product Admin session: Stages 1–4, then a 4.1 presentation refinement and a 4.2 Quick Facts formatting fix — see "SNX Product Admin — Icon System, Content Model, ProductPage Refinement" below. New in Bangkok's ProductPage/Draft Preview is now considered feature-complete and approved; the earlier "Not done yet" bullets below claiming ProductPage/Draft Preview/public route were "not started" are STALE — see that section and "Where we are, revised" for the corrected current state)._ Compact resume doc for continuing in a fresh conversation.
 
 ### Stage A functional-parity pass (locks "mobile = desktop, minus space")
 
@@ -242,6 +242,252 @@ re-verified in Preview, see PR description) driven with Playwright:
 - Stages B–E of this track are unscoped placeholders; **Stage F** (desktop
   layout refinement) is explicitly reserved and not started.
 
+## SNX Product Admin — Icon System, Content Model, ProductPage Refinement (Stages 1–4.2, THIS session)
+
+A fourth, separately-scoped track, on the SAME branch as the Mobile-first
+Admin Product Editor track above (`claude/mobile-admin-editor-stage-a-kv6e43`
+— see "Where we are, revised" below for the exact current HEAD). Where the
+Mobile-first Admin Product Editor track (above) restructured HOW the admin
+reaches fields, this track changed WHAT the public `ProductPage.tsx` looks
+like and added icon support to one content field. Sequenced as Stage 1
+(data contract) → Stage 2 (public rendering) → Stage 3 (admin item editor)
+→ Stage 4 (scope narrowed to What's Included only + Quick Add presets,
+after user review of real screenshots) → Stage 4.1 (What's Included card
+grid + real map preview) → Stage 4.2 (Quick Facts compact formatting).
+**All of it is Preview-only on this branch; nothing here has touched
+`main` or production.**
+
+### Canonical content-item data contract (Stage 1, unchanged since)
+`lib/contentItems.ts` defines `ContentItem = string | { icon?: string; text:
+string }` — the type for `product_content.highlights` / `whats_included` /
+`whats_not_included` / `important_info` (all `JSONB` columns already, per
+Migration C v3 above — **no DB migration was ever needed for icon
+support**). A plain string (every row saved before this track existed, and
+still valid forever after) means exactly what it always meant: text, no
+icon. `validateContentItemList()` (used by `PUT /api/admin/products/[id]/
+content`) accepts either shape additively, checking `icon` only for being a
+string — never for membership in the current icon registry — so a future
+icon addition/removal can never retroactively invalidate stored data.
+`getItemText()`/`getItemIcon()` are the two accessors every consumer
+(editor and renderer alike) uses instead of ever branching on `typeof item`
+by hand.
+
+### Icon registry (Stage 1, extended in Stage 4)
+`lib/contentIcons.tsx` — `CONTENT_ICONS` (a `Record<id, LucideIcon>`, ~24
+entries after Stage 4's `camera`/`vip`/`other` additions),
+`resolveContentIcon(id)` (returns the component or `null` for anything
+missing/unknown/deprecated — the "fail gracefully" contract: nothing here
+ever throws on a bad id), and `CONTENT_ICON_LABELS` (human-readable picker
+labels, e.g. `wine` → "Drinks" — admin-only; **`components/ProductPage.tsx`
+never imports `CONTENT_ICON_LABELS`**). Chose `lucide-react` over a
+hand-built SVG set after confirming it tree-shakes cleanly (`sideEffects:
+false`, proper ESM entry) — named-import usage here adds only a few KB to
+the relevant routes, not the full ~31MB unpacked package.
+
+### Icons are scoped to What's Included ONLY (Stage 4 — narrowed from the original Stage 1–3 plan)
+Stages 1–3 built icon support generically across Highlights/What's
+Included/What's Not Included/Important Info. **After the user reviewed real
+mobile screenshots, this was deliberately narrowed**: icons only make sense
+on What's Included; Highlights and Good To Know should stay clean text,
+with visual hierarchy coming from layout/typography, not per-line
+decoration. The underlying `ContentItem` data contract was **not** rolled
+back (still `string | {icon, text}` for all four fields, so nothing
+breaks if a legacy/imported row happens to carry an icon on one of the
+other three) — only the ADMIN EDITOR UX and the PUBLIC RENDERING were
+narrowed:
+- **Admin** (`app/dashboard/products/[id]/sections/`): `ItemListEditor`
+  (icon picker + text + reorder + delete, in `Controls.tsx`) is used ONLY
+  by `WhatsIncludedFields` (`contentSections.tsx`). `HighlightsFields` and
+  `GoodToKnowFields` use the new `TextListEditor` (`Controls.tsx`) — same
+  interaction model (reorder/delete/add), no icon button. `TextListEditor`
+  still operates on `ContentItem[]`: editing a plain string's text keeps it
+  a plain string; editing a (hypothetical, currently nonexistent in real
+  data) structured item's text preserves its icon field untouched — the
+  editor restriction never mutates data on its own.
+- **Public** (`components/ProductPage.tsx`): `IconItemList` (icon-led) is
+  used ONLY for What's Included, rendered as `IncludedCardGrid` (see next
+  section). `BulletList` (always a plain crimson dot, ignores any icon
+  field even if present) is used for Highlights and both Good To Know
+  lists.
+
+### What's Included: admin Quick Add + icon picker (Stage 3, extended Stage 4)
+Focused editor (`WhatsIncludedFields` in `contentSections.tsx`) layout, top
+to bottom:
+1. **Quick Add grid** — 9 preset tiles (`app/dashboard/products/[id]/
+   sections/whatsIncludedPresets.ts`, admin-only, **never imported by
+   ProductPage.tsx**): Welcome drink, Entry to venues, Host, Drinking
+   games, Transport, Food, Photo ops, VIP access, Other. Tapping one
+   appends a normal `{icon, text}` `ContentItem` — **no preset id is ever
+   stored**, matching the original architecture rule. A best-effort
+   duplicate guard skips a second tap of the same preset if an item with
+   identical (trimmed, case-insensitive) text already exists; it never
+   restricts manually-typed custom text, including intentional near-
+   duplicates.
+2. **"Your Items (n)"** heading + "Clear all" link, then the `ItemListEditor`
+   list itself: `[icon button] [text input] [↑] [↓] [✕]` per row. Tapping
+   the icon button opens `IconPickerPanel` (`Controls.tsx`) — a visual grid
+   of every registry icon with its human-readable label plus a "No icon"
+   option, never a raw id to type. Assigning an icon is the ONLY thing that
+   upgrades a plain string to `{icon, text}` object form; picking "No icon"
+   converts it back to a plain string.
+3. **"+ Add custom item"** — appends a blank item; icon/text set the same
+   way as any preset-added item. Presets never restrict what a custom item
+   can be.
+Mobile: compact section list → this focused editor (Stage A's
+established interaction shell, `MobileSectionShell.tsx`, reused unchanged).
+Desktop: same `WhatsIncludedFields` component, stacked inline with every
+other section — same data, same editor, per the original "no separate
+mobile/desktop editors" rule.
+
+### ProductPage.tsx rendering (Stage 2, then revised in Stage 4.1)
+Current section order (unchanged since Stage 2, approved): **Hero → Quick
+Facts → Highlights → Gallery → What's Included → How The Night Goes
+(itinerary timeline) → Meeting Point → Good To Know → Book CTA**. Key
+pieces:
+- **Quick Facts** — 4 items (Next Date/Start Time/Duration/Price), each
+  with a fixed Lucide icon (Calendar/Clock/Timer/Tag — NOT admin-
+  selectable, unrelated to the content-item icon registry). **Stage 4.2**:
+  `formatEventDate()` drops the weekday (`"1 Sept"`, not `"Tue 1 Sept"` —
+  `en-GB`'s Intl abbreviation for September specifically is "Sept", not
+  "Sep"; this is locale/ICU behavior, not a hardcoded string, and other
+  months are unaffected) and the Price quick-fact shows the bare amount
+  (`"฿590"`, no `"/ person"` suffix — the Book Now CTA and sticky bar still
+  spell "per person"/"PERSON" out in full, unchanged). The four items' gap/
+  font-size/letter-spacing/icon-size live in `.pp-quickfacts-row/-item/
+  -label/-value` CSS classes (NOT inline styles — see the code comment
+  right above them for why: an inline style on a property always beats a
+  class's `@media` override) with a `max-width:480px` query that tightens
+  spacing so all 4 fit on one row on a phone without wrapping — verified
+  by real bounding-box measurement (~422px of content+gaps at mobile width
+  before the fix, ~319px after, against a ~350px available width).
+- **Highlights** — `BulletList`, `twoCol` (2-col grid ≥640px). Plain
+  crimson-dot bullets always, regardless of any icon field.
+- **Gallery** — horizontal scroll-snap strip, positioned right after
+  Highlights (moved up from its original end-of-page position in Stage 2
+  specifically so photography breaks up the copy sooner).
+- **What's Included** — `IncludedCardGrid` (Stage 4.1, replacing the
+  Stage 2–4 `IconItemList` row-list treatment for this field only): compact
+  cards, centered icon badge (a generic `Check` icon as the graceful
+  fallback for a plain string or unresolvable icon id — never an empty
+  circle), text below, dark card + restrained fuchsia border
+  (`.pp-included-grid`/`.pp-included-card`/`.pp-included-icon-badge`/
+  `.pp-included-text`). 2 columns on mobile, 3 from 640px, wrapping
+  naturally — never a fixed card count.
+- **How The Night Goes** — the itinerary timeline (`.pp-timeline-row`/
+  `.pp-timeline-marker`), untouched since Stage 2's visual refinement
+  (marker size/border/shadow only; the underlying `{title, description}[]`
+  data/logic has never changed in this track).
+- **Meeting Point** — **Stage 4.1** replaced the Stage 2 decorative
+  grid/pin placeholder with a REAL map preview: `mapEmbedSrc()` builds
+  `https://maps.google.com/maps?q=<display_name>, <address>&z=16&
+  output=embed` — the classic no-API-key Google Maps embed endpoint
+  (distinct from the billed Google Maps Embed API), reusing the EXACT
+  pattern `components/WeekendsPage.tsx` (Bangkok Club Crawl's own "Where We
+  Go" section) already used in production, confirmed by inspection before
+  writing any code. Built only from canonical `meeting_point.display_name`/
+  `address` — **never a hardcoded venue**. Layout: `.pp-map-embed` (iframe,
+  220px tall, `overflow:hidden`, 1px border matching BCC's own
+  `.map-placeholder`) on top, `.pp-meeting-card` (venue name, address,
+  instructions, "Open in Google Maps →" linking to the stored
+  `maps_url`) below. **Privacy rules** (verified, not just assumed):
+  - `public` → map + full card renders.
+  - `after_booking` → NO map, NO address, NO maps link; only "Full address
+    sent after booking." The PUBLIC route (`app/api/products/[slug]/
+    route.ts`, `sanitizeMeetingPoint()`) already strips ALL location fields
+    server-side for this case, unchanged by this track. The authenticated
+    admin Draft Preview route (`/api/admin/products/[id]/preview`)
+    intentionally passes the FULL `meeting_point` through for admin
+    review, so `ProductPage.tsx`'s own `visibility` check is what keeps
+    after_booking/private from rendering location details THERE too —
+    confirmed via a 3-way synthetic render (public/after_booking/private
+    of the same real venue) that neither leaks.
+  - `private` (or unset/invalid) → the entire Meeting Point section is
+    omitted, not just the address.
+- **Good To Know** — `BulletList` for both `whats_not_included` and
+  `important_info` (Stage 4, narrowed from Stage 2's icon-capable
+  treatment — see "Icons are scoped to What's Included ONLY" above).
+
+### New in Bangkok's real current state (as of this session's last commit)
+`product_id = 75466d68-23b6-45a9-bc68-96f002fb6b1e`, `slug = new-in-bkk`.
+Confirmed via a read-only query immediately before this session's final
+commit:
+- `products.status = 'draft'`, `visible_bcc = false`, `visible_bnt = false`
+  — **unchanged throughout this entire track**, reconfirmed after every
+  stage and again at session close.
+- `product_content.whats_included` — the only field this track wrote to
+  for real (once, explicitly, in Stage 4 — see next bullet):
+  `[{"icon":"wine","text":"Welcome shot on arrival"}, {"icon":"host",
+  "text":"Hosted introductions throughout the night"}, {"icon":"ticket",
+  "text":"Entry to two venues"}]`. Wording and order are byte-identical to
+  the pre-existing approved copy — only the `icon` keys were added.
+- `product_content.highlights` / `whats_not_included` / `important_info` —
+  still the original plain-string arrays from before this track; never
+  touched.
+- `product_content.tagline`/`short_description`/`full_description`/
+  `duration_minutes`/`itinerary`/`meeting_point` (real Don't Open the
+  Fridge venue, `visibility:'public'`) — all pre-existing, unchanged by
+  this track.
+- `product_media` — the 3 real rows from Stage 8d (1 cover + 2 gallery),
+  unchanged.
+- `event_dates` — 12 real open weekly Tuesday rows starting 2026-09-01,
+  unchanged (this track never touched `event_dates`/`product_schedules`).
+
+**How the `whats_included` write was done**: no authenticated admin browser
+session exists in this sandboxed agent environment (same constraint noted
+throughout this doc — see "How to resume" below), so every admin-workflow
+verification in Stages 3–4 used a throwaway harness under
+`app/dev-preview/*` (always deleted before that stage's commit) rendering
+the REAL admin components with `window.fetch` intercepted for the
+auth-gated `/api/admin/*` routes only. The one real write — assigning the
+three icons above — was applied as a single `UPDATE ... SET whats_included
+= ...` mirroring `PUT /api/admin/products/[id]/content`'s exact validated
+output shape (same technique already used earlier in this doc's history to
+originally populate this row, see Stage 8d) — not a migration, not an
+automatic conversion of any other product's data.
+
+### Known unresolved technical issues (not fixed in this track — out of scope, no visual/behavioral effect)
+1. **`<style>{...}}` SSR/CSR text-escaping hydration warning in
+   `ProductPage.tsx`.** Console shows "Text content did not match" /
+   "error while hydrating" warnings in dev mode. Root-caused in Stage 4.2:
+   apostrophes/quotes inside the giant `<style>{`...`}`}` template
+   literal's CSS comments (e.g. "Bangkok Club Crawl's own map", "class's
+   @media override") cause React to HTML-entity-escape them during SSR
+   (`&#x27;`) while the client's re-render produces the literal character —
+   a mismatch in the `<style>` tag's own text content, not in any visible
+   page text. This predates this session (the very first version of this
+   `<style>` block, written in Stage 2, already had a quoted phrase —
+   `'View on map'` — inside a comment). Purely cosmetic/console-only; never
+   observed to affect actual rendered output. The previously-suspected
+   SEPARATE cause (locale-dependent weekday+comma date formatting,
+   `"Tue 1 Sept"` vs `"Tue, 1 Sept"`) is very likely resolved as a side
+   effect of Stage 4.2 removing `weekday` from `formatEventDate()` — not
+   independently re-verified beyond what's in the Stage 4.2 commit message.
+   A real fix (if ever wanted) would move the `<style>` block to
+   `dangerouslySetInnerHTML` or a `.css`/CSS-module file instead of a JSX
+   template-literal child.
+2. Everything else flagged as "explicitly deferred" in each stage's own
+   commit message (Stage 4's Meeting Point admin visual treatment inside
+   the EDITOR — as opposed to the PUBLIC page, which Stage 4.1 did handle —
+   was never separately revisited; the admin `MeetingPointFields` form is
+   still the plain Stage-A text-field form, not visually enhanced to match
+   the public page's new map preview. Not blocking — admins can still set
+   every field correctly, just without a live map preview in the editor
+   itself.)
+
+### Protected areas confirmed untouched by this entire track (git-diff-verified, not just assumed)
+- **Bangkok Club Crawl** (`components/WeekendsPage.tsx` and everything else
+  under its live production path) — read once (Stage 4.1) purely for
+  reference to find its map-embed pattern; zero lines changed.
+- **Legacy `/new-in-bangkok`** page — never opened or touched.
+- **Checkout / Stripe** (`/api/create-checkout`, `/api/webhook`, `/book`) —
+  never opened or touched.
+- **`main` branch** — every commit in this track is on
+  `claude/mobile-admin-editor-stage-a-kv6e43`; nothing merged.
+- **Bangkok Club Crawl's live product row, bookings, or any operational
+  data** — this track's only database write ever was the single
+  `whats_included` UPDATE on `new-in-bkk` described above; every other
+  interaction with Supabase in this track was a read-only `SELECT`.
+
 ## BNT integration (separate track from the New in Bangkok onboarding below)
 A second, separately-audited storefront (`bestnightlifethailand.com`, repo
 `NightlifeAntigravity`, project `nightlife-antigravity`) will consume this
@@ -375,7 +621,20 @@ Phase 4 adds an internal admin dashboard to create Products, generate their
 Event Instances from a recurrence rule, and operate individual dates — so
 launching a new experience becomes an **admin task, not a code/SQL task**.
 
-- **Working branch:** `claude/phase4c-content-media-audit-dvu5c1`, based on
+> **Where we are, revised (2026-08-23):** the branch/HEAD line immediately
+> below is HISTORICAL (as of Stage 8d) — the branch has since moved on
+> through the Mobile-first Admin Product Editor track and the SNX Product
+> Admin track (both documented above). **Current branch:
+> `claude/mobile-admin-editor-stage-a-kv6e43`. Current HEAD:
+> `1f62910` ("Final Quick Facts refinement: compact date/price, no wrap on
+> mobile").** Still not merged to `main`. `ProductPage.tsx`, the
+> authenticated Draft Preview (`/dashboard/products/[id]/preview`), and the
+> public `/events/[slug]` route mentioned as "not started" a few bullets
+> down are now BUILT and, as of this session, considered feature-complete
+> and approved for New in Bangkok — see the SNX Product Admin section
+> above and "Not done yet, revised" below.
+
+- **Working branch (historical, Stage 8d):** `claude/phase4c-content-media-audit-dvu5c1`, based on
   `phase4-stage0-baseline` @ `41db3e4` (GitHub `yourTHguide/BCC-Claude`).
 - **NOT merged to `main`.** Production (`bkkclubcrawl.com`, `main` @ `03dc06c`)
   still runs the pre-Phase-4 app; all new admin code is Preview-only on the branch.
@@ -532,22 +791,73 @@ launching a new experience becomes an **admin task, not a code/SQL task**.
   storefront, labeled "not live yet" in the admin UI. Do not treat setting
   `visible_bnt=true` as making a product bookable anywhere yet.
 
-## Not done yet (remaining for New in Bangkok onboarding)
-- **`ProductPage.tsx`, authenticated Draft preview
-  (`/dashboard/products/[id]/preview`), public `/events/[slug]`** — not
-  started (Stages 8e–8k). Content UI (8c) and Media UI (8d) are both live;
-  New in Bangkok has real cover + gallery images uploaded, but
-  `product_content` is still empty (0 rows) — content entry is next.
+## Not done yet (historical, Stage 8d — see "Not done yet, revised" immediately below for current reality)
+- ~~`ProductPage.tsx`, authenticated Draft preview
+  (`/dashboard/products/[id]/preview`), public `/events/[slug]` — not
+  started (Stages 8e–8k)~~ **SUPERSEDED — these are now built and refined**,
+  see "SNX Product Admin — Icon System, Content Model, ProductPage
+  Refinement" above.
 - **New in Bangkok stays Draft** through all of Stage 8 — Preview and
   production share the same Supabase project, so Activate/Publish is never
   used as a preview mechanism. Draft review happens via the authenticated
   admin preview route once built (Stage 8f), not by flipping `status`.
+  **Still true today** — New in Bangkok is still Draft, reconfirmed at the
+  end of this session.
 - **BNT storefront + BNT checkout** — not started; `visible_bnt` is inert.
+  **Still true today.**
 - **Archive** product-lifecycle state — intentionally deferred (not needed for
-  New in Bangkok; Draft ⇄ Active is the full lifecycle for now).
+  New in Bangkok; Draft ⇄ Active is the full lifecycle for now). **Still
+  true today.**
 - **Security hardening** (deferred tech debt): old dashboard anon-key writes,
   public `bookings` read (PII), unauthenticated legacy ops routes,
   `daily_summary` SECURITY DEFINER. See the security tech-debt notes.
+  **Still true today — not touched by any track in this doc.**
+
+### Not done yet, revised (2026-08-23) — current reality
+New in Bangkok's canonical Product/content/media/schedule and its
+`ProductPage.tsx` rendering are now considered **feature-complete and
+approved** (this session's final user message: "New in Bangkok now looks
+good and I approve the current ProductPage direction"). What's genuinely
+not done, going into the next session:
+- **The booking/customer journey** — see "Next session objective" right
+  before "How to resume" below. This is the explicit next phase.
+- **BNT storefront + BNT checkout** — still not started; `visible_bnt`
+  still inert.
+- **Admin `MeetingPointFields` visual treatment** — the admin EDITOR form
+  for Meeting Point is still Stage-A's plain text fields; only the PUBLIC
+  page (Stage 4.1) got the real map preview. Not blocking, just noted as
+  the one visual-parity gap between admin and public for this field.
+  Explicitly not requested for this session, do not build unprompted.
+  It is a candidate for the next-session inspection, not a mandate.
+- **Archive product-lifecycle state, security hardening** — unchanged from
+  the historical bullets above.
+
+## Next session objective — booking/customer journey (DO NOT implement yet)
+The next development session moves from the completed New in Bangkok event
+page into the booking/customer journey:
+
+> New in Bangkok booking flow → Stripe checkout → successful Booking record
+> → customer confirmation/ticket → QR-based check-in foundation.
+
+**Before writing any code, the fresh session must first inspect the
+existing shared BCC/SNX checkout architecture** (`/api/create-checkout`,
+`/api/webhook`, `/book`, the `bookings` table, and whatever confirmation/
+ticket mechanism already exists for Bangkok Club Crawl) and determine what
+can be reused, rather than building a New-in-Bangkok-specific booking
+system or a separate deployment/environment. The intended architecture is
+one connected lifecycle:
+
+> Product → Event Date → Checkout → Stripe → Booking → Confirmation/Ticket
+> → QR → Host Check-in
+
+feeding the consolidated SNX mobile operations layer (calendar, bookings,
+guest list/check-in) — not New-in-Bangkok-specific operational tooling.
+Relevant existing context already in this doc: the BNT integration
+section's Stage D note that `create-checkout` "still hardcodes
+`visible_bcc` and a single `NEXT_PUBLIC_APP_URL`/`bkkclubcrawl.com`
+redirect" and will need `APP_URL_BCC`/`APP_URL_BNT` server-only env names —
+read that note before assuming checkout is storefront-agnostic today.
+**No implementation work on this objective has started.**
 
 ## How to resume
 1. `git fetch && git checkout phase4-stage0-baseline` (verify latest commit).
