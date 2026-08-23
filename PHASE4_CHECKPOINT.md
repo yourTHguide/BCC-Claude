@@ -1,6 +1,122 @@
 # Phase 4 — Internal Product & Schedule Builder — Checkpoint
 
-_Last updated: 2026-08-23 (Stage 9l — QR host-resolution architecture fix + product-driven email + Host Ops filtering — APPLIED). Compact resume doc for continuing in a fresh conversation._
+_Last updated: 2026-08-23 (session paused — context window nearly full — with ONE unresolved launch blocker: Alex Chen's real iPhone QR scan still crashes. No application code changed since Stage 9l's last commit; this update is documentation + test-data reset only.)_
+
+## ⏸ SESSION PAUSED — read this section first
+
+**Branch:** `claude/phase4c-content-media-audit-dvu5c1`
+**HEAD:** `564e992` ("Stage 9l: record final live verification of the getAppUrl() fix") — this checkpoint edit and an Alex-attendance-status DB reset are the only things after it; both are non-code.
+**Working tree:** clean (only the usual harmless `tsconfig.tsbuildinfo` drift, never committed by convention in this repo).
+**Deployment used for the last round of testing:**
+`https://bcc-claude-44w91864y-bestnightlifethailand-projects.vercel.app`
+(built from `bd3e3fa`, one commit behind current HEAD — HEAD's own commit was doc-only, so this is still the right deployment to resume against; confirm it's still the latest before reusing, since every push creates a new one).
+
+### THE ONE UNRESOLVED LAUNCH BLOCKER
+**Guide physically scanned Alex Chen's real QR on her iPhone and Safari still
+showed "Application error: a client-side exception has occurred" — AFTER
+the `lib/appUrl.ts` hostname fix below was deployed and independently
+verified from this session's sandbox.** Do not assume the hostname fix
+solved this. It fixed a REAL, confirmed architectural bug (see below), but
+Guide's own physical-device retest after that fix was still failing. The
+exact cause of what she sees on her physical device remains unknown and
+UNVERIFIED beyond what's documented below — the next session must
+diagnose it as a fresh, still-open problem, not as a "double-check" of an
+already-solved fix.
+
+### What WAS diagnosed and fixed this session (don't repeat this investigation)
+1. **Decoded the actual deployed QR image byte-for-byte** (`jsQR` + `pngjs`
+   against the real PNG bytes fetched from `/api/tickets/[token]/qr` via a
+   Vercel share-bypass link) — confirmed the QR payload itself, the
+   hostname it encodes, and Vercel share-token behavior were never the
+   problem. The QR correctly encoded a `/dashboard/checkin/[token]` URL.
+2. **Root cause found:** every URL-building call site
+   (`app/ticket/[token]/page.tsx`, `app/api/tickets/[token]/qr/route.ts`,
+   `emails/confirmation.ts`) hardcoded
+   `process.env.NEXT_PUBLIC_APP_URL || 'https://bkkclubcrawl.com'`. Since
+   `bkkclubcrawl.com` (production, `main`) does NOT have this Stage 9 code
+   (never merged), every Preview deployment's QR pointed at a route that
+   doesn't exist on production — a 404 there at best. Reproducing that
+   exact URL fresh from this session's Browser tool gave a clean Next.js
+   404, not a matching client-side exception — the sandbox could not
+   reproduce Guide's exact crash text even at that stage.
+3. **First fix attempt (INSUFFICIENT — verified insufficient, not assumed
+   sufficient):** added `lib/appUrl.ts` → `getAppUrl()` with priority
+   (1) `NEXT_PUBLIC_APP_URL` if set, (2) `VERCEL_ENV==='production'` →
+   `bkkclubcrawl.com`, (3) `VERCEL_ENV==='preview'` → `VERCEL_URL` (the
+   deployment's own host), (4) fallback. Deployed, then re-decoded the live
+   QR — it was UNCHANGED, still `bkkclubcrawl.com`. Added a temporary
+   diagnostic route (`GET /api/debug-env`, committed, deployed, queried,
+   then deleted — confirm it is NOT present if resuming) which proved
+   `NEXT_PUBLIC_APP_URL=https://bkkclubcrawl.com` is explicitly configured
+   for **All Environments** in this Vercel project, not Production-only —
+   so priority (1) always won and priority (3) never ran.
+4. **Second fix (deployed, sandbox-verified, but NOT what fixed Guide's
+   phone):** reordered `getAppUrl()` so `VERCEL_ENV==='preview'` is checked
+   FIRST and unconditionally uses `VERCEL_URL`, ignoring the env var
+   override entirely. Re-decoded the live QR a third time — it now
+   correctly showed the Preview deployment's own host. Navigated there
+   directly (unauthenticated, via the Browser tool) — got a clean
+   `/login?redirect=/dashboard/checkin/[token]` page, no exception.
+   Confirmed Alex's own `/ticket/[token]` page renders completely correctly
+   (screenshot taken: QR centered, real meeting point, reference, guest
+   name, Add to Calendar all present and correct).
+5. **Despite all of the above being independently verified true from this
+   session's sandbox, Guide's physical iPhone scan STILL crashed** after
+   this fix was live. Hypotheses NOT yet tested, for the next session to
+   actually investigate rather than re-derive: a stale Safari tab/bfcache
+   from an earlier (pre-fix) deployment's URL; a Safari-specific chunk-load
+   or hydration failure on that specific device; some interaction between
+   Vercel's SSO wall and a real (non-share-link) camera-scan navigation
+   that this session's Browser-tool testing (which always used an explicit
+   `_vercel_share` bypass link) never actually exercised — a real camera
+   scan hits the bare QR URL with NO share param, which is a meaningfully
+   different request than everything tested this session. **This last
+   point is the most likely untested gap: every verification this session
+   used a manually-appended `_vercel_share` token; a genuine phone-camera
+   scan of the QR does not carry one, and Vercel's SSO wall's own behavior
+   on a bare, un-bypassed Preview URL (as opposed to a bypassed one, or
+   production's exempt custom domain) was never actually observed this
+   session.**
+
+### Explicit decision this session: remove inline QR from the confirmation email
+Guide decided the confirmation email should NOT keep the inline embedded
+QR image (`emails/confirmation.ts`'s `ticketCtaHtml` currently still embeds
+one via `<img src="${appUrl}/api/tickets/${ticket.token}/qr">`). **This
+has NOT been implemented yet** — the email still embeds the QR as of HEAD.
+The "View Ticket & QR" button/CTA to `/ticket/[token]` is the decided
+canonical, durable path and must remain exactly as-is. Next session's task
+2 is to remove the `<img>` QR from the email template (keep the CTA,
+keep the booking reference, keep everything else in the product-driven
+structure from Stage 9l) — a small, contained edit to
+`emails/confirmation.ts`'s `ticketCtaHtml` template string.
+
+### Standing invariants — verify, don't just trust this doc
+- `bookings` where `ticket_token='preview-test-alexchen-b7d2f4a19c3e0561'`
+  (Alex Chen) — **reset to `attendance_status='expected'` as of this
+  update** (it had drifted to `checked_in` twice already from Guide's own
+  testing of the direct-resolve fallback link and/or partial API success
+  before a crash — check it again at the start of the next session, don't
+  assume it's still `expected`).
+- `bookings` where `ticket_token='preview-test-9c8f2a1b4e6d3c5f7a9b1d2e4f6c8a0b'`
+  (Jamie Rivera) — `attendance_status='checked_in'` (from her earlier
+  successful real scan test; no action needed, not a blocker).
+- `products` where `slug='new-in-bkk'` — `status='draft'`,
+  `visible_bcc=false`, `visible_bnt=false`. Do not publish. Verify this at
+  the start of the next session too.
+- **No Stripe test has been run.** No real transaction, no live checkout
+  exercised this entire Stage 9 sequence.
+- **Not merged to `main`.** All Stage 9 work lives only on
+  `claude/phase4c-content-media-audit-dvu5c1`.
+
+### Known non-blocking follow-up (do not fix unless asked)
+Host Operations (`/dashboard/host`, `GET /api/admin/host/events`) is
+functional and its actionable-only filter (Stage 9l) IS live and DOES
+correctly drop most closed/zero-booking dates — verified against real
+production data. Guide's own screenshot review after that fix still showed
+it as imperfect ("still shows unnecessary zero-booking/closed events" —
+the exact remaining cases weren't isolated this session). This is
+EXPLICITLY DEFERRED as non-blocking for Stage 9 closure — do not touch it
+in the next session unless Guide asks.
 
 ## Stage 9 — New in Bangkok booking lifecycle (separate track from BNT integration below)
 Goal: make New in Bangkok commercially bookable end-to-end —
