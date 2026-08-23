@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireRole } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
 import { PRODUCT_MEDIA_BUCKET_NAME, productMediaPublicUrl } from '@/lib/media'
 
@@ -11,7 +11,7 @@ const MEDIA_FIELDS = 'id, product_id, kind, storage_path, alt, sort_order, creat
 // underlying file — replacing an image goes through POST (upload) + DELETE
 // (remove the old one), not PATCH.
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireAdmin()
+  const auth = await requireRole(['owner','admin'])
   if ('response' in auth) return auth.response
   const supabase = getServiceSupabase()
 
@@ -61,7 +61,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 // if the storage remove then fails, the result is a harmless orphaned object
 // (tolerated); the reverse order could leave a row pointing at nothing.
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireAdmin()
+  const auth = await requireRole(['owner','admin'])
   if ('response' in auth) return auth.response
   const supabase = getServiceSupabase()
 

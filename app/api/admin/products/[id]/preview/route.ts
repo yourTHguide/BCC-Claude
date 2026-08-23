@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireRole } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
 import { productMediaPublicUrl } from '@/lib/media'
 
@@ -23,7 +23,7 @@ function bangkokToday(): string {
 // visible_bcc/visible_bnt — a Draft product must preview successfully, that
 // is the entire point of this route. No writes anywhere.
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireAdmin()
+  const auth = await requireRole(['owner','admin'])
   if ('response' in auth) return auth.response
   const supabase = getServiceSupabase()
 

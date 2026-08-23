@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireRole } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
@@ -13,7 +13,7 @@ const PRODUCT_FIELDS =
 // resulting row to have visible_bcc=true. visible_bnt stays a stored,
 // editable field for a future BNT storefront but is not enforced anywhere yet.
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireAdmin()
+  const auth = await requireRole(['owner','admin'])
   if ('response' in auth) return auth.response
 
   let body: any = {}

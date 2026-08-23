@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireRole } from '@/lib/admin-auth'
 import {
   generateOccurrences,
   DEFAULT_HORIZON_WEEKS,
@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic'
 // seam Stage 4 will extend with an action:'generate' that materializes these
 // same dates as Event Instances.
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin()
+  const auth = await requireRole(['owner','admin'])
   if ('response' in auth) return auth.response
 
   let body: any

@@ -85,7 +85,6 @@ interface Expense {
 // ── Styles ─────────────────────────────────────────────────
 const S = {
   page: { minHeight:'100vh', background:'#0D000A', fontFamily:'Inter, sans-serif', color:'#fff' } as React.CSSProperties,
-  nav: { background:'rgba(26,0,21,0.98)', borderBottom:'1px solid rgba(255,255,255,0.06)', padding:'0 24px', height:'56px', display:'flex', alignItems:'center', justifyContent:'space-between' } as React.CSSProperties,
   eyebrow: { fontWeight:600, fontSize:'10px', letterSpacing:'0.2em', textTransform:'uppercase' as const, color:'#EA003A' },
   card: { background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:'12px', padding:'20px' } as React.CSSProperties,
   label: { fontWeight:600, fontSize:'10px', letterSpacing:'0.15em', textTransform:'uppercase' as const, color:'rgba(255,255,255,0.40)', marginBottom:'6px', display:'block' },
@@ -451,7 +450,15 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
   const formattedDate = dateObj.toLocaleDateString('en', { weekday:'long', day:'numeric', month:'long' })
 
   return (
-    <div style={{ position:'fixed', top:0, right:0, bottom:0, width:'420px', background:'#1A0015', borderLeft:'1px solid rgba(255,255,255,0.08)', zIndex:200, overflowY:'auto', fontFamily:'Inter, sans-serif' }}>
+    // Full-width on a narrow phone (this fixed panel previously hardcoded
+    // width:420px, which on any viewport under 420px pushed its own left
+    // edge off-screen — since `right:0` anchors the panel to the viewport's
+    // right edge, a wider-than-viewport fixed element extends past the left
+    // edge rather than being clipped, forcing page-level horizontal scroll.
+    // That was the actual mechanism behind the reported overflow/clipping,
+    // not the content inside the panel. `maxWidth` still caps it at 420px
+    // from the sm breakpoint up, so desktop is pixel-identical to before.
+    <div className="w-full sm:max-w-[420px]" style={{ position:'fixed', top:0, right:0, bottom:0, background:'#1A0015', borderLeft:'1px solid rgba(255,255,255,0.08)', zIndex:200, overflowY:'auto', fontFamily:'Inter, sans-serif' }}>
       {/* Header */}
       <div style={{ padding:'20px 24px', borderBottom:'1px solid rgba(255,255,255,0.08)', display:'flex', justifyContent:'space-between', alignItems:'flex-start', position:'sticky', top:0, background:'#1A0015', zIndex:10 }}>
         <div>
@@ -927,10 +934,15 @@ export default function Dashboard() {
 
   return (
     <div style={S.page}>
-      {/* Nav */}
-      <div style={S.nav}>
+      {/* Nav — stacks into 3 rows (branding / tabs / month nav) under the
+          sm breakpoint, exactly one row above it (unchanged desktop
+          layout). Layout props (display/direction/align/justify/gap/height)
+          live in the className, not inline style, because an inline style
+          always wins over a class for the same property — keeping them
+          inline would silently defeat the sm: breakpoint overrides. */}
+      <div className="flex flex-col gap-3 py-3 px-4 sm:h-14 sm:flex-row sm:items-center sm:justify-between sm:gap-0 sm:py-0 sm:px-6" style={{ background:'rgba(26,0,21,0.98)', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
         <p style={S.eyebrow}>BCC DASHBOARD</p>
-        <div style={{ display:'flex', gap:'8px' }}>
+        <div className="flex flex-wrap items-center gap-2">
           {(['calendar','bookings'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)} style={{
               ...S.btn,
@@ -944,7 +956,7 @@ export default function Dashboard() {
             🧩 Products
           </Link>
         </div>
-        <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
+        <div className="flex items-center justify-center gap-3">
           <button onClick={prevMonth} style={{ ...S.btn, ...S.btnGhost, padding:'0 12px' }}>‹</button>
           <span style={{ fontWeight:600, fontSize:'15px', minWidth:'140px', textAlign:'center' }}>{MONTH_NAMES[calMonth]} {calYear}</span>
           <button onClick={nextMonth} style={{ ...S.btn, ...S.btnGhost, padding:'0 12px' }}>›</button>
@@ -953,7 +965,20 @@ export default function Dashboard() {
 
       {/* Calendar Tab */}
       {activeTab === 'calendar' && (
-        <div style={{ padding:'24px', maxWidth: selectedEvent ? 'calc(100% - 440px)' : '900px', margin:'0 auto', transition:'max-width 0.2s' }}>
+        <div style={{
+          padding:'24px',
+          // Reserves room for the fixed-position EventPanel on desktop
+          // (420px + margin). On any viewport under ~440px wide this calc()
+          // alone goes negative — invalid, and the actual cause of the
+          // reported "calendar needs landscape" overflow. CSS max() floors
+          // it at 280px (comfortably fits a 7-column grid) without changing
+          // the desktop value at all, since calc(100% - 440px) is already
+          // well above 280px on any screen wide enough to show the panel
+          // beside the calendar in the first place.
+          maxWidth: selectedEvent ? 'max(280px, calc(100% - 440px))' : '900px',
+          margin:'0 auto',
+          transition:'max-width 0.2s',
+        }}>
           {/* Day labels */}
           <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:'4px', marginBottom:'8px' }}>
             {DAY_LABELS.map(d => (

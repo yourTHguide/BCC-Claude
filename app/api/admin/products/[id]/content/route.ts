@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireRole } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
@@ -96,7 +96,7 @@ const DEFAULT_CONTENT = {
 // empty shape if none exists yet (no row is created by GET — only PUT creates
 // one, via upsert).
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireAdmin()
+  const auth = await requireRole(['owner','admin'])
   if ('response' in auth) return auth.response
 
   const supabase = getServiceSupabase()
@@ -121,7 +121,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 // product_content — never touches products, event_dates, or any operational
 // table. Does not change status/visibility; saving content never publishes.
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireAdmin()
+  const auth = await requireRole(['owner','admin'])
   if ('response' in auth) return auth.response
   const supabase = getServiceSupabase()
 

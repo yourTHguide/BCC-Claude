@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe'
 import { getServiceSupabase } from '@/lib/supabase'
 import { generateTicketToken } from '@/lib/tickets'
+import { formatBookingReference } from '@/lib/bookingReference'
 import { Resend } from 'resend'
 import { generateConfirmationEmail } from '@/emails/confirmation'
 
@@ -61,6 +62,7 @@ export async function POST(req: NextRequest) {
     // leaving undefined so the insert always sends an explicit value.
     const eventId = meta.event_id || null
     const productId = meta.product_id || null
+    const productSlug = meta.product_slug || null
 
     // Every paid booking gets a ticket token, regardless of which checkout
     // path produced it — the confirmation/ticket page and QR check-in
@@ -68,7 +70,11 @@ export async function POST(req: NextRequest) {
     const ticketToken = generateTicketToken()
 
     // ── Save booking to Supabase ──
-    const { error: dbError } = await supabase
+    // .select('id') so we know the DB-generated id was actually persisted —
+    // needed below to decide whether the email may reference this booking's
+    // ticket at all (an insert failure must never point the customer at a
+    // ticket_token that doesn't exist in `bookings`).
+    const { data: insertedRows, error: dbError } = await supabase
       .from('bookings')
       .insert({
         night_slug: meta.night_slug,
@@ -91,12 +97,20 @@ export async function POST(req: NextRequest) {
         stripe_payment_id: session.payment_intent,
         ticket_token: ticketToken,
       })
+      .select('id')
 
     if (dbError) {
       console.error('Supabase insert error:', dbError)
       // Don't fail the webhook — payment already processed
       // Log and continue to send email
     }
+
+    const bookingId = insertedRows?.[0]?.id ?? null
+    // Only reference the ticket in the email when the row actually landed —
+    // this is also what keeps the pre-existing/legacy BCC email UNCHANGED
+    // for any booking where canonical ticket data isn't available (insert
+    // failure), not just for pre-Stage-9 bookings.
+    const ticket = bookingId ? { token: ticketToken, reference: formatBookingReference(productSlug, bookingId) } : null
 
     // ── Send confirmation email via Resend ──
     const emailHtml = generateConfirmationEmail({
@@ -106,6 +120,7 @@ export async function POST(req: NextRequest) {
       quantity,
       totalPaid,
       promoCode: promoCode || undefined,
+      ticket,
     })
 
     const { error: emailError } = await getResend().emails.send({

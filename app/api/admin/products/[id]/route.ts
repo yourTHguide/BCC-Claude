@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireRole } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
@@ -18,7 +18,7 @@ function bangkokToday(): string {
 // Read-only Product detail. Returns the canonical products row plus a small,
 // derived Event-Instance summary (counts only — NO writes, NO schedule logic).
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireAdmin()
+  const auth = await requireRole(['owner','admin'])
   if ('response' in auth) return auth.response
 
   const supabase = getServiceSupabase()

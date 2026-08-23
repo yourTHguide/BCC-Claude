@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireRole } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
 import { generateOccurrences, DEFAULT_HORIZON_WEEKS, type Weekday } from '@/lib/recurrence'
 import { addDaysISO } from '@/lib/dates'
@@ -14,7 +14,7 @@ const ISO = /^\d{4}-\d{2}-\d{2}$/
 // an explicit date is supported; otherwise it adds the default 12 more weeks
 // beyond the last generated date.
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireAdmin()
+  const auth = await requireRole(['owner','admin'])
   if ('response' in auth) return auth.response
   const supabase = getServiceSupabase()
 

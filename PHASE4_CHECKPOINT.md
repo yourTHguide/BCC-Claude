@@ -306,13 +306,183 @@ both fixed:
    code-split (`903.<hash>.js`, ~82 KB) and does not appear in
    `/dashboard/checkin`'s own ~4 KB page bundle. Could not exercise real
    camera permission prompts or a physical scan from this sandbox (no
-   camera-equipped browser available here); Guide verifies that part
-   directly on her iPhone via the preview links below. The Stage 9 preview
-   booking (`ticket_token='preview-test-9c8f2a1b4e6d3c5f7a9b1d2e4f6c8a0b'`,
-   guest "Jamie Rivera", 2 guests) is unchanged — still `attendance_status=
-   'expected'` — so Guide can exercise the full scan→resolve→check-in flow
-   herself rather than finding it pre-completed. `new-in-bkk` reconfirmed
-   still `status='draft'`, both `visible_*=false` after all of the above.
+   camera-equipped browser available here); Guide verified that part
+   directly on her iPhone via the preview links — **confirmed working**:
+   the Stage 9 preview booking (`ticket_token=
+   'preview-test-9c8f2a1b4e6d3c5f7a9b1d2e4f6c8a0b'`, guest "Jamie Rivera",
+   2 guests) went from `attendance_status='expected'` to `'checked_in'` via
+   a real scan on her device during this review, confirmed by direct query
+   afterward. `new-in-bkk` reconfirmed still `status='draft'`, both
+   `visible_*=false` after all of the above.
+
+**Stage 9g/9h/9i/9j — Post-mobile-QA launch-readiness pass — APPLIED
+2026-08-23.** Four scoped fixes/additions from Guide's first real-device
+review (Stage 9f), all still pre-Stripe-test:
+
+**9g — Confirmation email now includes the ticket.** The Stripe webhook's
+existing insert already changed shape once already (Stage 9b — `.select
+('id')` added so the DB-generated id is known, since `formatBookingReference`
+needs it); `emails/confirmation.ts` gained an optional `ticket?: {token,
+reference} | null` param rendering a new "YOUR TICKET" section (QR + booking
+reference + "View Your Ticket →" CTA to `/ticket/[token]`) — omitted
+entirely, rendering the email byte-identical to before Stage 9, whenever
+`ticket` is null. The webhook only ever passes a non-null `ticket` when the
+booking INSERT actually succeeded (`!dbError && bookingId` — an insert
+failure must never reference a `ticket_token` that was never persisted);
+this is the general condition for "canonical token data is unavailable",
+not narrowly "pre-Stage-9 bookings" as originally framed. **The QR is
+embedded as a remote image (`<img src="{appUrl}/api/tickets/{token}/qr">`),
+NOT a base64 data URI** — Gmail (web and app) strips/ignores `data:` image
+URIs entirely, which would render as broken for a large share of
+recipients; new `app/api/tickets/[token]/qr/route.ts` (public,
+unauthenticated — same trust model as `/ticket/[token]` itself: the opaque
+token IS the credential) serves a real PNG generated locally via `qrcode`'s
+`toBuffer()` (new `generateTicketQrPngBuffer` in `lib/qrTicket.ts`) — no
+third-party QR API, so the token never leaves our own infra. Verified: the
+PNG buffer was generated and its magic bytes checked directly in Node; the
+email template was rendered standalone with and without a `ticket` param
+and its output string checked for the new section/QR src/CTA/reference
+(present) vs. absence (legacy path unchanged) — all before touching the
+live webhook.
+
+**9h — Mobile calendar/Event Operations overflow fixes (the smallest safe
+CSS ones, not the redesign).** Root-caused both reported overflows in
+`app/dashboard/page.tsx` rather than guessing:
+  - The `EventPanel` was `position:fixed; right:0; width:420px` — on any
+    viewport under 420px wide, `right:0` anchors the panel's right edge to
+    the viewport, so the panel's LEFT edge extends off-screen rather than
+    being clipped, which is what actually forced page-level horizontal
+    scroll (not the content inside it). Changed to `w-full sm:max-w-[420px]`
+    (Tailwind, since Preflight/Tailwind is already active project-wide) —
+    full-width overlay on mobile, pixel-identical 420px panel from the `sm`
+    breakpoint up.
+  - The calendar wrapper's `maxWidth: selectedEvent ? 'calc(100% - 440px)'
+    : '900px'` goes NEGATIVE on any viewport under ~440px (reserving room
+    for the panel beside it) — invalid CSS, the mechanism behind "needs
+    landscape to navigate". Floored with CSS `max(280px, calc(100% -
+    440px))`; on desktop `calc(...)` is already comfortably above 280px, so
+    this is a no-op there — verified by the math, not just described.
+  - The nav bar (`BCC DASHBOARD` eyebrow / Calendar·Bookings·Products tabs /
+    month prev·label·next) was one unwrapped `display:flex;
+    justify-content:space-between` row with no `flex-wrap`, guaranteed to
+    overflow a phone width once its three groups' combined content exceeds
+    it. Converted to Tailwind responsive classes (`flex-col` stacking into
+    3 rows below `sm`, the original single-row `sm:flex-row
+    sm:justify-between` unchanged above it) — this REQUIRED moving those
+    layout properties (display/direction/align/justify/gap/height) out of
+    the `S.nav` inline style object into the className, since an inline
+    style always overrides a class for the same CSS property and would
+    have silently defeated every `sm:` override; the now-unused `S.nav`
+    entry was deleted rather than left as dead code.
+  Verified: `npm run build`, then grepped the compiled CSS output for the
+  new `sm:` utility classes to confirm Tailwind's JIT actually generated
+  them (a typo or an un-scanned path would silently produce no CSS at all,
+  not an error) — confirmed present. Not verified on a real phone from this
+  sandbox; worth a quick look on Guide's iPhone alongside the other links.
+
+**9i — Fixed a real check-in-screen bug + made both states unmistakable.**
+`app/dashboard/checkin/[token]/page.tsx` was using the POST response's
+`alreadyCheckedIn` flag (meaning "was THIS call a repeat scan") to decide
+whether to show the active green "Check in" button — which is FALSE
+immediately after a fresh, successful check-in (correctly: it wasn't
+"already" checked in, it just became checked in), so the button would
+incorrectly reappear right after checking someone in. Rewired to key off
+`data.booking.attendanceStatus === 'checked_in'` instead, which is
+authoritative and correct in both the fresh-confirm and repeat-scan cases —
+the green button, the "Checked In"/"Already Checked In" banner, and "Scan
+Next Ticket" are now mutually exclusive by construction, not by coincidence
+of prop timing. Both banner states were also enlarged into an unmistakable
+full-width block (icon + 18px bold headline + subtext) instead of the
+previous small pill, matching "visually unmistakable" — green ✓ "Checked
+In" for a fresh confirm, amber ⚠ "Already Checked In" for a repeat scan.
+"Scan Next Ticket" always gets its own `marginTop` beneath whichever
+state precedes it.
+
+**9j — Host RBAC foundation, with an explicit reported gap.** Reused
+`admin_users.role` (`'owner'|'admin'|'staff'` — already existed, unused by
+any route until now) rather than adding new schema; `'staff'` = Host in this
+task's language. Added `requireRole(allowed: AdminRole[])` to
+`lib/admin-auth.ts` (wraps `requireAdmin()`, 403s if the role isn't
+allowed) and gated the 13 existing owner-only mutation routes under
+`/api/admin/products/*`, `/api/admin/media/[id]`, `/api/admin/events/[id]`,
+`/api/admin/schedules/[id]/extend`, `/api/admin/schedule/preview` to
+`requireRole(['owner','admin'])` — product/storefront configuration and
+destructive event/date controls are now genuinely inaccessible to a
+'staff' admin_user via their real enforcement point (these routes never go
+through the anon-key client, so this protection is real, not cosmetic).
+
+New, real, server-side-redacted Host surface — reuses the canonical
+`event_dates`/`bookings`/`ota_bookings`/`expenses` tables, no duplicate
+data model: `GET /api/admin/host/events` (assigned events for 'staff',
+matched by `admin_users.display_name === event_dates.host_assigned` — a
+case-sensitive string match, not a FK; **documented limitation**, not a
+silent one, on `AdminUser.displayName` in `lib/admin-auth.ts` — or ALL
+upcoming events for owner/admin, which doubles as the QA path below), `GET
+/api/admin/host/events/[id]` (operational brief, guest list + headcount,
+expenses — `host_fee_final`/`host_payment_status`/`total_paid`/
+`price_per_person` are never selected by this route's query at all, so
+they're structurally absent from the response, not merely hidden by the
+UI; 403s a 'staff' request for an event whose `host_assigned` doesn't match
+their `display_name`), `POST /api/admin/host/events/[id]/expenses` (logs an
+expense; `event_date`/`night_slug` are derived server-side from the
+resolved event row, never trusted from the client). New pages
+`app/dashboard/host/page.tsx` + `app/dashboard/host/[id]/page.tsx` consume
+only these routes. Guest attendance updates and Scan Ticket reuse the
+EXISTING `/api/update-attendance` and `/dashboard/checkin` unchanged (both
+already work for any admin_users role).
+
+Added `x-pathname` request-header forwarding in `middleware.ts` (App
+Router layouts have no other way to read the current path) so
+`app/dashboard/layout.tsx` can redirect a 'staff' role away from
+`/dashboard` and `/dashboard/products/*` to `/dashboard/host` — explicitly
+documented in that file's own comment as **defense-in-depth / correct
+landing UX, NOT the real security boundary** (see the gap below).
+
+**The reported gap (per explicit instruction: stop and report rather than
+build a workaround/false sense of security):** `event_dates`, `bookings`,
+`ota_bookings`, and `expenses` all currently carry a `USING (true)` public
+SELECT RLS policy (see `supabase-schema.sql`) — readable by ANYONE holding
+the anon key (which is `NEXT_PUBLIC_SUPABASE_ANON_KEY`, bundled into every
+page's client-side JS; not a secret), regardless of `admin_users`
+membership or role, via a direct Supabase query that never touches any
+route this session built or could gate. The EXISTING owner dashboard
+(`app/dashboard/page.tsx`) already reads exactly these tables this way (the
+pre-existing "anon-key dashboard" debt, tracked since earlier stages) — so
+redacting host-payment/revenue fields from the NEW `/api/admin/host/*`
+responses, and redirecting a staff role away from the OLD dashboard page,
+are both real and worthwhile, but neither one — nor anything achievable
+within "smallest reusable foundation" scope — can make `host_fee_final`,
+`total_paid`, or `expenses.amount` genuinely inaccessible to a determined
+staff user (or literally anyone) with a browser console and the anon key.
+**Fixing that requires tightening those 4 tables' RLS policies to be
+role/assignment-aware (e.g., via `auth.uid()` joined through `admin_users`)
+while proving the owner dashboard's own direct anon-key reads still work
+under the new policies — a materially larger schema/RLS redesign**,
+explicitly out of scope for "only implement what is necessary to safely
+let a host use check-in/event operations now." What IS safe and real today:
+a Host's own client never receives revenue/host-pay data through any
+route this session controls, because the Host-facing API routes never
+query for it — that is what "safely let a host use check-in/event
+operations now" resolves to at the current architecture's ceiling.
+
+Verified: `npx tsc --noEmit` and `npm run build` both clean; the exact
+list/filter queries behind `/api/admin/host/events` were re-run directly
+against production for both an "owner" (unfiltered — 41 upcoming events)
+and hypothetical staff `display_name` values already present in real data
+(`'Guide'` → 29, `'Ice'` → 0) to confirm the filtering logic produces the
+expected narrower result, not just that it compiles; the detail route's
+exact field list and sub-queries were run directly against New in
+Bangkok's real test event and returned correctly with no host-pay/revenue
+fields present; a marked, temporary expense insert (`description LIKE
+'STAGE9J_VERIFICATION_TEMP%'`) confirmed the new expense route's insert
+shape is valid, then was deleted. `new-in-bkk` reconfirmed still
+`status='draft'`, both `visible_*=false`. **Only one real admin_user
+exists today** (`Guide`, role `owner`, display_name `Guide`) — there is no
+second, real `'staff'` login to test with; the `/dashboard/host` preview
+path works today as Guide, exercising the exact same code a real Host
+would hit (owner/admin bypass the assignment filter by design, precisely
+so this is testable without provisioning a second account) — a true
+end-to-end test with a real staff-role login is future work, not blocking.
 
 ## BNT integration (separate track from the New in Bangkok onboarding below)
 A second, separately-audited storefront (`bestnightlifethailand.com`, repo

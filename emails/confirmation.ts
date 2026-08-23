@@ -5,6 +5,7 @@ export function generateConfirmationEmail({
   quantity,
   totalPaid,
   promoCode,
+  ticket,
 }: {
   guestName: string
   nightName: string
@@ -12,6 +13,12 @@ export function generateConfirmationEmail({
   quantity: number
   totalPaid: number
   promoCode?: string
+  // Present only when the webhook's booking INSERT actually succeeded and a
+  // ticket_token was persisted (Stage 9g) — a failed insert must never
+  // reference a token that doesn't exist in `bookings`. When absent, the
+  // email renders exactly as it did before Stage 9 (the "legacy BCC
+  // confirmation flow" the ticket feature must not regress).
+  ticket?: { token: string; reference: string } | null
 }) {
   // Parse the YYYY-MM-DD string into LOCAL date components (not new Date(eventDate),
   // which parses as UTC midnight and can roll the date back a day depending on server TZ)
@@ -24,6 +31,22 @@ export function generateConfirmationEmail({
     year: 'numeric',
   })
   const firstName = guestName?.split(' ')[0] || 'Guest'
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://bkkclubcrawl.com'
+
+  const ticketSectionHtml = ticket ? `
+  <!-- YOUR TICKET -->
+  <tr><td style="background:#1A0015;padding:0 32px 24px;border-left:1px solid rgba(255,255,255,0.06);border-right:1px solid rgba(255,255,255,0.06)">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
+      <tr><td style="padding:24px;text-align:center">
+        <p style="margin:0 0 16px;font-size:11px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#EA003A">YOUR TICKET</p>
+        <img src="${appUrl}/api/tickets/${ticket.token}/qr" width="160" height="160" alt="Check-in QR code" style="display:block;margin:0 auto 16px;width:160px;height:160px;background:#fff;border-radius:8px;padding:8px;border:0" />
+        <p style="margin:0 0 4px;font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.35)">Booking Reference</p>
+        <p style="margin:0 0 20px;font-size:18px;font-weight:700;color:#EA003A;letter-spacing:0.04em">${ticket.reference}</p>
+        <a href="${appUrl}/ticket/${ticket.token}" style="display:inline-block;background:linear-gradient(135deg,#EA003A,#820065);color:#fff;font-weight:600;font-size:14px;padding:14px 32px;border-radius:8px;text-decoration:none">View Your Ticket →</a>
+        <p style="margin:16px 0 0;font-size:12px;color:rgba(255,255,255,0.40);line-height:1.6">Your full ticket — including the meet-up location once shared — is always available at that link. Show the QR code above at check-in.</p>
+      </td></tr>
+    </table>
+  </td></tr>` : ''
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -104,7 +127,7 @@ export function generateConfirmationEmail({
       </td></tr>
     </table>
   </td></tr>
-
+${ticketSectionHtml}
   <!-- MEET-UP DETAILS -->
   <tr><td style="background:#1A0015;padding:0 32px 24px;border-left:1px solid rgba(255,255,255,0.06);border-right:1px solid rgba(255,255,255,0.06)">
     <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(234,0,58,0.08);border:1px solid rgba(234,0,58,0.20);border-left:3px solid #EA003A;border-radius:10px">

@@ -14,3 +14,18 @@ export async function generateTicketQrDataUrl(checkinUrl: string): Promise<strin
     color: { dark: '#1A0015', light: '#FFFFFF' },
   })
 }
+
+// PNG bytes for a REMOTE <img src> in the confirmation email (Stage 9g).
+// Deliberately NOT the base64 data-URI form above — Gmail (web and app)
+// strips/ignores `data:` image URIs entirely, which would render as a
+// broken image for a large share of recipients. A normal remote image URL
+// (this function's output, served by app/api/tickets/[token]/qr/route.ts)
+// is the standard, reliable way every real ticketing email embeds a QR.
+export async function generateTicketQrPngBuffer(checkinUrl: string): Promise<Buffer> {
+  return QRCode.toBuffer(checkinUrl, {
+    errorCorrectionLevel: 'M',
+    margin: 1,
+    width: 320,
+    color: { dark: '#1A0015', light: '#FFFFFF' },
+  })
+}

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireRole } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
 import {
   PRODUCT_MEDIA_BUCKET_NAME,
@@ -20,7 +20,7 @@ function withUrl(row: any) {
 // List all media for a Product — cover first (kind 'cover' sorts before
 // 'gallery' alphabetically), then gallery images ordered by sort_order.
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireAdmin()
+  const auth = await requireRole(['owner','admin'])
   if ('response' in auth) return auth.response
   const supabase = getServiceSupabase()
 
@@ -44,7 +44,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 // first) — one cover per Product, also enforced by the DB's partial unique
 // index as a backstop. Gallery uploads append to the end (max sort_order + 1).
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireAdmin()
+  const auth = await requireRole(['owner','admin'])
   if ('response' in auth) return auth.response
   const supabase = getServiceSupabase()
 

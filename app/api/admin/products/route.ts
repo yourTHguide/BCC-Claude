@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireRole } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
@@ -9,7 +9,7 @@ const PRODUCT_FIELDS =
 
 // Read-only Product list.
 export async function GET() {
-  const auth = await requireAdmin()
+  const auth = await requireRole(['owner','admin'])
   if ('response' in auth) return auth.response
 
   const supabase = getServiceSupabase()
@@ -29,7 +29,7 @@ export async function GET() {
 // here — activation/publishing is a later stage. Authorization first, then the
 // service-role client.
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin()
+  const auth = await requireRole(['owner','admin'])
   if ('response' in auth) return auth.response
 
   let body: any

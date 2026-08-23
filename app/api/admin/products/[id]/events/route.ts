@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireRole } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
@@ -20,7 +20,7 @@ async function loadProduct(supabase: any, id: string) {
 // List all Event Instances for a Product (+ its schedules), each with a booking
 // count used by the hard-delete guard.
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireAdmin()
+  const auth = await requireRole(['owner','admin'])
   if ('response' in auth) return auth.response
   const supabase = getServiceSupabase()
 
@@ -68,7 +68,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
 // Add a single Event Instance (manual one-off) to the Product.
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireAdmin()
+  const auth = await requireRole(['owner','admin'])
   if ('response' in auth) return auth.response
   const supabase = getServiceSupabase()
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireRole } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
 import { bangkokToday } from '@/lib/dates'
 
@@ -11,7 +11,7 @@ const TIME_RE = /^\d{2}:\d{2}(:\d{2})?$/
 // Only the fields present in the body are changed, and only this event_dates row
 // is touched — the Product and other instances are untouched.
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireAdmin()
+  const auth = await requireRole(['owner','admin'])
   if ('response' in auth) return auth.response
   const supabase = getServiceSupabase()
 
@@ -69,7 +69,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 // future AND it has zero bookings (website + OTA). Otherwise 409 (soft-close
 // via PATCH is_open=false instead).
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireAdmin()
+  const auth = await requireRole(['owner','admin'])
   if ('response' in auth) return auth.response
   const supabase = getServiceSupabase()
 

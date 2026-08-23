@@ -120,95 +120,118 @@ export default function CheckinTokenPage({ params }: { params: { token: string }
         </div>
       )}
 
-      {state === 'ready' && data && (
-        <div style={S.card}>
-          {data.alreadyCheckedIn && !justConfirmed && (
-            <div style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.30)', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px' }}>
-              <p style={{ color: '#f59e0b', fontSize: '13px', fontWeight: 600, margin: 0 }}>Already checked in</p>
-            </div>
-          )}
-          {justConfirmed && (
-            <div style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.30)', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px' }}>
-              <p style={{ color: '#22c55e', fontSize: '13px', fontWeight: 600, margin: 0 }}>✓ Checked in</p>
-            </div>
-          )}
+      {state === 'ready' && data && (() => {
+        // The authoritative signal for whether an active check-in action may
+        // still be taken is the booking's CURRENT attendance status — not
+        // the `alreadyCheckedIn` response flag, which only means "was this
+        // particular call a repeat scan" and is FALSE immediately after a
+        // fresh confirm (correctly — it wasn't "already" checked in, it just
+        // became checked in). Using that flag to gate the button was a real
+        // bug: right after a successful check-in it would show the green
+        // button again. Keying off attendanceStatus instead means the
+        // button and the "checked in" banner are always mutually exclusive.
+        const isCheckedIn = data.booking.attendanceStatus === 'checked_in'
+        const isBlocked = data.booking.status === 'cancelled' || data.booking.status === 'refunded'
+        const showScanNext = isCheckedIn || isBlocked
 
-          <p style={S.label}>{data.product.name}</p>
-          <p style={{ color: '#fff', fontSize: '13px', marginBottom: '18px' }}>
-            {data.event.eventDate}{data.event.startTime ? ` · ${data.event.startTime.slice(0, 5)}` : ''}
-          </p>
+        return (
+          <div style={S.card}>
+            {isCheckedIn && (
+              <div
+                style={{
+                  background: justConfirmed ? 'rgba(34,197,94,0.15)' : 'rgba(245,158,11,0.15)',
+                  border: `2px solid ${justConfirmed ? '#22c55e' : '#f59e0b'}`,
+                  borderRadius: '12px', padding: '20px', marginBottom: '20px', textAlign: 'center',
+                }}
+              >
+                <div style={{ fontSize: '32px', lineHeight: 1, marginBottom: '8px' }}>
+                  {justConfirmed ? '✓' : '⚠'}
+                </div>
+                <p style={{ color: justConfirmed ? '#22c55e' : '#f59e0b', fontSize: '18px', fontWeight: 700, margin: 0 }}>
+                  {justConfirmed ? 'Checked In' : 'Already Checked In'}
+                </p>
+                <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '13px', marginTop: '6px' }}>
+                  {justConfirmed
+                    ? `${data.booking.quantity} guest${data.booking.quantity !== 1 ? 's' : ''} checked in`
+                    : 'This ticket has already been used'}
+                </p>
+              </div>
+            )}
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <div>
-              <p style={S.label}>Guest</p>
-              <p style={{ color: '#fff', fontSize: '15px', fontWeight: 600 }}>{data.booking.guestName || 'Guest'}</p>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <p style={S.label}>Guests</p>
-              <p style={{ color: '#fff', fontSize: '15px', fontWeight: 600 }}>{data.booking.quantity}</p>
-            </div>
-          </div>
+            <p style={S.label}>{data.product.name}</p>
+            <p style={{ color: '#fff', fontSize: '13px', marginBottom: '18px' }}>
+              {data.event.eventDate}{data.event.startTime ? ` · ${data.event.startTime.slice(0, 5)}` : ''}
+            </p>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '18px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-            <div>
-              <p style={S.label}>Booking Ref</p>
-              <p style={{ color: 'rgba(255,255,255,0.70)', fontSize: '13px' }}>{data.booking.reference}</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+              <div>
+                <p style={S.label}>Guest</p>
+                <p style={{ color: '#fff', fontSize: '15px', fontWeight: 600 }}>{data.booking.guestName || 'Guest'}</p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <p style={S.label}>Guests</p>
+                <p style={{ color: '#fff', fontSize: '15px', fontWeight: 600 }}>{data.booking.quantity}</p>
+              </div>
             </div>
-            <div style={{ textAlign: 'right' }}>
-              <p style={S.label}>Payment</p>
-              <p style={{ color: 'rgba(255,255,255,0.70)', fontSize: '13px' }}>
-                {data.booking.status === 'confirmed' ? `Paid ฿${data.booking.totalPaid.toLocaleString()}` : data.booking.status}
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '18px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+              <div>
+                <p style={S.label}>Booking Ref</p>
+                <p style={{ color: 'rgba(255,255,255,0.70)', fontSize: '13px' }}>{data.booking.reference}</p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <p style={S.label}>Payment</p>
+                <p style={{ color: 'rgba(255,255,255,0.70)', fontSize: '13px' }}>
+                  {data.booking.status === 'confirmed' ? `Paid ฿${data.booking.totalPaid.toLocaleString()}` : data.booking.status}
+                </p>
+              </div>
+            </div>
+
+            {/* Exactly one of these three renders — an active check-in
+                action is never shown once the booking is already checked
+                in or blocked. */}
+            {isBlocked ? (
+              <p style={{ color: '#EA003A', fontSize: '13px', marginBottom: '20px' }}>
+                This booking was {data.booking.status} — do not check in.
               </p>
-            </div>
+            ) : isCheckedIn ? null : (
+              <button
+                onClick={confirmCheckin}
+                disabled={confirming}
+                style={{
+                  width: '100%', height: '46px', borderRadius: '8px', border: 'none',
+                  background: 'linear-gradient(135deg,#22c55e,#16a34a)', color: '#fff',
+                  fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '14px',
+                  cursor: confirming ? 'default' : 'pointer', opacity: confirming ? 0.7 : 1,
+                }}
+              >
+                {confirming ? 'Checking in…' : `Check in ${data.booking.quantity} guest${data.booking.quantity !== 1 ? 's' : ''}`}
+              </button>
+            )}
+
+            {/* Prominent next action once this ticket is resolved (checked
+                in, already used, or blocked) — clear vertical breathing room
+                above it (marginTop, on top of the marginBottom already on
+                whichever element precedes it) since the host's next move at
+                the door is almost always the next guest. The small "Scan
+                another ticket" link at the top of the page covers the same
+                destination from a non-terminal state. */}
+            {showScanNext && (
+              <Link
+                href="/dashboard/checkin"
+                style={{
+                  display: 'block', textAlign: 'center', width: '100%', height: '46px', lineHeight: '46px',
+                  borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg,#EA003A,#820065)',
+                  color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '14px',
+                  textDecoration: 'none', marginTop: '4px',
+                }}
+              >
+                Scan Next Ticket
+              </Link>
+            )}
           </div>
-
-          {(data.booking.status === 'cancelled' || data.booking.status === 'refunded') ? (
-            <p style={{ color: '#EA003A', fontSize: '13px', marginBottom: '18px' }}>
-              This booking was {data.booking.status} — do not check in.
-            </p>
-          ) : data.alreadyCheckedIn ? (
-            <p style={{ color: 'rgba(255,255,255,0.50)', fontSize: '13px', marginBottom: '18px' }}>
-              This ticket has already been used. No further action needed.
-            </p>
-          ) : (
-            <button
-              onClick={confirmCheckin}
-              disabled={confirming}
-              style={{
-                width: '100%', height: '46px', borderRadius: '8px', border: 'none',
-                background: 'linear-gradient(135deg,#22c55e,#16a34a)', color: '#fff',
-                fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '14px',
-                cursor: confirming ? 'default' : 'pointer', opacity: confirming ? 0.7 : 1,
-              }}
-            >
-              {confirming ? 'Checking in…' : `Check in ${data.booking.quantity} guest${data.booking.quantity !== 1 ? 's' : ''}`}
-            </button>
-          )}
-
-          {/* Prominent next action once this ticket is resolved (checked in
-              just now, already used, or blocked) — the host's next move at
-              the door is almost always the next guest, not staying on this
-              screen. The small "Scan another ticket" link at the top of the
-              page covers the same destination for anyone who wants it
-              without a terminal state. */}
-          {(justConfirmed ||
-            data.alreadyCheckedIn ||
-            data.booking.status === 'cancelled' ||
-            data.booking.status === 'refunded') && (
-            <Link
-              href="/dashboard/checkin"
-              style={{
-                display: 'block', textAlign: 'center', width: '100%', height: '46px', lineHeight: '46px',
-                borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg,#EA003A,#820065)',
-                color: '#fff', fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '14px',
-                textDecoration: 'none',
-              }}
-            >
-              Scan Next Ticket
-            </Link>
-          )}
-        </div>
-      )}
+        )
+      })()}
     </div>
   )
 }
