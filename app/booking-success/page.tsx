@@ -140,7 +140,9 @@ function SuccessContent() {
             fontSize: '18px', color: 'rgba(255,255,255,0.60)',
             marginBottom: '40px', lineHeight: 1.6, maxWidth: '400px',
           }}>
-            Check your email — full details, run of show, dress code, and tips are all in there.
+            {ticketToken
+              ? 'Check your email — your ticket, QR code, and full booking details are all in there.'
+              : 'Check your email — full details, run of show, dress code, and tips are all in there.'}
           </p>
 
           <div style={{
@@ -154,12 +156,18 @@ function SuccessContent() {
               fontWeight: 600, fontSize: '10px', letterSpacing: '0.2em',
               textTransform: 'uppercase', color: 'rgba(255,255,255,0.40)', marginBottom: '16px',
             }}>WHAT HAPPENS NEXT</p>
-            {[
-              { step: '1', text: 'Check your email for full booking details and reminders.' },
-              { step: '2', text: "By 7 PM on the day, you'll receive a WhatsApp group link with the exact meet-up location." },
-              { step: '3', text: 'Show up at 9:30 PM. Your host will be there.' },
-            ].map(({ step, text }) => (
-              <div key={step} style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', marginBottom: step === '3' ? 0 : '14px' }}>
+            {(ticketToken
+              ? [
+                  { step: '1', text: 'Check your email for your ticket, QR code, and full booking details.' },
+                  { step: '2', text: 'Show your ticket page and QR code to your host at check-in.' },
+                ]
+              : [
+                  { step: '1', text: 'Check your email for full booking details and reminders.' },
+                  { step: '2', text: "By 7 PM on the day, you'll receive a WhatsApp group link with the exact meet-up location." },
+                  { step: '3', text: 'Show up at 9:30 PM. Your host will be there.' },
+                ]
+            ).map(({ step, text }, i, steps) => (
+              <div key={step} style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', marginBottom: i === steps.length - 1 ? 0 : '14px' }}>
                 <div style={{
                   width: '24px', height: '24px', borderRadius: '50%',
                   background: 'linear-gradient(135deg, #EA003A, #820065)',
