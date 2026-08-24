@@ -86,6 +86,17 @@ export interface ProductPageProps {
    * fire in this component in either mode — that stays the caller's concern.
    */
   mode: 'public' | 'preview'
+  /**
+   * Stage 10 Phase 6 — optional "back to [brand] home" link rendered in the
+   * nav, next to the product name. Flagged as a gap in Phase 4 (no path back
+   * to Home/About/Contact from this page) and left unfixed there deliberately
+   * (new-in-bkk stayed Draft/invisible throughout, so no real visitor could
+   * reach it). Undefined renders nothing — every existing caller that
+   * doesn't pass this prop (both today's callers, pre-this-change) is
+   * visually unaffected.
+   */
+  backHref?: string
+  backLabel?: string
 }
 
 function baht(n: number | null): string | null {
@@ -186,7 +197,7 @@ function BulletList({ items, small = false }: { items: string[]; small?: boolean
   )
 }
 
-export default function ProductPage({ product, content, media, upcomingEvents, mode }: ProductPageProps) {
+export default function ProductPage({ product, content, media, upcomingEvents, mode, backHref, backLabel }: ProductPageProps) {
   const cover = media.find((m) => m.kind === 'cover') ?? null
   const gallery = media.filter((m) => m.kind === 'gallery').sort((a, b) => a.sort_order - b.sort_order)
 
@@ -275,20 +286,39 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
           backdropFilter: 'blur(12px)',
         }}
       >
-        <span
-          style={{
-            fontFamily: 'Inter, sans-serif',
-            fontWeight: 500,
-            fontSize: '13px',
-            color: 'rgba(255,255,255,0.65)',
-          }}
-        >
-          {mode === 'preview' ? 'Product Preview' : product.name}
-        </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+          {mode === 'public' && backHref && (
+            <a
+              href={backHref}
+              style={{
+                fontFamily: 'Inter, sans-serif',
+                fontWeight: 500,
+                fontSize: '11px',
+                color: 'rgba(255,255,255,0.40)',
+                textDecoration: 'none',
+              }}
+            >
+              ← {backLabel ?? 'Back'}
+            </a>
+          )}
+          <span
+            style={{
+              fontFamily: 'Inter, sans-serif',
+              fontWeight: 500,
+              fontSize: '13px',
+              color: 'rgba(255,255,255,0.65)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {mode === 'preview' ? 'Product Preview' : product.name}
+          </span>
+        </div>
         <img
           src="/images/Nightlife Thailand LOGO.png"
           alt="Nightlife Thailand"
-          style={{ height: '38px', width: 'auto', objectFit: 'contain' }}
+          style={{ height: '38px', width: 'auto', objectFit: 'contain', flexShrink: 0 }}
         />
       </nav>
 

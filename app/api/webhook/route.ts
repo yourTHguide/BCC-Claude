@@ -6,6 +6,8 @@ import { formatBookingReference } from '@/lib/bookingReference'
 import { resolveBookingByToken } from '@/lib/bookingResolution'
 import { Resend } from 'resend'
 import { generateConfirmationEmail } from '@/emails/confirmation'
+import type { Storefront } from '@/lib/storefront'
+import { resendFromHeader } from '@/lib/storefrontBrand'
 
 // Lazily instantiated so importing this route doesn't run the Resend
 // constructor during Next.js's build-time "collecting page data" step,
@@ -71,6 +73,10 @@ export async function POST(req: NextRequest) {
     // (event_id, product_id, ticket_token) already established.
     const storefront = meta.storefront || null
     const priceTier = meta.price_tier || null
+    // For BRANDING (email header/footer/sender/appUrl) only — never for
+    // access control. Coerces null/anything-not-'bnt' to 'bcc', matching
+    // every other storefront default in this codebase.
+    const brandStorefront: Storefront = storefront === 'bnt' ? 'bnt' : 'bcc'
 
     // Every paid booking gets a ticket token, regardless of which checkout
     // path produced it — the confirmation/ticket page and QR check-in
@@ -145,10 +151,11 @@ export async function POST(req: NextRequest) {
       whatsIncluded: resolved?.whatsIncluded ?? [],
       whatsNotIncluded: resolved?.whatsNotIncluded ?? [],
       importantInfo: resolved?.importantInfo ?? [],
+      storefront: brandStorefront,
     })
 
     const { error: emailError } = await getResend().emails.send({
-      from: `Bangkok Club Crawl <${process.env.RESEND_FROM}>`,
+      from: resendFromHeader(brandStorefront),
       to: guestEmail,
       subject: `You're booked — ${meta.night_name} on ${meta.formatted_date}`,
       html: emailHtml,
@@ -158,11 +165,14 @@ export async function POST(req: NextRequest) {
       console.error('Resend email error:', emailError)
     }
 
-    // ── Notify Guide via email (internal alert) ──
+    // ── Notify Guide via email (internal alert) ── storefront tag in the
+    // subject only — this inbox is internal ops, not customer-facing, so it
+    // keeps its existing "BCC Bookings" sender identity regardless of which
+    // storefront the booking came from.
     await getResend().emails.send({
       from: `BCC Bookings <${process.env.RESEND_FROM}>`,
       to: process.env.ADMIN_NOTIFY_EMAIL!, // internal alert to founder's inbox
-      subject: `New booking: ${meta.night_name} — ${meta.formatted_date} (${quantity} ticket${quantity > 1 ? 's' : ''})`,
+      subject: `[${brandStorefront.toUpperCase()}] New booking: ${meta.night_name} — ${meta.formatted_date} (${quantity} ticket${quantity > 1 ? 's' : ''})`,
       html: `
         <p><strong>New booking received</strong></p>
         <p>Night: ${meta.night_name}</p>

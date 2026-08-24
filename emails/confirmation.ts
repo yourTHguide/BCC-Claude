@@ -1,6 +1,8 @@
 import { formatStartTime } from '@/lib/dates'
 import { revealMeetingPointForTicket } from '@/lib/meetingPointReveal'
 import { getAppUrl } from '@/lib/appUrl'
+import type { Storefront } from '@/lib/storefront'
+import { brandFor } from '@/lib/storefrontBrand'
 
 // `whats_included` has been observed in production holding BOTH plain
 // strings and `{icon, text}` objects (a separate, not-yet-merged branch's
@@ -43,6 +45,7 @@ export function generateConfirmationEmail({
   whatsIncluded,
   whatsNotIncluded,
   importantInfo,
+  storefront,
 }: {
   guestName: string
   nightName: string
@@ -50,6 +53,12 @@ export function generateConfirmationEmail({
   quantity: number
   totalPaid: number
   promoCode?: string
+  // Stage 10 Phase 6 — which brand's identity this confirmation should
+  // carry (footer support email/domain, and the appUrl the ticket
+  // link/QR image resolve against). Defaults to 'bcc' — every pre-Phase-6
+  // call site (this template's original signature) passes nothing here and
+  // gets EXACTLY today's BCC output, unchanged.
+  storefront?: Storefront | null
   // Present only when the webhook's booking INSERT actually succeeded and a
   // ticket_token was persisted — an insert failure must never reference a
   // token that doesn't exist in `bookings`. When absent, the "View Ticket &
@@ -80,7 +89,8 @@ export function generateConfirmationEmail({
     year: 'numeric',
   })
   const firstName = guestName?.split(' ')[0] || 'Guest'
-  const appUrl = getAppUrl()
+  const brand = brandFor(storefront)
+  const appUrl = getAppUrl(storefront === 'bnt' ? 'bnt' : 'bcc')
   const timeLabel = formatStartTime(startTime ?? null)
   const meetingPoint = revealMeetingPointForTicket(meetingPointRaw ?? null)
   const includedItems = (whatsIncluded ?? []).map(itemText).filter(Boolean)
@@ -196,11 +206,11 @@ export function generateConfirmationEmail({
     <table cellpadding="0" cellspacing="0" style="margin:0 auto">
       <tr>
         <td style="padding:0 12px">
-          <a href="https://wa.me/66660399569" style="font-size:13px;color:#EA003A;text-decoration:none">WhatsApp</a>
+          <a href="${brand.supportWhatsappUrl}" style="font-size:13px;color:#EA003A;text-decoration:none">WhatsApp</a>
         </td>
         <td style="color:rgba(255,255,255,0.20);font-size:13px">|</td>
         <td style="padding:0 12px">
-          <a href="mailto:bangkokclubcrawl@gmail.com" style="font-size:13px;color:#EA003A;text-decoration:none">Email</a>
+          <a href="mailto:${brand.supportEmail}" style="font-size:13px;color:#EA003A;text-decoration:none">Email</a>
         </td>
         <td style="color:rgba(255,255,255,0.20);font-size:13px">|</td>
         <td style="padding:0 12px">
@@ -209,7 +219,7 @@ export function generateConfirmationEmail({
       </tr>
     </table>
     <p style="margin:20px 0 0;font-size:11px;color:rgba(255,255,255,0.20)">© 2026 BEST Nightlife Thailand · Sanctuary Nexus Co., Ltd. · Bangkok</p>
-    <p style="margin:6px 0 20px;font-size:11px;color:rgba(255,255,255,0.15)">www.bkkclubcrawl.com</p>
+    <p style="margin:6px 0 20px;font-size:11px;color:rgba(255,255,255,0.15)">${brand.siteDomain}</p>
   </td></tr>
 
 </table>

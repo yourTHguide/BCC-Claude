@@ -3,6 +3,8 @@ import { stripe } from '@/lib/stripe'
 import { getServiceSupabase } from '@/lib/supabase'
 import { Resend } from 'resend'
 import { generateCancellationEmail } from '@/emails/cancellation'
+import type { Storefront } from '@/lib/storefront'
+import { resendFromHeader } from '@/lib/storefrontBrand'
 
 // Lazily instantiated so importing this route doesn't run the Resend
 // constructor during Next.js's build-time "collecting page data" step,
@@ -65,16 +67,22 @@ export async function POST(req: NextRequest) {
     }
 
     if (booking.guest_email) {
+      // Booking-persisted storefront (Stage 10 Phase 5 column, written by the
+      // webhook from Stripe metadata) — the same value the confirmation
+      // email itself was branded with, so a guest can never see a
+      // cancellation for a different brand than the one they booked.
+      const storefront: Storefront = booking.storefront === 'bnt' ? 'bnt' : 'bcc'
       const emailHtml = generateCancellationEmail({
         guestName: booking.guest_name,
         nightName: booking.night_name,
         eventDate: booking.event_date,
         quantity: booking.quantity,
         totalPaid: booking.total_paid,
+        storefront,
       })
 
       const { error: emailError } = await getResend().emails.send({
-        from: `Bangkok Club Crawl <${process.env.RESEND_FROM}>`,
+        from: resendFromHeader(storefront),
         to: booking.guest_email,
         subject: `Your booking has been cancelled — ${booking.night_name}`,
         html: emailHtml,

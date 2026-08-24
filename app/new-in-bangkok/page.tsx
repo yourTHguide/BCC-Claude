@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import ProductPage from '@/components/ProductPage'
 import { resolveStorefront } from '@/lib/storefront'
 import { loadPublicProductPage } from '@/lib/publicProductPage'
+import { brandFor } from '@/lib/storefrontBrand'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,5 +43,9 @@ export default async function NewInBangkokPage() {
   const data = await loadPublicProductPage('new-in-bkk', storefront)
   if (!data) notFound()
 
-  return <ProductPage {...data} mode="public" />
+  // Stage 10 Phase 6 — closes the "no path back to Home/About/Contact" gap
+  // Phase 4 flagged and deliberately left open (new-in-bkk was Draft/
+  // invisible throughout, so no real visitor could hit it yet).
+  const brand = brandFor(storefront)
+  return <ProductPage {...data} mode="public" backHref={brand.homeHref} backLabel={brand.name} />
 }

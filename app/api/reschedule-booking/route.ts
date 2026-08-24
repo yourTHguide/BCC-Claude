@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
 import { Resend } from 'resend'
 import { generateRescheduleEmail } from '@/emails/reschedule'
+import type { Storefront } from '@/lib/storefront'
+import { resendFromHeader } from '@/lib/storefrontBrand'
 
 // Lazily instantiated so importing this route doesn't run the Resend
 // constructor during Next.js's build-time "collecting page data" step,
@@ -51,6 +53,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (booking.guest_email) {
+      const storefront: Storefront = booking.storefront === 'bnt' ? 'bnt' : 'bcc'
       const emailHtml = generateRescheduleEmail({
         guestName: booking.guest_name,
         nightName: booking.night_name,
@@ -58,10 +61,11 @@ export async function POST(req: NextRequest) {
         newDate,
         quantity: booking.quantity,
         totalPaid: booking.total_paid,
+        storefront,
       })
 
       const { error: emailError } = await getResend().emails.send({
-        from: `Bangkok Club Crawl <${process.env.RESEND_FROM}>`,
+        from: resendFromHeader(storefront),
         to: booking.guest_email,
         subject: `Your booking date has changed — ${booking.night_name}`,
         html: emailHtml,

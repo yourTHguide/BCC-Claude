@@ -1,3 +1,6 @@
+import type { Storefront } from '@/lib/storefront'
+import { brandFor } from '@/lib/storefrontBrand'
+
 // Format a YYYY-MM-DD string using LOCAL date components (not new Date(str),
 // which parses as UTC midnight and can roll the date back a day depending on server TZ)
 function formatLocalDate(dateStr: string): string {
@@ -17,6 +20,7 @@ export function generateRescheduleEmail({
   newDate,
   quantity,
   totalPaid,
+  storefront,
 }: {
   guestName: string
   nightName: string
@@ -24,17 +28,21 @@ export function generateRescheduleEmail({
   newDate: string
   quantity: number
   totalPaid: number
+  // Stage 10 Phase 6 — defaults to 'bcc', byte-identical output for every
+  // pre-Phase-6 call site (see emails/cancellation.ts for the same pattern).
+  storefront?: Storefront | null
 }) {
   const formattedOldDate = formatLocalDate(oldDate)
   const formattedNewDate = formatLocalDate(newDate)
   const firstName = guestName?.split(' ')[0] || 'Guest'
+  const brand = brandFor(storefront)
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Your booking date has changed — Bangkok Club Crawl</title>
+<title>Your booking date has changed — ${brand.name}</title>
 </head>
 <body style="margin:0;padding:0;background:#0D000A;font-family:'Helvetica Neue',Arial,sans-serif">
 
@@ -44,7 +52,7 @@ export function generateRescheduleEmail({
 
   <!-- HEADER -->
   <tr><td style="background:linear-gradient(135deg,#EA003A,#820065);border-radius:12px 12px 0 0;padding:36px 32px;text-align:center">
-    <p style="margin:0 0 8px;font-weight:700;font-size:13px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(255,255,255,0.70)">BANGKOK CLUB CRAWL</p>
+    <p style="margin:0 0 8px;font-weight:700;font-size:13px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(255,255,255,0.70)">${brand.shortName}</p>
     <h1 style="margin:0;font-size:26px;font-weight:700;color:#fff;line-height:1.2">Your booking date has changed</h1>
     <p style="margin:12px 0 0;font-size:16px;color:rgba(255,255,255,0.80);font-style:italic">${nightName}</p>
   </td></tr>
@@ -107,16 +115,16 @@ export function generateRescheduleEmail({
     <table cellpadding="0" cellspacing="0" style="margin:0 auto">
       <tr>
         <td style="padding:0 12px">
-          <a href="https://wa.me/66660399569" style="font-size:13px;color:#EA003A;text-decoration:none">WhatsApp</a>
+          <a href="${brand.supportWhatsappUrl}" style="font-size:13px;color:#EA003A;text-decoration:none">WhatsApp</a>
         </td>
         <td style="color:rgba(255,255,255,0.20);font-size:13px">|</td>
         <td style="padding:0 12px">
-          <a href="mailto:bangkokclubcrawl@gmail.com" style="font-size:13px;color:#EA003A;text-decoration:none">Email</a>
+          <a href="mailto:${brand.supportEmail}" style="font-size:13px;color:#EA003A;text-decoration:none">Email</a>
         </td>
       </tr>
     </table>
     <p style="margin:20px 0 0;font-size:11px;color:rgba(255,255,255,0.20)">© 2026 BEST Nightlife Thailand · Sanctuary Nexus Co., Ltd. · Bangkok</p>
-    <p style="margin:6px 0 0;font-size:11px;color:rgba(255,255,255,0.15)">www.bkkclubcrawl.com</p>
+    <p style="margin:6px 0 0;font-size:11px;color:rgba(255,255,255,0.15)">${brand.siteDomain}</p>
   </td></tr>
 
 </table>

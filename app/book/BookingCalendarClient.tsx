@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import type { Storefront } from '@/lib/storefront'
+import { brandFor } from '@/lib/storefrontBrand'
 
 // ─── Canonical event instance (shape returned by /api/events) ───────────────
 interface EventInstance {
@@ -21,16 +22,18 @@ interface EventInstance {
 }
 
 // ─── Marketing presentation ONLY (not operational data) ─────────────────────
-// Tags/accent are BCC storefront styling, deliberately kept out of Supabase.
-// Anything not mapped falls back to a generic look, so a future night_slug
-// still renders cleanly without a code change being strictly required.
+// Tags/accent are storefront marketing styling, deliberately kept out of
+// Supabase. Anything not mapped falls back to a generic per-storefront tag
+// (Stage 10 Phase 6 — was a single BCC-hardcoded fallback), so a future
+// night_slug still renders cleanly without a code change being strictly
+// required, and correctly brand-tagged regardless of which storefront it's
+// viewed from.
 const PRESENTATION: Record<string, { tag: string; color: string }> = {
   tgif: { tag: 'FRIDAY NIGHTS', color: '#EA003A' },
   'saturday-signature': { tag: 'FLAGSHIP · SATURDAY', color: '#EA003A' },
 }
-const DEFAULT_PRESENTATION = { tag: 'BANGKOK CLUB CRAWL', color: '#EA003A' }
-function presentationFor(slug: string) {
-  return PRESENTATION[slug] ?? DEFAULT_PRESENTATION
+function presentationFor(slug: string, storefront: Storefront) {
+  return PRESENTATION[slug] ?? { tag: brandFor(storefront).shortName, color: '#EA003A' }
 }
 
 // Per-order transaction safeguard for the quantity selector. This is a checkout
@@ -193,6 +196,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
   const totalPrice = unitPrice != null ? unitPrice * quantity : null
   const selectedDateStr = selectedDateISO ? formatDateLabel(selectedDateISO) : null
   const capMax = maxTickets()
+  const brand = brandFor(storefront)
 
   return (
     <div
@@ -223,10 +227,10 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
         >
           ← Back
         </button>
-        <a href="/" style={{ display: 'flex', alignItems: 'center', height: '32px' }}>
+        <a href={brand.homeHref} style={{ display: 'flex', alignItems: 'center', height: '32px' }}>
           <img
-            src="/images/bcc-logo.png"
-            alt="Bangkok Club Crawl"
+            src={brand.logoSrc}
+            alt={brand.logoAlt}
             style={{ height: '30px', width: 'auto', objectFit: 'contain', display: 'block' }}
           />
         </a>
@@ -490,7 +494,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                 {/* Event list */}
                 {eventsOnSelected.map((event) => {
                   const isChosen = selectedEvent?.eventId === event.eventId
-                  const pres = presentationFor(event.nightSlug)
+                  const pres = presentationFor(event.nightSlug, storefront)
                   return (
                     <div
                       key={event.eventId}

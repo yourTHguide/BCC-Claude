@@ -1,3 +1,6 @@
+import type { Storefront } from '@/lib/storefront'
+import { brandFor } from '@/lib/storefrontBrand'
+
 function formatLocalDate(dateStr: string): string {
   const [y, m, d] = dateStr.split('-').map(Number)
   return new Date(y, m - 1, d).toLocaleDateString('en', {
@@ -15,22 +18,27 @@ export function generateConfirmedMeetupEmail({
   eventDate,
   meetUpLocation,
   whatsappGroupLink,
+  storefront,
 }: {
   guestName: string
   nightName: string
   eventDate: string
   meetUpLocation: string
   whatsappGroupLink: string
+  // Stage 10 Phase 6 — defaults to 'bcc', byte-identical output for every
+  // pre-Phase-6 call site (see emails/cancellation.ts for the same pattern).
+  storefront?: Storefront | null
 }) {
   const formattedDate = formatLocalDate(eventDate)
   const firstName = guestName?.split(' ')[0] || 'Guest'
+  const brand = brandFor(storefront)
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Tonight is confirmed — Bangkok Club Crawl</title>
+<title>Tonight is confirmed — ${brand.name}</title>
 </head>
 <body style="margin:0;padding:0;background:#0D000A;font-family:'Helvetica Neue',Arial,sans-serif">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#0D000A;padding:40px 20px">
@@ -38,7 +46,7 @@ export function generateConfirmedMeetupEmail({
 <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px">
 
 <tr><td style="background:linear-gradient(135deg,#EA003A,#820065);border-radius:12px 12px 0 0;padding:36px 32px;text-align:center">
-<p style="margin:0 0 8px;font-weight:700;font-size:13px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(255,255,255,0.70)">BANGKOK CLUB CRAWL</p>
+<p style="margin:0 0 8px;font-weight:700;font-size:13px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(255,255,255,0.70)">${brand.shortName}</p>
 <h1 style="margin:0;font-size:28px;font-weight:700;color:#fff;line-height:1.2">Tonight is confirmed.</h1>
 <p style="margin:12px 0 0;font-size:16px;color:rgba(255,255,255,0.80);font-style:italic">${nightName} · ${formattedDate}</p>
 </td></tr>
@@ -90,11 +98,11 @@ We've got enough of a crew tonight — it's happening. Here's where to be.</p>
 <table cellpadding="0" cellspacing="0" style="margin:0 auto">
 <tr>
 <td style="padding:0 12px">
-<a href="https://wa.me/66660399569" style="font-size:13px;color:#EA003A;text-decoration:none">WhatsApp</a>
+<a href="${brand.supportWhatsappUrl}" style="font-size:13px;color:#EA003A;text-decoration:none">WhatsApp</a>
 </td>
 <td style="color:rgba(255,255,255,0.20);font-size:13px">|</td>
 <td style="padding:0 12px">
-<a href="mailto:bangkokclubcrawl@gmail.com" style="font-size:13px;color:#EA003A;text-decoration:none">Email</a>
+<a href="mailto:${brand.supportEmail}" style="font-size:13px;color:#EA003A;text-decoration:none">Email</a>
 </td>
 </tr>
 </table>

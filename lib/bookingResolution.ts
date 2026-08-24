@@ -22,6 +22,12 @@ export interface ResolvedBooking {
   attendanceStatus: string // expected | checked_in | no_show
   eventDate: string
   ticketToken: string | null
+  // 'bcc' | 'bnt' | null — null on any pre-Stage-10-Phase-5 booking (the
+  // column didn't exist yet) or a legacy-checkout-path booking that never
+  // set it. Consumers (ticket page presentation) must treat null as 'bcc',
+  // matching every other storefront default in this codebase
+  // (resolveStorefront(), getAppUrl()).
+  storefront: string | null
   productName: string
   productSlug: string | null
   startTime: string | null
@@ -58,7 +64,7 @@ export async function resolveBookingByToken(
     .from('bookings')
     .select(
       'id, event_id, product_id, night_name, event_date, guest_name, guest_email, ' +
-        'quantity, total_paid, status, attendance_status, ticket_token'
+        'quantity, total_paid, status, attendance_status, ticket_token, storefront'
     )
     .eq('ticket_token', token)
     .maybeSingle()
@@ -110,6 +116,7 @@ export async function resolveBookingByToken(
     attendanceStatus: booking.attendance_status,
     eventDate: booking.event_date,
     ticketToken: booking.ticket_token,
+    storefront: booking.storefront,
     productName,
     productSlug,
     startTime,

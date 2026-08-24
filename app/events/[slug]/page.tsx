@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import ProductPage from '@/components/ProductPage'
 import { resolveStorefront } from '@/lib/storefront'
 import { loadPublicProductPage } from '@/lib/publicProductPage'
+import { brandFor } from '@/lib/storefrontBrand'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,5 +23,19 @@ export default async function PublicProductPage({ params }: { params: { slug: st
 
   if (!data) notFound()
 
-  return <ProductPage {...data} mode="public" />
+  // Stage 10 Phase 6 — a "back to home" link is only added for the BNT
+  // storefront (closing the gap Phase 4 flagged for New in Bangkok's
+  // canonical alternate route, /events/new-in-bkk). BCC's existing
+  // /events/[slug] rendering stays byte-identical — no backHref passed, same
+  // as before this change — deliberately, since Phase 4/5 both established
+  // BCC's live behavior on this route must not change.
+  const brand = storefront === 'bnt' ? brandFor(storefront) : null
+  return (
+    <ProductPage
+      {...data}
+      mode="public"
+      backHref={brand?.homeHref}
+      backLabel={brand?.name}
+    />
+  )
 }
