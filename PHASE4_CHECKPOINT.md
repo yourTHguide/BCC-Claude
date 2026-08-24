@@ -1,8 +1,49 @@
 # Phase 4 — Internal Product & Schedule Builder — Checkpoint
 
-_Last updated: 2026-08-23 (session paused — context window nearly full — with ONE unresolved launch blocker: Alex Chen's real iPhone QR scan still crashes. No application code changed since Stage 9l's last commit; this update is documentation + test-data reset only.)_
+_Last updated: 2026-08-24 — Stage 10 session paused at a clean architectural checkpoint (scope too large for one session, per explicit instruction to stop rather than rush). See "Stage 10" section below, which supersedes the "Stage 9 paused" section beneath it — that section is stale: Stage 9 was actually closed and merged to `main` (`8090708`) in a separate session after this doc's prior update. Read Stage 10 first._
 
-## ⏸ SESSION PAUSED — read this section first
+## ⏸ Stage 10 SESSION PAUSED — read this section first
+
+**Objective:** BNT storefront (`bestnightlifethailand.com`) + New in Bangkok launch path, served from this same Next.js app instead of a second implementation in `NightlifeAntigravity`. Full brief: two-domain routing, port minimal BNT surface, canonical `/new-in-bangkok`, storefront-aware checkout/tickets/email, then a Preview-verified domain-cutover plan. See the original session prompt for the complete 9-phase spec — not reproduced here.
+
+**Branch:** `claude/phase4c-content-media-audit-dvu5c1` (unchanged from before this session). **HEAD after this session's one commit:** adds `resolveStorefront()` to `lib/storefront.ts` — nothing else in the working tree changed. Not merged to `main`; `main`/production is untouched and still exactly `8090708`.
+
+**Standing invariants reconfirmed this session, still true:** `new-in-bkk` — `status='draft'`, `visible_bcc=false`, `visible_bnt=false`. No DNS/domain moved. `NightlifeAntigravity` untouched (only read via `git fetch`/`git checkout` — no local writes, no pushes). No migration applied. No Stripe/checkout/email code touched.
+
+### Phase 1 (source-of-truth audit) — COMPLETE, with one finding that changed the plan
+Verified directly against live git/Vercel/Supabase, not assumed from any doc:
+- `bkkclubcrawl.com` production = Vercel project `bcc-claude`, `main` @ `8090708` — Phase 4 + Stage 9 genuinely merged and live. Stage 9's QR crash (open at the last checkpoint) was fixed in a later session — root cause was a double `stop()` on the QR scanner throwing synchronously (`69f5d77`) — and a real Stripe E2E test was recorded and Stage 9 formally closed (`a758dfc`, `f457026`) before the `8090708` merge to `main`.
+- `bestnightlifethailand.com` production = Vercel project `nightlife-antigravity`, `main` @ `46cdce1` — a ~3500-line Express app (`server.js`), BNT-only at root, legacy BCC pages already redirecting to `bkkclubcrawl.com`.
+- **Two separate Supabase projects exist**, not one: `BCC - Claude` (`oomhftxgvikzxlvqdcmr`, this app's canonical DB) and a distinct `Nightlife` project (`csltowtyzjknulqmgnku`) holding NightlifeAntigravity's own `bookings`(55)/`guests`(69)/`events`(80)/`experience_inquiries`(3) tables — the VIP inquiry and contact forms write there today. **Guide's decision:** new inquiry/contact tables get created fresh in `BCC - Claude`'s Supabase, not wired to the old `Nightlife` project — no continuity to the old rows.
+- **The big finding:** two unmerged NightlifeAntigravity branches — `phase4-stageB-events-product-page` and `phase4-stageC-bnt-booking-surface` — already contain a disciplined, mockup-approved implementation of almost exactly this objective (a BNT product page + generic `/book` surface), but via the *other* architecture: NightlifeAntigravity stays its own app and calls this app's canonical `/api/products` / `/api/events` server-to-server, never touching Supabase directly, and deliberately stops right before checkout wiring (its own documented "Stage D"). This was in fact the originally-audited plan (see this doc's own pre-Stage-10 "BNT integration" section below). Neither branch is merged or promoted to production on either project — confirmed via Vercel (`nightlife-antigravity`'s live production deployment is `main` @ `46cdce1`, well behind both branches). **Guide's decision, given directly:** proceed with Stage 10's pivot anyway — shelve Stage B/C, port the BNT surface into this app instead. Stage B/C's HTML/CSS output is still a legitimate visual reference for parity-porting BNT's design system (fuchsia/magenta accent, Cormorant Garamond + Montserrat, the locked product-page template), even though its code won't be reused directly.
+
+### Phase 2 (routing contract) — COMPLETE, implemented
+Added to `lib/storefront.ts` (already home to the `VISIBILITY_COLUMN` whitelist from BNT Stage A):
+```ts
+export function resolveStorefront(host: string | null | undefined): Storefront {
+  const normalized = (host ?? '').toLowerCase().split(':')[0]
+  return BNT_HOSTS.has(normalized) ? 'bnt' : 'bcc'  // BNT_HOSTS = bestnightlifethailand.com (+www)
+}
+```
+Deliberately **not** wired into `middleware.ts` — its matcher only covers `/dashboard/:path*` and `/api/admin/:path*`, so it never sees public storefront routes; adding storefront resolution there would mean widening the matcher, which risks the existing auth gate. Instead, callers (Server Components / Route Handlers) read `headers().get('host')` directly and pass it in — zero changes to the auth-critical file. Unknown/local/preview hosts default to `'bcc'`, preserving every existing behavior for anything that isn't literally `bestnightlifethailand.com`. This decides branding/content only; product/event visibility stays gated by the existing DB columns, never inferred from host alone. For checkout (Phase 5, not yet built), the plan is: resolve storefront server-side from the request's own Host header, never trust a client-supplied value directly.
+
+**One open judgment call, flagged not decided:** `bkkclubcrawl.com/new-in-bangkok` (the stale hardcoded Wednesday/฿1,000 page, `app/new-in-bangkok/page.tsx`) can't safely redirect to the BNT domain until after cutover (that domain doesn't have the canonical route yet). Left untouched this session — revisit at cutover time, or sooner if Guide wants it 404'd/redirected elsewhere in the meantime.
+
+### Phase 3 (port minimum BNT public surface) — SCOPED, NOT STARTED
+Audited `NightlifeAntigravity` (`main`, the live production branch — not the unmerged Stage B/C branches) directly:
+- `landing.html` (295 lines, BNT homepage — includes a "Private Experiences" section with a 4-step multi-step modal: name/WhatsApp/occasion → date/group size/vibe → a dynamically-injected step 3 → budget/notes → submit, plus a swipeable card carousel feeding it), `about.html` (467 lines), `contact.html` (351 lines, posts to `/api/contact`). Styling: `css/luxury-landing.css` (30 KB, shared by all three pages).
+- Referenced images are small and enumerated, **not** the repo's full 148 MB `assets/` directory: `assets/logo/BEST Nightlife Thailand LOGO.png` (284 KB, used on all three pages), plus `Bangkok Mob.png` (12 MB), `BangkokMasquerade-218.jpg` (1.7 MB), `2. Social Build/tempImageP4GGJA.remini-enhanced.jpg` (1.8 MB) on the homepage, and `Hospitality.jpg`/`Passion.jpg`/`Reward.jpg` on About. No video assets are used by these three pages.
+- Inquiry form submits via JS to `POST /api/vip-inquiry`; contact form to `POST /api/contact` (`contact.html:318`). Both currently write into the separate `Nightlife` Supabase project (`experience_inquiries`, `guests`) — per Guide's decision above, the ported versions get **new** tables in `BCC - Claude`'s Supabase instead.
+
+**Why this stopped here instead of proceeding:** the multi-step modal + carousel is a real interactive component with its own JS state machine (not read yet — lives in `js/`, not inspected this session), and the brief's bar is explicit visual parity, verified in a browser — not a mechanical HTML-to-JSX transcription. Attempting that conversion, the two new API routes, two new Supabase tables, and a browser-verified visual pass in the remainder of an already-large session risked shipping something unverified. Stopping here is a deliberate use of the explicit "STOP at a clean architectural checkpoint" permission in the brief, not a blocker.
+
+### Phases 4–9 (canonical `/new-in-bangkok`, storefront-aware checkout/tickets/email, dynamic-pricing safety, Preview verification, domain-cutover plan) — NOT STARTED
+Not audited or designed yet beyond what Phase 1's `create-checkout`/`middleware`/`appUrl.ts` read-through already surfaced (recorded inline above). Next session should start by reading `js/` in NightlifeAntigravity for the modal's actual submit/validation logic, then proceed to Phase 3 implementation before moving on to Phase 4.
+
+### STOP GATE status (of the 17 items requested)
+1. Architecture implemented: `resolveStorefront(host)` only. 2. Files/routes changed: `lib/storefront.ts` (added function, no removals). 3. BNT pages ported: none yet — scoped above. 4. Inquiry/contact backend: not built. 5. New in Bangkok canonical URL: not built. 6–8. Storefront-aware checkout/success/ticket: not built. 9. BNT sender identity: not audited. 10. Dynamic-pricing safety: not traced. 11. Preview regression: not run (no user-facing change yet to regress). 12. Manual infra steps for Guide: none yet identified — Phase 7's Resend/DNS step is the likely one, not reached. 13–14. Cutover/rollback plan: not written — Phase 1 confirmed `NightlifeAntigravity` is untouched and remains the rollback target by construction. 15. Remaining blockers: none technical — the interactive modal's real implementation needs reading before Phase 3 can safely proceed. 16. GO/NO-GO domain cutover: **NO-GO** (Phase 3 not even started). 17. GO/NO-GO New in Bangkok publication: **NO-GO** (unchanged from entering this session — `new-in-bkk` stays Draft).
+
+## ⏸ Stage 9 SESSION PAUSED (STALE — superseded by Stage 10 section above; kept for history) — read this section first
 
 **Branch:** `claude/phase4c-content-media-audit-dvu5c1`
 **HEAD:** `564e992` ("Stage 9l: record final live verification of the getAppUrl() fix") — this checkpoint edit and an Alex-attendance-status DB reset are the only things after it; both are non-code.
