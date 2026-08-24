@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
 import { productMediaPublicUrl } from '@/lib/media'
+import { resolveEventPricing } from '@/lib/pricing'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,7 +30,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   const { data: product, error: productError } = await supabase
     .from('products')
-    .select('id, slug, name, status, default_price, default_start_time, visible_bcc, visible_bnt')
+    .select(
+      'id, slug, name, status, default_price, default_start_time, visible_bcc, visible_bnt, early_bird_price, early_bird_cutoff_hours'
+    )
     .eq('id', params.id)
     .maybeSingle()
 
@@ -89,12 +92,24 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     url: productMediaPublicUrl(row.storage_path),
   }))
 
-  const upcomingEvents = (eventRows ?? []).map((row: any) => ({
-    id: row.id,
-    event_date: row.event_date,
-    effective_price: row.price_override ?? product.default_price,
-    effective_start_time: row.start_time_override ?? product.default_start_time,
-  }))
+  const upcomingEvents = (eventRows ?? []).map((row: any) => {
+    const effective_start_time = row.start_time_override ?? product.default_start_time
+    const pricing = resolveEventPricing({
+      eventDate: row.event_date,
+      effectiveStartTime: effective_start_time,
+      regularPrice: row.price_override ?? product.default_price,
+      earlyBirdPrice: product.early_bird_price ?? null,
+      earlyBirdCutoffHours: product.early_bird_cutoff_hours ?? null,
+    })
+    return {
+      id: row.id,
+      event_date: row.event_date,
+      effective_price: pricing.price,
+      effective_start_time,
+      price_tier: pricing.tier,
+      regular_price: pricing.regularPrice,
+    }
+  })
 
   return NextResponse.json({
     product: {

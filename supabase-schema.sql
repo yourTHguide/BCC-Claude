@@ -477,3 +477,75 @@ ALTER TABLE bookings
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_bookings_ticket_token
   ON bookings(ticket_token);
 CREATE INDEX IF NOT EXISTS idx_bookings_event_id ON bookings(event_id);
+
+-- ============================================================
+-- STAGE 10 — BNT storefront consolidation (Phase 3: form tables)
+-- ============================================================
+-- APPLIED 2026-08-24 (migration 20260824000001_stage10_bnt_forms.sql).
+-- Canonical destination for BEST Nightlife Thailand's two public forms
+-- (Private Experiences inquiry, Contact) ported from NightlifeAntigravity's
+-- Express app. Deliberately denormalized — name/whatsapp stored directly on
+-- each row, matching this project's own `bookings` table convention
+-- (guest_name/guest_email/guest_phone inline), not the old NightlifeAntigravity
+-- guests+experience_inquiries dedup model. No continuity with the old
+-- Nightlife Supabase project (csltowtyzjknulqmgnku) — its 3 historical
+-- inquiries and 69 guest rows are untouched and unreferenced.
+
+CREATE TABLE IF NOT EXISTS bnt_experience_inquiries (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at        timestamptz NOT NULL DEFAULT now(),
+  name              text NOT NULL,
+  whatsapp          text NOT NULL,
+  occasion          text,
+  event_date        date,
+  is_flexible_date  boolean NOT NULL DEFAULT false,
+  group_size        text,
+  preferred_vibe    text,
+  budget_range      text,
+  inquiry_type      text NOT NULL DEFAULT 'Private Inquiry'
+);
+
+CREATE TABLE IF NOT EXISTS bnt_contact_messages (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  name        text NOT NULL,
+  whatsapp    text NOT NULL,
+  message     text
+);
+
+ALTER TABLE bnt_experience_inquiries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bnt_contact_messages ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================
+-- STAGE 10 PHASE 5 — tiered pricing (Early Bird / Regular) + storefront/tier
+-- threading through checkout → Stripe metadata → bookings
+-- ============================================================
+-- APPLIED 2026-08-24 (migration 20260824000002_stage10_phase5_pricing_storefront.sql).
+-- All columns additive/nullable, zero backfill. early_bird_price/
+-- early_bird_cutoff_hours are opt-in per product — every product that never
+-- sets them (every BCC product today) is untouched by the tiering branch in
+-- lib/pricing.ts's resolveEventPricing(), which always resolves 'regular' at
+-- the existing default_price/price_override in that case, byte-identical to
+-- pre-Phase-5 behavior. bookings.storefront/price_tier are populated only by
+-- the dynamic checkout path (app/api/create-checkout/route.ts) from Stripe
+-- Checkout Session metadata the webhook reads back; the legacy checkout path
+-- and every pre-Phase-5 booking leave both NULL, same convention as
+-- event_id/product_id/ticket_token above (Stage 9a).
+
+ALTER TABLE products
+  ADD COLUMN IF NOT EXISTS early_bird_price INTEGER,
+  ADD COLUMN IF NOT EXISTS early_bird_cutoff_hours INTEGER;
+
+ALTER TABLE products
+  ADD CONSTRAINT products_early_bird_requires_cutoff
+    CHECK (early_bird_price IS NULL OR early_bird_cutoff_hours IS NOT NULL);
+
+ALTER TABLE bookings
+  ADD COLUMN IF NOT EXISTS storefront TEXT,
+  ADD COLUMN IF NOT EXISTS price_tier TEXT;
+
+ALTER TABLE bookings
+  ADD CONSTRAINT bookings_storefront_check
+    CHECK (storefront IS NULL OR storefront = ANY (ARRAY['bcc'::text, 'bnt'::text])),
+  ADD CONSTRAINT bookings_price_tier_check
+    CHECK (price_tier IS NULL OR price_tier = ANY (ARRAY['early_bird'::text, 'regular'::text]));

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { stripe, getPriceId, NIGHT_NAMES } from '@/lib/stripe'
 import { getServiceSupabase } from '@/lib/supabase'
 import { getAppUrl } from '@/lib/appUrl'
+import { resolveStorefront, VISIBILITY_COLUMN } from '@/lib/storefront'
+import { resolveEventPricing } from '@/lib/pricing'
 
 // Format the YYYY-MM-DD string into a friendly label.
 // Parse into LOCAL date components (not new Date(eventDate), which parses as
@@ -32,18 +34,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    // Same resolver every other Stage 9 URL-building call site uses (ticket
-    // page, QR route, confirmation email) — Preview deployments get their
-    // own success/cancel redirect instead of always pointing at production.
-    const appUrl = getAppUrl()
-
     // Phase 2 rollback flag. When 'true', Supabase Product + Event Instance is
     // the source of truth for what Stripe charges. Otherwise we fall back to
     // the legacy hardcoded slug → Stripe Price ID path (unchanged). Flipping
     // this env var in Vercel is the instant rollback/cutover switch.
     if (process.env.CHECKOUT_DYNAMIC_PRICING === 'true') {
-      return await createDynamicCheckout({ eventId, nightSlug, eventDate, quantity, appUrl })
+      // Storefront-aware (Stage 10 Phase 5): resolved from the REQUEST'S OWN
+      // Host header, never from anything the client's JSON body could claim
+      // — a forged/absent storefront in the body can't buy BNT-only pricing
+      // or bypass BCC visibility, because the body never carries one at all.
+      const storefront = resolveStorefront(req.headers.get('host'))
+      return await createDynamicCheckout({ eventId, nightSlug, eventDate, quantity, storefront })
     }
+    // Same resolver every other URL-building call site uses (ticket page, QR
+    // route, confirmation email, dynamic checkout above) — Preview deployments
+    // get their own success/cancel redirect instead of always pointing at
+    // production (main's Blocker-A fix, carried into the legacy/rollback path).
+    const appUrl = getAppUrl()
     return await createLegacyCheckout({ nightSlug, eventDate, quantity, appUrl })
   } catch (err: any) {
     console.error('Stripe checkout error:', err)
@@ -59,13 +66,13 @@ async function createDynamicCheckout({
   nightSlug,
   eventDate,
   quantity,
-  appUrl,
+  storefront,
 }: {
   eventId?: string | null
   nightSlug?: string | null
   eventDate?: string | null
   quantity: any
-  appUrl: string
+  storefront: 'bcc' | 'bnt'
 }) {
   // Basic quantity guard. The /book calendar caps at 12–24 per night; reject
   // anything outside a sane integer range rather than trusting the client.
@@ -86,8 +93,9 @@ async function createDynamicCheckout({
     let query = supabase
       .from('event_dates')
       .select(
-        'id, event_date, night_slug, night_name, is_open, price_override, product_id, ' +
-          'products ( id, slug, name, status, default_price, visible_bcc )'
+        'id, event_date, night_slug, night_name, is_open, price_override, start_time_override, product_id, ' +
+          'products ( id, slug, name, status, default_price, default_start_time, visible_bcc, visible_bnt, ' +
+          'early_bird_price, early_bird_cutoff_hours )'
       )
 
     if (eventId) {
@@ -161,27 +169,49 @@ async function createDynamicCheckout({
     )
   }
 
-  // 5. Product is visible on the BCC storefront. This blocks a manually
-  //    constructed request from checking out a product that isn't sold on BCC
-  //    (e.g. a future builders-club with visible_bcc=false).
-  if (product.visible_bcc !== true) {
+  // 5. Product is visible on the REQUEST'S OWN storefront (resolved from the
+  //    Host header, step above — never from client-supplied data). This
+  //    blocks a manually constructed request from checking out a product
+  //    that isn't sold on the storefront it was actually requested from
+  //    (e.g. bkkclubcrawl.com trying to buy a BNT-only product, or vice
+  //    versa) — the same gate /api/events already enforces for listing, now
+  //    enforced here too, for both storefronts, not just BCC.
+  const visColumn = VISIBILITY_COLUMN[storefront]
+  if (!visColumn || product[visColumn] !== true) {
     return NextResponse.json(
       { error: 'This experience is not available' },
       { status: 409 }
     )
   }
 
-  // 6. Effective price is a valid positive integer (THB whole units)
-  const effectivePrice = event.price_override ?? product.default_price
-  if (!Number.isInteger(effectivePrice) || effectivePrice <= 0) {
+  // 6. Regular price is a valid positive integer (THB whole units)
+  const regularPrice = event.price_override ?? product.default_price
+  if (!Number.isInteger(regularPrice) || regularPrice <= 0) {
     return NextResponse.json({ error: 'Pricing unavailable' }, { status: 422 })
   }
+
+  // 7. Resolve the AUTHORITATIVE current price/tier server-side, from the DB
+  //    + the server's own clock — never from anything the client sent (the
+  //    client never even has a way to send a price; this just makes the
+  //    tiering explicit). A stale Early Bird page left open past its cutoff
+  //    silently reprices to the correct current amount here — the browser
+  //    can never force a ฿390 charge once Early Bird has closed, because the
+  //    unit_amount below is 100% server-computed.
+  const pricing = resolveEventPricing({
+    eventDate: event.event_date,
+    effectiveStartTime: event.start_time_override ?? product.default_start_time,
+    regularPrice,
+    earlyBirdPrice: product.early_bird_price ?? null,
+    earlyBirdCutoffHours: product.early_bird_cutoff_hours ?? null,
+  })
+  const effectivePrice = pricing.price
 
   // ── Build the Stripe session from canonical data ──
   // unit_amount is in the smallest currency unit (satang); THB is 2-decimal, so
   // ฿1,200 → 120000. This preserves the webhook's amount_total / 100 math and
   // keeps stored total_paid / price_per_person identical to the legacy path.
   const formattedDate = formatEventDate(event.event_date)
+  const appUrl = getAppUrl(storefront)
 
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
@@ -214,6 +244,13 @@ async function createDynamicCheckout({
       product_id: product.id,
       product_slug: product.slug,
       event_id: event.id,
+      // Storefront/pricing-tier identity (Stage 10 Phase 5) — lets the
+      // webhook record which brand and which price tier this booking
+      // belongs to without trusting anything from the browser; also the
+      // foundation Phase 6 needs to pick BCC vs BNT transactional-email
+      // branding per booking.
+      storefront,
+      price_tier: pricing.tier,
       // Legacy keys (unchanged contract with the webhook)
       night_slug: event.night_slug,
       night_name: event.night_name,

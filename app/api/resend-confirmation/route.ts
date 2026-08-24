@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
 import { Resend } from 'resend'
 import { generateConfirmationEmail } from '@/emails/confirmation'
+import type { Storefront } from '@/lib/storefront'
+import { resendFromHeader } from '@/lib/storefrontBrand'
 
 // Lazily instantiated so importing this route doesn't run the Resend
 // constructor during Next.js's build-time "collecting page data" step,
@@ -36,6 +38,7 @@ export async function POST(req: NextRequest) {
     const dateObj = new Date(booking.event_date + 'T00:00:00')
     const formattedDate = dateObj.toLocaleDateString('en', { weekday: 'long', day: 'numeric', month: 'long' })
 
+    const storefront: Storefront = booking.storefront === 'bnt' ? 'bnt' : 'bcc'
     const emailHtml = generateConfirmationEmail({
       guestName: booking.guest_name,
       nightName: booking.night_name,
@@ -43,10 +46,11 @@ export async function POST(req: NextRequest) {
       quantity: booking.quantity,
       totalPaid: booking.total_paid,
       promoCode: booking.promo_code || undefined,
+      storefront,
     })
 
     const { error: emailError } = await getResend().emails.send({
-      from: `Bangkok Club Crawl <${process.env.RESEND_FROM}>`,
+      from: resendFromHeader(storefront),
       to: booking.guest_email,
       subject: `You're booked — ${booking.night_name} on ${formattedDate}`,
       html: emailHtml,

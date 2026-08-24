@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
 import { Resend } from 'resend'
 import { generateConfirmedMeetupEmail } from '@/emails/confirmed-meetup'
+import type { Storefront } from '@/lib/storefront'
+import { resendFromHeader } from '@/lib/storefrontBrand'
 
 // Lazily instantiated — see lib/supabase.ts for why: constructing this at
 // module scope crashes the Next.js build-time "collecting page data" step
@@ -43,9 +45,22 @@ export async function POST(req: NextRequest) {
       supabase.from('ota_bookings').select('*').eq('event_date', event.event_date).eq('night_slug', event.night_slug).neq('attendance_status', 'no_show'),
     ])
 
+    // Per-guest storefront: `bookings.storefront` (Stage 10 Phase 5 column).
+    // `ota_bookings` has no storefront column at all — that table is an
+    // external-channel-only integration with no BNT concept, so those guests
+    // default to 'bcc', matching every other storefront default in this
+    // codebase (and this table's own real-world exclusivity to BCC today).
     const guests = [
-      ...(bookings || []).map((b: any) => ({ name: b.guest_name, email: b.guest_email })),
-      ...(otaBookings || []).map((o: any) => ({ name: o.guest_name, email: o.guest_email })),
+      ...(bookings || []).map((b: any) => ({
+        name: b.guest_name,
+        email: b.guest_email,
+        storefront: (b.storefront === 'bnt' ? 'bnt' : 'bcc') as Storefront,
+      })),
+      ...(otaBookings || []).map((o: any) => ({
+        name: o.guest_name,
+        email: o.guest_email,
+        storefront: 'bcc' as Storefront,
+      })),
     ]
 
     if (guests.length === 0) missing.push('there are no confirmed guests for this date')
@@ -66,9 +81,10 @@ export async function POST(req: NextRequest) {
         eventDate: event.event_date,
         meetUpLocation: event.meet_up_location,
         whatsappGroupLink: event.whatsapp_group_link,
+        storefront: guest.storefront,
       })
       const { error: emailError } = await resend.emails.send({
-        from: `Bangkok Club Crawl <${process.env.RESEND_FROM}>`,
+        from: resendFromHeader(guest.storefront),
         to: guest.email,
         subject: `Tonight is confirmed — ${event.night_name}`,
         html,

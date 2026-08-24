@@ -7,6 +7,8 @@ import { revealMeetingPointForTicket } from '@/lib/meetingPointReveal'
 import { generateTicketQrDataUrl } from '@/lib/qrTicket'
 import { googleCalendarUrl, icsDataUrl } from '@/lib/calendarLinks'
 import { getAppUrl } from '@/lib/appUrl'
+import type { Storefront } from '@/lib/storefront'
+import { brandFor } from '@/lib/storefrontBrand'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,6 +30,15 @@ export default async function TicketPage({ params }: { params: { token: string }
   // caller, same fail-closed convention as /events/[slug] and the products
   // API.
   if (!booking) notFound()
+
+  // Booking-persisted storefront (Stage 10 Phase 5 column) — the same brand
+  // identity the customer's confirmation email carried. Presentation only;
+  // the QR's own encoded check-in URL stays canonical/unbranded below (see
+  // getAppUrl() call, unchanged) — this is a host-facing dashboard tool, not
+  // part of brand presentation, and must not gain a second security path
+  // per storefront.
+  const storefront: Storefront = booking.storefront === 'bnt' ? 'bnt' : 'bcc'
+  const brand = brandFor(storefront)
 
   const productName = booking.productName
   const productSlug = booking.productSlug
@@ -146,8 +157,8 @@ export default async function TicketPage({ params }: { params: { token: string }
           <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.60)', lineHeight: 1.6 }}>
             Booking reference {reference} for {productName} was cancelled or refunded. If this
             doesn&apos;t look right, contact us on WhatsApp at{' '}
-            <a href="https://wa.me/66660399569" style={{ color: '#EA003A' }}>
-              (+66) 66-039-9569
+            <a href={brand.supportWhatsappUrl} style={{ color: '#EA003A' }}>
+              {brand.supportWhatsappDisplay}
             </a>
             .
           </p>
@@ -158,7 +169,14 @@ export default async function TicketPage({ params }: { params: { token: string }
 
   return (
     <div style={S.page}>
-      <p style={{ ...S.eyebrow, marginTop: '12px' }}>Your Ticket</p>
+      <a href={brand.homeHref} style={{ display: 'block', marginTop: '12px', marginBottom: '18px' }}>
+        <img
+          src={brand.logoSrc}
+          alt={brand.logoAlt}
+          style={{ height: '28px', width: 'auto', objectFit: 'contain', display: 'block', margin: '0 auto' }}
+        />
+      </a>
+      <p style={{ ...S.eyebrow, marginTop: 0 }}>Your Ticket</p>
       <h1 style={{ fontSize: 'clamp(22px, 6vw, 30px)', color: '#fff', textAlign: 'center', marginBottom: '6px' }}>
         {productName}
       </h1>
@@ -253,7 +271,7 @@ export default async function TicketPage({ params }: { params: { token: string }
         <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, marginBottom: '16px' }}>
           Questions about your booking? Message us on WhatsApp.
         </p>
-        <a href="https://wa.me/66660399569" style={S.button}>
+        <a href={brand.supportWhatsappUrl} style={S.button}>
           Message on WhatsApp
         </a>
       </div>

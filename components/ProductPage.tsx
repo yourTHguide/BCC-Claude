@@ -63,6 +63,12 @@ export interface ProductPageUpcomingEvent {
   event_date: string
   effective_price: number | null
   effective_start_time: string | null
+  // Stage 10 Phase 5 — which price this event is actually selling at right
+  // now, and (when the tier is 'early_bird') the regular price it reverts to
+  // after the cutoff. A product with no Early Bird tier always reports
+  // 'regular' with regular_price === effective_price.
+  price_tier?: 'early_bird' | 'regular'
+  regular_price?: number | null
 }
 
 export interface ProductPageProps {
@@ -80,6 +86,17 @@ export interface ProductPageProps {
    * fire in this component in either mode — that stays the caller's concern.
    */
   mode: 'public' | 'preview'
+  /**
+   * Stage 10 Phase 6 — optional "back to [brand] home" link rendered in the
+   * nav, next to the product name. Flagged as a gap in Phase 4 (no path back
+   * to Home/About/Contact from this page) and left unfixed there deliberately
+   * (new-in-bkk stayed Draft/invisible throughout, so no real visitor could
+   * reach it). Undefined renders nothing — every existing caller that
+   * doesn't pass this prop (both today's callers, pre-this-change) is
+   * visually unaffected.
+   */
+  backHref?: string
+  backLabel?: string
 }
 
 function baht(n: number | null): string | null {
@@ -180,14 +197,18 @@ function BulletList({ items, small = false }: { items: string[]; small?: boolean
   )
 }
 
-export default function ProductPage({ product, content, media, upcomingEvents, mode }: ProductPageProps) {
+export default function ProductPage({ product, content, media, upcomingEvents, mode, backHref, backLabel }: ProductPageProps) {
   const cover = media.find((m) => m.kind === 'cover') ?? null
   const gallery = media.filter((m) => m.kind === 'gallery').sort((a, b) => a.sort_order - b.sort_order)
 
   const nextEvent = upcomingEvents[0] ?? null
   const effectivePrice = nextEvent?.effective_price ?? product.default_price
   const effectiveStartTime = nextEvent?.effective_start_time ?? product.default_start_time
+  const priceTier = nextEvent?.price_tier ?? 'regular'
+  const isEarlyBird = priceTier === 'early_bird'
+  const regularPriceForDisplay = nextEvent?.regular_price ?? product.default_price
   const priceLabel = baht(effectivePrice)
+  const regularPriceLabel = isEarlyBird ? baht(regularPriceForDisplay) : null
   const timeLabel = hhmm(effectiveStartTime)
   const durLabel = durationLabel(content?.duration_minutes ?? null)
   const dateLabel = nextEvent ? formatEventDate(nextEvent.event_date) : null
@@ -210,7 +231,15 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
   if (dateLabel) quickFacts.push({ label: 'Next Date', value: dateLabel })
   if (timeLabel) quickFacts.push({ label: 'Start Time', value: timeLabel })
   if (durLabel) quickFacts.push({ label: 'Duration', value: durLabel })
-  if (priceLabel) quickFacts.push({ label: 'Price', value: `${priceLabel} / person` })
+  if (priceLabel) {
+    quickFacts.push({
+      label: isEarlyBird ? 'Early Bird Price' : 'Price',
+      value:
+        isEarlyBird && regularPriceLabel
+          ? `${priceLabel} / person · Reg. ${regularPriceLabel}`
+          : `${priceLabel} / person`,
+    })
+  }
 
   const showStickyBar = true // both modes render a bottom bar; preview's is inert (see below)
 
@@ -257,20 +286,39 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
           backdropFilter: 'blur(12px)',
         }}
       >
-        <span
-          style={{
-            fontFamily: 'Inter, sans-serif',
-            fontWeight: 500,
-            fontSize: '13px',
-            color: 'rgba(255,255,255,0.65)',
-          }}
-        >
-          {mode === 'preview' ? 'Product Preview' : product.name}
-        </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+          {mode === 'public' && backHref && (
+            <a
+              href={backHref}
+              style={{
+                fontFamily: 'Inter, sans-serif',
+                fontWeight: 500,
+                fontSize: '11px',
+                color: 'rgba(255,255,255,0.40)',
+                textDecoration: 'none',
+              }}
+            >
+              ← {backLabel ?? 'Back'}
+            </a>
+          )}
+          <span
+            style={{
+              fontFamily: 'Inter, sans-serif',
+              fontWeight: 500,
+              fontSize: '13px',
+              color: 'rgba(255,255,255,0.65)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {mode === 'preview' ? 'Product Preview' : product.name}
+          </span>
+        </div>
         <img
           src="/images/Nightlife Thailand LOGO.png"
           alt="Nightlife Thailand"
-          style={{ height: '38px', width: 'auto', objectFit: 'contain' }}
+          style={{ height: '38px', width: 'auto', objectFit: 'contain', flexShrink: 0 }}
         />
       </nav>
 
@@ -542,7 +590,9 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
               style={{ width: '100%', maxWidth: '480px', fontSize: '16px', height: '56px', padding: '0' }}
               onClick={handleBook}
             >
-              Book Now{priceLabel ? ` — ${priceLabel} per person` : ''}
+              {isEarlyBird
+                ? `Book Now — ${priceLabel} Early Bird`
+                : `Book Now${priceLabel ? ` — ${priceLabel} per person` : ''}`}
             </button>
           ) : (
             <div
@@ -588,7 +638,13 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
             <>
               {priceLabel && (
                 <div className="pp-sticky-price">
-                  <span className="pp-sticky-price-amount">{priceLabel}</span>
+                  {isEarlyBird && <span className="pp-sticky-price-tier">EARLY BIRD</span>}
+                  <span className="pp-sticky-price-amount">
+                    {priceLabel}
+                    {isEarlyBird && regularPriceLabel && (
+                      <span className="pp-sticky-price-regular"> · Reg. {regularPriceLabel}</span>
+                    )}
+                  </span>
                   <span className="pp-sticky-price-unit">/ PERSON</span>
                 </div>
               )}
@@ -646,7 +702,9 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
           padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
         }
         .pp-sticky-price { display: flex; flex-direction: column; line-height: 1.1; }
+        .pp-sticky-price-tier { font-family: Inter, sans-serif; font-weight: 700; font-size: 9px; letter-spacing: 0.12em; color: #FFC400; margin-bottom: 2px; }
         .pp-sticky-price-amount { font-family: Inter, sans-serif; font-weight: 700; font-size: 17px; color: #FFFFFF; }
+        .pp-sticky-price-regular { font-weight: 500; font-size: 12px; color: rgba(255,255,255,0.70); }
         .pp-sticky-price-unit { font-family: Inter, sans-serif; font-weight: 600; font-size: 9px; letter-spacing: 0.1em; color: rgba(255,255,255,0.80); }
         .pp-sticky-cta { font-family: Inter, sans-serif; font-weight: 700; font-size: 14px; color: #FFFFFF; letter-spacing: 0.02em; }
         .pp-sticky-preview {
