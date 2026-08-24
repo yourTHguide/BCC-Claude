@@ -1,63 +1,46 @@
-import NightPage from '@/components/NightPage'
+import { headers } from 'next/headers'
+import { notFound } from 'next/navigation'
+import type { Metadata } from 'next'
+import ProductPage from '@/components/ProductPage'
+import { resolveStorefront } from '@/lib/storefront'
+import { loadPublicProductPage } from '@/lib/publicProductPage'
 
-export const metadata = {
-  title: 'New in Bangkok Night — Bangkok Club Crawl',
-  description: 'Just landed. This is your room. Wednesday nights for people building their Bangkok circle.',
+export const dynamic = 'force-dynamic'
+
+export const metadata: Metadata = {
+  title: 'New in Bangkok | BEST NIGHTLIFE THAILAND',
 }
 
-export default function NewInBangkok() {
-  return (
-    <NightPage
-      seriesTag="NEW IN BANGKOK · WEDNESDAY NIGHTS"
-      headline="New in Bangkok Night"
-      positioningLine="Just landed. This is your room."
-      description="Moving to Bangkok — or visiting for an extended stay — means starting from scratch socially. This night is for people in that exact window: new enough that you don't have a crew yet, here long enough that you want to find one. Everyone in the room is in the same position. That's the whole point."
-      theNightItems={[
-        '4 curated venues across Sukhumvit',
-        'Host introduces guests by name and context — personal introductions, not a group address',
-        '2–4 complimentary shots during the night',
-        'Private party van with music between venues',
-        'VIP entry at all stops',
-        'Capped at 12 — intimate enough that everyone actually meets everyone',
-        'Optional post-crawl group chat for guests who want to stay connected',
-      ]}
-      seriesLabel="THIS NIGHT IS FOR"
-      seriesContent={
-        <div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
-            {[
-              'You moved to Bangkok in the last 1–3 months',
-              "You're here for 2–6 weeks and want a real crowd",
-              "You've been here longer but your social circle hasn't expanded beyond work yet",
-            ].map((line, i) => (
-              <p key={i} style={{ fontFamily: 'Cormorant Garamond, serif', fontStyle: 'italic', fontSize: '16px', color: 'rgba(255,255,255,0.70)', lineHeight: 1.5 }}>
-                {line}
-              </p>
-            ))}
-          </div>
-          <div style={{ background: 'rgba(234,0,58,0.08)', border: '1px solid rgba(234,0,58,0.20)', borderLeft: '3px solid #EA003A', borderRadius: '10px', padding: '20px 24px' }}>
-            <p style={{ fontFamily: 'Cormorant Garamond, serif', fontStyle: 'italic', fontSize: '16px', color: 'rgba(255,255,255,0.80)', lineHeight: 1.6 }}>
-              Everyone on this night is either new to Bangkok or actively building their circle. Nobody has a pre-formed group. The dynamic is different — and it works.
-            </p>
-          </div>
-        </div>
-      }
-      logistics={[
-        { label: 'DATE & TIME', value: 'Every Wednesday (Week 1 & 3) · 9:30 PM – Late' },
-        { label: 'LOCATION', value: 'Sukhumvit 11 / Asoke area' },
-        { label: 'PRICE', value: '฿1,000 per person' },
-        { label: 'SPOTS', value: 'Limited to 12 guests' },
-      ]}
-      goodToKnow={[
-        'Smart casual dress code',
-        'Minimum age 20 years',
-        'Open to all — tourists welcome alongside expats and new residents',
-        'Most conversation-forward night in the BCC series',
-        'All guests are required to order 1 drink minimum at each venue',
-        'Event confirmed or cancelled at 7 PM',
-      ]}
-      price="฿1,000"
-      slug="new-in-bangkok"
-    />
-  )
+// Canonical public alias for the 'new-in-bkk' Product (Stage 10 Phase 4).
+// Replaces a stale, fully hardcoded page that used to live at this same path
+// (Tuesday->should've-been-Wednesday copy, a ฿1,000 price that never matched
+// the canonical Supabase product, and the legacy /book?night=new-in-bangkok
+// checkout lifecycle with no eventId/ticket/QR lifecycle at all) — see
+// PHASE4_CHECKPOINT.md for the full audit. There is now exactly one
+// customer-facing "New in Bangkok" implementation: this route, sourcing
+// 100% of its content/price/schedule from products + product_content +
+// event_dates via the same loadPublicProductPage() gate /events/[slug] uses.
+//
+// Only resolves on the BNT storefront (bestnightlifethailand.com) — this is
+// New in Bangkok's intended public home. Any other host (bkkclubcrawl.com
+// included) 404s here rather than serving the old hardcoded content; the
+// canonical product also remains reachable internally at
+// /events/new-in-bkk regardless of host, gated the same way.
+//
+// Fails closed exactly like /events/[slug]: 'new-in-bkk' is currently
+// status='draft' with visible_bnt=false, so this 404s for every real visitor
+// today, by design — do not weaken this gate to "preview" the page. Use the
+// existing admin-authed /dashboard/products/[id]/preview instead.
+export default async function NewInBangkokPage() {
+  const host = headers().get('host')
+  const storefront = resolveStorefront(host)
+
+  if (storefront !== 'bnt') {
+    notFound()
+  }
+
+  const data = await loadPublicProductPage('new-in-bkk', storefront)
+  if (!data) notFound()
+
+  return <ProductPage {...data} mode="public" />
 }
