@@ -1,8 +1,58 @@
 import { headers } from 'next/headers'
+import type { Metadata } from 'next'
 import { resolveStorefront } from '@/lib/storefront'
+import { brandFor } from '@/lib/storefrontBrand'
 import BookingCalendarClient from './BookingCalendarClient'
 
 export const dynamic = 'force-dynamic'
+
+// Storefront-aware metadata, same generateMetadata-per-request pattern
+// app/page.tsx already uses for the homepage. Without this override, /book
+// fell back to the root layout's static, BCC-branded <title>/description/OG
+// on every host, including bestnightlifethailand.com — the actual checkout
+// page New in Bangkok customers land on. The BNT branch sources its brand
+// name from lib/storefrontBrand.ts (the existing single source of truth for
+// per-storefront presentation facts) rather than re-hardcoding it here. The
+// BCC branch restates the layout's existing values verbatim — an empty
+// object wouldn't fall back to them, it would blank the title — so BCC's
+// metadata is byte-for-byte unchanged.
+export async function generateMetadata(): Promise<Metadata> {
+  const host = headers().get('host')
+  const storefront = resolveStorefront(host)
+
+  if (storefront === 'bnt') {
+    const brand = brandFor(storefront)
+    const title = `Book | ${brand.shortName}`
+    const description = `Select your date and book your night with ${brand.name}.`
+    return {
+      title,
+      description,
+      // openGraph must be set explicitly too, not just title/description —
+      // Next.js merges an unset field from the parent layout's static
+      // metadata rather than leaving it blank, so omitting this would still
+      // leak the root layout's BCC og:title/og:description/og:url into any
+      // BNT /book link shared on WhatsApp, iMessage, etc.
+      openGraph: {
+        title,
+        description,
+        url: `https://${brand.siteDomain}/book`,
+        type: 'website',
+      },
+    }
+  }
+
+  return {
+    title: 'Bangkok Club Crawl — Bangkok Nights. Done Right.',
+    description:
+      'Premium structured nightlife experience in Bangkok. Curated venues, VIP entry, and dedicated hosts every weekend.',
+    openGraph: {
+      title: 'Bangkok Club Crawl — Bangkok Nights. Done Right.',
+      description: 'Curated venues. VIP entry. A crowd worth meeting.',
+      url: 'https://bkkclubcrawl.com',
+      type: 'website',
+    },
+  }
+}
 
 // Storefront-aware (Stage 10 Phase 5). Resolves the request's storefront
 // server-side from its own Host header — the same resolveStorefront() every
