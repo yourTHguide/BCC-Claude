@@ -515,3 +515,37 @@ CREATE TABLE IF NOT EXISTS bnt_contact_messages (
 
 ALTER TABLE bnt_experience_inquiries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bnt_contact_messages ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================
+-- STAGE 10 PHASE 5 — tiered pricing (Early Bird / Regular) + storefront/tier
+-- threading through checkout → Stripe metadata → bookings
+-- ============================================================
+-- APPLIED 2026-08-24 (migration 20260824000002_stage10_phase5_pricing_storefront.sql).
+-- All columns additive/nullable, zero backfill. early_bird_price/
+-- early_bird_cutoff_hours are opt-in per product — every product that never
+-- sets them (every BCC product today) is untouched by the tiering branch in
+-- lib/pricing.ts's resolveEventPricing(), which always resolves 'regular' at
+-- the existing default_price/price_override in that case, byte-identical to
+-- pre-Phase-5 behavior. bookings.storefront/price_tier are populated only by
+-- the dynamic checkout path (app/api/create-checkout/route.ts) from Stripe
+-- Checkout Session metadata the webhook reads back; the legacy checkout path
+-- and every pre-Phase-5 booking leave both NULL, same convention as
+-- event_id/product_id/ticket_token above (Stage 9a).
+
+ALTER TABLE products
+  ADD COLUMN IF NOT EXISTS early_bird_price INTEGER,
+  ADD COLUMN IF NOT EXISTS early_bird_cutoff_hours INTEGER;
+
+ALTER TABLE products
+  ADD CONSTRAINT products_early_bird_requires_cutoff
+    CHECK (early_bird_price IS NULL OR early_bird_cutoff_hours IS NOT NULL);
+
+ALTER TABLE bookings
+  ADD COLUMN IF NOT EXISTS storefront TEXT,
+  ADD COLUMN IF NOT EXISTS price_tier TEXT;
+
+ALTER TABLE bookings
+  ADD CONSTRAINT bookings_storefront_check
+    CHECK (storefront IS NULL OR storefront = ANY (ARRAY['bcc'::text, 'bnt'::text])),
+  ADD CONSTRAINT bookings_price_tier_check
+    CHECK (price_tier IS NULL OR price_tier = ANY (ARRAY['early_bird'::text, 'regular'::text]));

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
 import { VISIBILITY_COLUMN } from '@/lib/storefront'
+import { resolveEventPricing } from '@/lib/pricing'
 
 // Canonical event-availability layer (Phase 3).
 //
@@ -53,7 +54,8 @@ export async function GET(req: NextRequest) {
       .from('event_dates')
       .select(
         'id, event_date, night_slug, night_name, price_override, start_time_override, capacity, product_id, ' +
-          'products!inner ( id, slug, name, status, default_price, default_start_time, visible_bcc, visible_bnt )'
+          'products!inner ( id, slug, name, status, default_price, default_start_time, visible_bcc, visible_bnt, ' +
+          'early_bird_price, early_bird_cutoff_hours )'
       )
       .eq('is_open', true)
       .gte('event_date', today)
@@ -83,14 +85,26 @@ export async function GET(req: NextRequest) {
     // Supabase returns a to-one embed as an object; normalize defensively.
     const product = Array.isArray(row.products) ? row.products[0] : row.products
 
-    // Effective price mirrors checkout's resolution (price_override ??
+    // Regular price mirrors checkout's resolution (price_override ??
     // default_price). Drop any event whose price is missing / non-integer /
     // non-positive: checkout rejects those (gate 6), so the calendar must not
     // surface them either. Checkout stays the final authority on price.
-    const effectivePrice = row.price_override ?? product?.default_price ?? null
-    if (!Number.isInteger(effectivePrice) || effectivePrice <= 0) return []
+    const regularPrice = row.price_override ?? product?.default_price ?? null
+    if (!Number.isInteger(regularPrice) || regularPrice <= 0) return []
 
     const effectiveStartTime = row.start_time_override ?? product?.default_start_time ?? null
+
+    // Same tiering resolver checkout uses (lib/pricing.ts) — the calendar's
+    // displayed price is always exactly what checkout would charge right
+    // now for this event, including Early Bird when the product has one and
+    // it hasn't closed yet for this specific date's start time.
+    const pricing = resolveEventPricing({
+      eventDate: row.event_date,
+      effectiveStartTime,
+      regularPrice,
+      earlyBirdPrice: product?.early_bird_price ?? null,
+      earlyBirdCutoffHours: product?.early_bird_cutoff_hours ?? null,
+    })
 
     return [{
       eventId: row.id,
@@ -102,7 +116,9 @@ export async function GET(req: NextRequest) {
       nightSlug: row.night_slug,
       nightName: row.night_name,
 
-      effectivePrice,
+      effectivePrice: pricing.price,
+      priceTier: pricing.tier,
+      regularPrice: pricing.regularPrice,
       effectiveStartTime,
       // Per-event capacity; NULL = no defined capacity. Surfaced for future use;
       // it does NOT drive the calendar's purchase quantity in Phase 3.

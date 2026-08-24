@@ -64,6 +64,13 @@ export async function POST(req: NextRequest) {
     const eventId = meta.event_id || null
     const productId = meta.product_id || null
     const productSlug = meta.product_slug || null
+    // Only present on dynamic-path sessions created after Stage 10 Phase 5;
+    // the legacy path and every pre-Phase-5 session never set these, so they
+    // land as null on those bookings — no backfill attempted, matching the
+    // additive/nullable convention every prior identifier column here
+    // (event_id, product_id, ticket_token) already established.
+    const storefront = meta.storefront || null
+    const priceTier = meta.price_tier || null
 
     // Every paid booking gets a ticket token, regardless of which checkout
     // path produced it — the confirmation/ticket page and QR check-in
@@ -83,6 +90,8 @@ export async function POST(req: NextRequest) {
         event_date: meta.event_date,
         event_id: eventId,
         product_id: productId,
+        storefront,
+        price_tier: priceTier,
         guest_name: guestName,
         guest_email: guestEmail,
         guest_phone: guestPhone,

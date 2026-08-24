@@ -2,6 +2,7 @@ import { getServiceSupabase } from '@/lib/supabase'
 import { productMediaPublicUrl } from '@/lib/media'
 import { bangkokToday } from '@/lib/dates'
 import { VISIBILITY_COLUMN, type Storefront } from '@/lib/storefront'
+import { resolveEventPricing } from '@/lib/pricing'
 import type { ProductPageProps } from '@/components/ProductPage'
 
 export type PublicProductPageData = Pick<ProductPageProps, 'product' | 'content' | 'media' | 'upcomingEvents'>
@@ -22,7 +23,9 @@ export async function loadPublicProductPage(
 
   const { data: product } = await supabase
     .from('products')
-    .select(`id, slug, name, status, default_price, default_start_time, ${visColumn}`)
+    .select(
+      `id, slug, name, status, default_price, default_start_time, early_bird_price, early_bird_cutoff_hours, ${visColumn}`
+    )
     .eq('slug', slug)
     .maybeSingle()
 
@@ -62,12 +65,24 @@ export async function loadPublicProductPage(
     url: productMediaPublicUrl(row.storage_path),
   }))
 
-  const upcomingEvents = (eventRows ?? []).map((row: any) => ({
-    id: row.id,
-    event_date: row.event_date,
-    effective_price: row.price_override ?? product.default_price,
-    effective_start_time: row.start_time_override ?? product.default_start_time,
-  }))
+  const upcomingEvents = (eventRows ?? []).map((row: any) => {
+    const effective_start_time = row.start_time_override ?? product.default_start_time
+    const pricing = resolveEventPricing({
+      eventDate: row.event_date,
+      effectiveStartTime: effective_start_time,
+      regularPrice: row.price_override ?? product.default_price,
+      earlyBirdPrice: (product as any).early_bird_price ?? null,
+      earlyBirdCutoffHours: (product as any).early_bird_cutoff_hours ?? null,
+    })
+    return {
+      id: row.id,
+      event_date: row.event_date,
+      effective_price: pricing.price,
+      effective_start_time,
+      price_tier: pricing.tier,
+      regular_price: pricing.regularPrice,
+    }
+  })
 
   return {
     product: {
