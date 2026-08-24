@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   const supabase = getServiceSupabase()
   const { data, error } = await supabase
     .from('bookings')
-    .select('ticket_token')
+    .select('ticket_token, total_paid, quantity, price_tier, night_slug, night_name')
     .eq('stripe_session_id', sessionId)
     .maybeSingle()
 
@@ -40,5 +40,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ pending: true })
   }
 
-  return NextResponse.json({ pending: false, ticketToken: data.ticket_token })
+  // Return additional booking fields needed for client-side pixel tracking.
+  // These are non-PII operational values — no guest name, email, phone, or
+  // internal IDs are returned, matching the trust model described above.
+  return NextResponse.json({
+    pending: false,
+    ticketToken: data.ticket_token,
+    totalPaid: (data.total_paid ?? null) as number | null,
+    quantity: (data.quantity ?? null) as number | null,
+    priceTier: (data.price_tier ?? null) as string | null,
+    nightSlug: (data.night_slug ?? null) as string | null,
+    nightName: (data.night_name ?? null) as string | null,
+  })
 }

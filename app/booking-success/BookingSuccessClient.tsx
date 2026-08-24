@@ -12,26 +12,15 @@ declare global {
   }
 }
 
-const nightPriceMap: Record<string, number> = {
-  'saturday-signature': 1500,
-  'tgif': 1200,
-  'lgbtplus-night': 1200,
-  'solo-night': 1000,
-  'new-in-bangkok': 1000,
-  'nomad-nights': 1000,
-  'girls-night': 1000,
-  '30plus-night': 1000,
+// Maps night_slug (the legacy identifier in the bookings table and the URL
+// ?night= param) to the canonical product content_id used in Meta events.
+// Only slugs whose product_slug differs from their night_slug need an entry —
+// everything else falls back to the night_slug itself.
+const CONTENT_IDS_BY_NIGHT_SLUG: Record<string, string> = {
+  'new-in-bangkok': 'new-in-bkk',
 }
-
-const nightNameMap: Record<string, string> = {
-  'saturday-signature': 'BCC Signature Night',
-  'tgif': 'TGIF Bangkok',
-  'lgbtplus-night': 'LGBT+ Night Bangkok',
-  'solo-night': "Solo Traveler's Night",
-  'new-in-bangkok': 'New in Bangkok Night',
-  'nomad-nights': 'Digital Nomad Crawl',
-  'girls-night': 'Girls Night Bangkok',
-  '30plus-night': '30+ Social Night',
+function contentIdFor(nightSlug: string): string {
+  return CONTENT_IDS_BY_NIGHT_SLUG[nightSlug] ?? nightSlug
 }
 
 // "What happens next" copy, per storefront. BCC's is unchanged (WhatsApp
@@ -60,8 +49,6 @@ function nextStepsFor(storefront: Storefront) {
 function SuccessContent({ storefront }: { storefront: Storefront }) {
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('session_id')
-  const nightSlug = searchParams.get('night') ?? ''
-  const qty = parseInt(searchParams.get('qty') ?? '1', 10)
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [ticketToken, setTicketToken] = useState<string | null>(null)
   const brand = brandFor(storefront)
@@ -69,25 +56,10 @@ function SuccessContent({ storefront }: { storefront: Storefront }) {
   useEffect(() => {
     if (sessionId) {
       setStatus('success')
-      // Fire Purchase pixel event on confirmed payment. No-op on the BNT
-      // host — the Meta Pixel script itself is never loaded there (see
-      // app/layout.tsx's isBcc gate), so window.fbq is undefined and this
-      // optional call is inert by construction, not by a storefront check
-      // here.
-      const pricePerTicket = nightPriceMap[nightSlug] ?? 1000
-      const nightName = nightNameMap[nightSlug] ?? brand.name
-      const totalValue = pricePerTicket * qty
-      window.fbq?.('track', 'Purchase', {
-        value: totalValue,
-        currency: 'THB',
-        content_name: nightName,
-        content_category: 'Nightlife Event',
-        num_items: qty,
-      })
     } else {
       setStatus('error')
     }
-  }, [sessionId, nightSlug, qty, brand.name])
+  }, [sessionId])
 
   // The Stripe webhook (async, server-to-server) may not have written the
   // booking yet when the browser lands here — poll briefly for its
@@ -95,6 +67,11 @@ function SuccessContent({ storefront }: { storefront: Storefront }) {
   // soon as it's found, or after ~8 tries (~12s); if the webhook is slow or
   // fails, the page still shows the existing generic reassurance + WhatsApp
   // fallback below, unchanged.
+  //
+  // Purchase pixel event is fired here — not on page load — so the value,
+  // quantity, price_tier, and content_id all come from the authoritative
+  // booking row in Supabase rather than from hardcoded maps or URL params.
+  // Deduplication via sessionStorage prevents re-firing on page refresh.
   useEffect(() => {
     if (!sessionId) return
     let cancelled = false
@@ -108,6 +85,27 @@ function SuccessContent({ storefront }: { storefront: Storefront }) {
         const data = await res.json()
         if (!cancelled && data.ticketToken) {
           setTicketToken(data.ticketToken)
+
+          // Fire Purchase once per unique session — idempotent on refresh.
+          const dedupeKey = `purchase_fired_${sessionId}`
+          const alreadyFired = (() => {
+            try { return sessionStorage.getItem(dedupeKey) === '1' } catch { return false }
+          })()
+          if (!alreadyFired && data.totalPaid != null) {
+            const slug: string = data.nightSlug ?? ''
+            window.fbq?.('track', 'Purchase', {
+              content_ids: [contentIdFor(slug)],
+              content_name: (data.nightName as string | null) ?? slug,
+              content_type: 'product',
+              content_category: 'Nightlife Event',
+              currency: 'THB',
+              value: data.totalPaid as number,
+              num_items: (data.quantity as number | null) ?? 1,
+              price_tier: (data.priceTier as string | null) ?? undefined,
+            })
+            try { sessionStorage.setItem(dedupeKey, '1') } catch { /* ignore */ }
+          }
+
           return
         }
       } catch {

@@ -5,6 +5,12 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import type { Storefront } from '@/lib/storefront'
 import { brandFor } from '@/lib/storefrontBrand'
 
+declare global {
+  interface Window {
+    fbq?: (...args: unknown[]) => void
+  }
+}
+
 // ─── Canonical event instance (shape returned by /api/events) ───────────────
 interface EventInstance {
   eventId: string
@@ -788,6 +794,19 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                           })
                           const data = await res.json()
                           if (data.url) {
+                            // InitiateCheckout: the server has confirmed a valid
+                            // Stripe session — price and product are authoritative
+                            // at this point, never client-supplied. window.fbq is
+                            // undefined on hosts whose pixel isn't loaded (the
+                            // hasPixel gate in layout.tsx), so this is inert there.
+                            window.fbq?.('track', 'InitiateCheckout', {
+                              content_ids: [selectedEvent.productSlug ?? selectedEvent.nightSlug],
+                              content_name: selectedEvent.productName ?? selectedEvent.nightName,
+                              content_type: 'product',
+                              currency: 'THB',
+                              value: totalPrice ?? 0,
+                              num_items: quantity,
+                            })
                             window.location.href = data.url
                           } else {
                             alert('Something went wrong. Please try again.')
