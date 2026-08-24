@@ -1031,27 +1031,53 @@ retry of an already-processed event. Not required for launch as currently
 scoped — noted here so it isn't rediscovered as a surprise later, not
 before this Stripe test.
 
-**Cleanup performed after the test, all confirmed via direct SQL:**
-- Temporary Stripe LIVE webhook endpoint — Guide is removing this
-  directly in the Stripe dashboard (this session has no Stripe API
-  access to do it itself); the existing production webhook was never
-  touched.
+**Real physical QR scan + operator check-in — SUCCEEDED, 2026-08-24.**
+Guide personally scanned the real paid booking's QR (via a Vercel
+share-bypass link to `/ticket/{token}` on this Preview deployment,
+necessary only because New in Bangkok isn't merged/published yet — not an
+app defect) and completed the check-in herself, per her explicit
+instruction that this session not do it for her. Confirmed via direct SQL
+after: `attendance_status='checked_in'` on the real booking
+(`id=cf064654-2bda-4314-83ec-fcc05001f2d2`). This is the SAME QR-scanner
+code path fixed earlier in this doc (`69f5d77`) — no crash, confirming
+that fix holds for a genuinely paid, genuinely product-driven booking,
+not just the earlier preview-test ones.
+
+**Cleanup performed after the test, all confirmed via direct SQL/Guide's
+own confirmation:**
+- Temporary Stripe LIVE webhook endpoint (`TEMP - Stage9 preview E2E test
+  - delete after`) — **deleted by Guide directly in the Stripe dashboard,
+  confirmed 2026-08-24.** This session has no Stripe API access to verify
+  the deletion independently, but Guide confirmed it directly; the
+  existing production webhook (`BCC Booking completed`) was never touched
+  by either party.
 - Alex Chen's and Jamie Rivera's `preview-test-*` bookings — deleted
   (`DELETE ... WHERE ticket_token IN (...)`). The real ฿590 booking
   (`stripe_session_id` starting `cs_live_b1ma6R3p...`) was explicitly
   preserved as a legitimate paid booking, not touched.
 - `new-in-bkk` restored: `status='draft'`, `visible_bcc=false`,
-  `visible_bnt=false` — confirmed via `RETURNING`, not assumed.
+  `visible_bnt=false` — confirmed via `RETURNING`, and re-confirmed again
+  at the very end of this stage.
 - Total `bookings` count after cleanup: 8 (the 7 original real BCC
   bookings + this one real New in Bangkok booking). No other production
-  data touched.
+  data touched. Bangkok Club Crawl's production behavior was not modified
+  at any point in Stage 9m.
 
-**What Stage 9m does NOT close:**
-- Guide has not yet physically scanned/checked in the real paid booking
-  (`ticket_token = pyzXGn9poN3RQOy6dRBc04X8p0Z2F9o0`) — she intends to do
-  this herself; this session was explicitly instructed not to check it in.
-- The stray-email technical debt above is open, not fixed.
-- Not merged to `main`. Not published — `new-in-bkk` is Draft again.
+**Stage 9 — CLOSED (2026-08-24).** Every item in the original Stage 9
+launch policy ("a real paid Stripe transaction exercising the full chain
+... not yet run") is now done and verified: real live ฿590 payment →
+webhook → exactly one canonical booking (correct `product_id`, `event_id`,
+`ticket_token`, quantity, customer data) → product-driven confirmation
+email → ticket page → real QR scan → real operator check-in, all
+succeeded. Two real bugs found during the test were fixed (Blocker A;
+booking-success's hardcoded BCC copy) and one content gap was corrected
+(the two-shots inclusion). One piece of technical debt (the stray-email
+side effect) was found and deliberately left open, per instruction. Not
+merged to `main`; `new-in-bkk` is Draft/invisible again. Closing this
+stage does NOT mean ready to publish — see the two new pre-launch items
+below (BNT storefront/domain decision, transactional sender identity)
+plus everything already listed in "Not done yet" further down, none of
+which are resolved by Stage 9m.
 
 ## BNT integration (separate track from the New in Bangkok onboarding below)
 A second, separately-audited storefront (`bestnightlifethailand.com`, repo
@@ -1344,6 +1370,33 @@ launching a new experience becomes an **admin task, not a code/SQL task**.
   `visible_bnt=true` as making a product bookable anywhere yet.
 
 ## Not done yet (remaining for New in Bangkok onboarding)
+- **BNT storefront/domain integration — explicit pre-launch architecture
+  decision needed, not yet made.** New in Bangkok's entire post-checkout
+  lifecycle (success page, confirmation email, ticket page, QR, check-in)
+  currently runs entirely on this app (`bcc-claude`) — by design, per the
+  Stage 9 launch policy's "reuse existing infrastructure" instruction.
+  `bestnightlifethailand.com` is a separate repo/app (`NightlifeAntigravity`)
+  with only a read-only Product API (BNT Stage A) built against it; BNT
+  Stages B–F (its own booking surface, storefront-aware shared checkout,
+  publish, legacy cleanup) are not started. **Guide is now considering
+  consolidating BNT into this repo instead of building that cross-repo
+  storefront integration** — this is the next real architecture decision
+  for New in Bangkok/BNT, not yet made. Do not start either path (BNT
+  Stages B–F, or a BNT-into-`bcc-claude` consolidation) without an explicit
+  decision and instruction first.
+- **Transactional email sender identity — pre-launch item, not started.**
+  Every transactional email (BCC and New in Bangkok alike) sends from the
+  single shared `RESEND_FROM=bangkokclubcrawl@gmail.com` env var — found
+  during Stage 9m's real test (Guide noticed the real New in Bangkok
+  confirmation email arrived from the BCC address). Before a real BNT/New
+  in Bangkok public launch, a proper BEST Nightlife Thailand sender
+  (ideally a verified `@bestnightlifethailand.com` domain in Resend, for
+  SPF/DKIM deliverability — not just a different `@gmail.com` address)
+  needs to be established and verified, then wired in **without changing
+  the existing BCC production sender** (`RESEND_FROM` is currently global;
+  making it product/storefront-aware is itself part of this item, not a
+  one-line env var swap). Not started — flagged here so it isn't
+  rediscovered as a surprise right before launch.
 - **`ProductPage.tsx`, authenticated Draft preview
   (`/dashboard/products/[id]/preview`), public `/events/[slug]`** — **DONE.**
   (This section previously said "not started (Stages 8e–8k)" — that was
