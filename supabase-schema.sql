@@ -477,3 +477,41 @@ ALTER TABLE bookings
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_bookings_ticket_token
   ON bookings(ticket_token);
 CREATE INDEX IF NOT EXISTS idx_bookings_event_id ON bookings(event_id);
+
+-- ============================================================
+-- STAGE 10 — BNT storefront consolidation (Phase 3: form tables)
+-- ============================================================
+-- APPLIED 2026-08-24 (migration 20260824000001_stage10_bnt_forms.sql).
+-- Canonical destination for BEST Nightlife Thailand's two public forms
+-- (Private Experiences inquiry, Contact) ported from NightlifeAntigravity's
+-- Express app. Deliberately denormalized — name/whatsapp stored directly on
+-- each row, matching this project's own `bookings` table convention
+-- (guest_name/guest_email/guest_phone inline), not the old NightlifeAntigravity
+-- guests+experience_inquiries dedup model. No continuity with the old
+-- Nightlife Supabase project (csltowtyzjknulqmgnku) — its 3 historical
+-- inquiries and 69 guest rows are untouched and unreferenced.
+
+CREATE TABLE IF NOT EXISTS bnt_experience_inquiries (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at        timestamptz NOT NULL DEFAULT now(),
+  name              text NOT NULL,
+  whatsapp          text NOT NULL,
+  occasion          text,
+  event_date        date,
+  is_flexible_date  boolean NOT NULL DEFAULT false,
+  group_size        text,
+  preferred_vibe    text,
+  budget_range      text,
+  inquiry_type      text NOT NULL DEFAULT 'Private Inquiry'
+);
+
+CREATE TABLE IF NOT EXISTS bnt_contact_messages (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  name        text NOT NULL,
+  whatsapp    text NOT NULL,
+  message     text
+);
+
+ALTER TABLE bnt_experience_inquiries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bnt_contact_messages ENABLE ROW LEVEL SECURITY;
