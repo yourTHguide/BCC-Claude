@@ -1,8 +1,15 @@
 # Phase 4 — Internal Product & Schedule Builder — Checkpoint
 
-_Last updated: 2026-08-24 — merged Stage 10 (BNT/storefront consolidation,
-Phases 1–7) together with Stage 9's pre-merge remediation fix into `main`
-in one controlled, manually-reconciled merge (feature branch
+_Last updated: 2026-08-24 — Phase 8 Gate A: `bestnightlifethailand.com` and
+`www.bestnightlifethailand.com` moved from the legacy `nightlife-antigravity`
+Vercel project to the unified `bcc-claude` production project. Real BNT host
+verified live: homepage/About/Contact/Book render correctly, BNT chrome, no
+Meta Pixel, no BCC branding leakage, mobile+desktop clean, zero runtime
+errors, BCC regression clean, `new-in-bkk` still Draft/invisible. See "Phase
+8 — Gate A: BNT domain cutover" immediately below for the full record. This
+was preceded by merging Stage 10 (BNT/storefront consolidation, Phases 1–7)
+together with Stage 9's pre-merge remediation fix into `main` in one
+controlled, manually-reconciled merge (feature branch
 `claude/phase4c-content-media-audit-dvu5c1` @ `7deadd4` into `main`, four
 real conflicts resolved by hand — see the merge commit message for exactly
 what and why). Both release threads are preserved in full below:
@@ -13,6 +20,32 @@ BNT/storefront consolidation (this branch's history). The original "Stage
 at the time unresolved — is kept immediately below Stage 10 for history;
 it was later root-caused and fixed on `main` (see "Where things stand
 right now" → "QR-scan crash — RESOLVED")._
+
+## Phase 8 — Gate A: BNT domain cutover — COMPLETE, applied 2026-08-24, LIVE IN PRODUCTION
+
+**Scope:** move the real `bestnightlifethailand.com`/`www` domains from the legacy `nightlife-antigravity` Vercel project (a static-HTML+Express app, unrelated to this codebase) onto the unified `bcc-claude` app, and verify the real BNT host end-to-end. Preceded by a full merge-readiness audit and a controlled merge of the Stage 10 BNT/storefront work into `main` (see "Pre-merge remediation"/Stage 10 sections below) — Production was confirmed running the merged code, with a full BCC smoke-test pass, before the domain itself was touched.
+
+**1. Domain reassignment — internal Vercel move, zero DNS change.** `bestnightlifethailand.com` is on Vercel's own nameservers (`ns1/ns2.vercel-dns.com`), confirmed before this session — the domain-level DNS records (Resend SPF/DKIM/MX, wildcard ALIAS) were untouched. The Vercel CLI's `domains add --force` did not complete the cross-project move as documented (returned `alias_conflict` even with `--force`); used Vercel's own dedicated REST endpoint instead, `POST /v1/projects/{project}/domains/{domain}/move`, found via `search_vercel_documentation` — moves a project's domain to another project, no DNS involved. Ran it for the apex (`nightlife-antigravity` → `bcc-claude`); `www.bestnightlifethailand.com` had no explicit project assignment before this (it was riding the wildcard ALIAS, 307-redirecting to the apex) and was added to `bcc-claude` directly via `vercel domains add`. Confirmed after: both domains' raw `GET /v9/projects/bcc-claude/domains/{domain}` show `projectId: prj_8lk7wWojrA96nopAzib7QC3f4jAn` (`bcc-claude`), `verified: true`. `nightlife-antigravity` project itself was not paused, modified, or deleted — kept live and warm as the rollback target, exactly as instructed.
+
+**2. Real BNT host verified live (not a Preview/SSO-bypass workaround — the actual custom domain, for the first time since Phase 4):**
+- `/`, `/about`, `/contact`, `/book` all 200; `/new-in-bangkok` correctly 404 (`new-in-bkk` still Draft/invisible — fail-closed exactly as designed, not tested around).
+- `x-powered-by: Next.js` confirms this is the unified app, not the legacy Express site.
+- Homepage: BNT logo (`/bnt/logo/best-nightlife-thailand-logo.png`) only, "PRIVATE ACCESS COLLECTIVE" tagline, hamburger nav (Home/About/Contact) opens and links correctly. "Bangkok Club Crawl" appears once, as the intentional cross-brand card in "Our Signature Events" linking to `bkkclubcrawl.com` — not a branding leak, confirmed by full page-text extraction (footer reads "BEST NIGHTLIFE THAILAND" only).
+- `/book` chrome: BNT logo confirmed in the rendered HTML, no "BANGKOK CLUB CRAWL" string anywhere on the page.
+- `/about` title "The Heart behind the Night. | BEST NIGHTLIFE THAILAND"; `/contact` title "Contact | BEST NIGHTLIFE THAILAND" — both correct.
+- Meta Pixel: zero `fbq`/`connect.facebook.net` references in the homepage response — confirmed absent on the real BNT host (the `isBcc` gate in `app/layout.tsx` working as designed against a real Host header, not a spoofed one, for the first time).
+- Contact form: renders fully via browser (name / WhatsApp+country-code / occasion textarea), zero console errors. Not submitted, per the standing no-real-customer-data instruction.
+- Private Experience inquiry modal: confirmed present and fully formed (Step 1 of 4, name/WhatsApp/occasion fields) via full page-text extraction of the live DOM. Not submitted, same reason.
+- Mobile (375×812) and desktop viewports both render cleanly, zero console errors either size.
+- One repeat of a previously-documented, non-blocking cosmetic finding (Phase 7): the "Private Experiences" swipeable deck renders as a solid black screenshot in headless automation at that scroll position, while its DOM/content and Previous/Next-Experience controls are confirmed present and correct via the accessibility tree — a headless-browser rendering quirk, not a real defect, same as previously flagged and still not worth fixing blind.
+
+**3. BCC regression, live on the real production domain:** `bkkclubcrawl.com` homepage 200, `/book` 200, `/login` 200, `/dashboard` 307 (auth-gated, not 500), `/api/events?storefront=bcc` returns correct real event data (TGIF Bangkok, ฿1,200, tier `regular`). Zero runtime errors on the `bcc-claude` project (Vercel's error aggregation, 30-minute window spanning the cutover) on either brand's traffic.
+
+**4. Database state, reconfirmed unchanged after the cutover:** `new-in-bkk` — `status='draft'`, `visible_bcc=false`, `visible_bnt=false`. `bookings` — still exactly 8 rows. No Stripe activity, no pricing change, no APT 101 Ladies Night content added.
+
+**5. Rollback plan (verified available, not exercised — no issue found):** `POST /v1/projects/bcc-claude/domains/{bestnightlifethailand.com,www.bestnightlifethailand.com}/move` with `projectId` set back to `nightlife-antigravity`'s project id — same zero-DNS internal move, reverses in seconds. `nightlife-antigravity` was kept live and untouched specifically so this stays available.
+
+**6. GO/NO-GO: BNT DOMAIN CUTOVER — PASS.** Gate A (platform cutover) is complete and stable. Gate B (New in Bangkok launch — publish, ฿390 Early Bird live customer journey, real Stripe E2E, cancellation/refund branding) has not been started; `new-in-bkk` remains Draft/invisible on both storefronts, exactly as instructed.
 
 ## Pre-merge remediation (2026-08-24, post-Stage-9-close) — now merged to `main`
 
