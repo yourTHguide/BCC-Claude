@@ -29,20 +29,21 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  // BNT pages (Stage 10) carry no Meta Pixel of their own in the live
-  // NightlifeAntigravity source — this pixel ID belongs to Bangkok Club
-  // Crawl specifically, so it must not fire (and misattribute traffic) on
-  // bestnightlifethailand.com.
+  // The same pixel (302051565703286) is shared across both storefronts so Meta
+  // retains the existing BCC signal history while we extend tracking to BNT.
+  // Event rules scoped to bestnightlifethailand.com (ViewContent, InitiateCheckout,
+  // Purchase) distinguish New in Bangkok traffic via content_id: new-in-bkk.
   const host = headers().get('host')
-  const isBcc = resolveStorefront(host) === 'bcc'
+  const storefront = resolveStorefront(host)
+  const hasPixel = storefront === 'bcc' || storefront === 'bnt'
 
   return (
     <html lang="en">
       <head>
-        {isBcc && (
-          /* Meta Pixel base code — loads before the page becomes interactive so the
-             ViewContent/InitiateCheckout/Purchase/SelectNight fbq() calls already
-             wired into the components below actually have something to fire into. */
+        {hasPixel && (
+          /* Meta Pixel base code — fires on both bkkclubcrawl.com and
+             bestnightlifethailand.com. URL/button event rules in Meta Events
+             Manager distinguish BCC vs BNT conversions by domain + content_id. */
           <Script id="meta-pixel" strategy="beforeInteractive">
             {`
               !function(f,b,e,v,n,t,s)
@@ -60,7 +61,7 @@ export default function RootLayout({
         )}
       </head>
       <body style={{ overflowX: 'hidden', maxWidth: '100vw' }}>
-        {isBcc && (
+        {hasPixel && (
           <noscript>
             <img
               height="1"
