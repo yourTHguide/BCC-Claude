@@ -81,6 +81,8 @@ export async function loadPublicProductPage(
       effective_start_time,
       price_tier: pricing.tier,
       regular_price: pricing.regularPrice,
+      early_bird_price: pricing.earlyBirdPrice,
+      early_bird_available: pricing.earlyBirdAvailable,
     }
   })
 

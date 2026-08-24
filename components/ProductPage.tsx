@@ -86,6 +86,11 @@ export interface ProductPageUpcomingEvent {
   // 'regular' with regular_price === effective_price.
   price_tier?: 'early_bird' | 'regular'
   regular_price?: number | null
+  // Gate B pricing refinement — null for a product with no Early Bird tier
+  // configured at all (e.g. Bangkok Club Crawl), distinct from
+  // early_bird_available=false (a tiered product whose cutoff has passed).
+  early_bird_price?: number | null
+  early_bird_available?: boolean
 }
 
 export interface ProductPageProps {
@@ -268,6 +273,10 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
   const regularPriceForDisplay = nextEvent?.regular_price ?? product.default_price
   const priceLabel = baht(effectivePrice)
   const regularPriceLabel = isEarlyBird ? baht(regularPriceForDisplay) : null
+  // Whether this product has an Early Bird tier configured at all (not just
+  // currently active) — null for a flat-price product like Bangkok Club
+  // Crawl, which never renders through this component anyway.
+  const hasTierPricing = nextEvent?.early_bird_price != null
   const timeLabel = hhmm(effectiveStartTime)
   const durLabel = durationLabel(content?.duration_minutes ?? null)
   const dateLabel = nextEvent ? formatEventDate(nextEvent.event_date) : null
@@ -293,12 +302,19 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
   if (timeLabel) quickFacts.push({ label: 'Start Time', value: timeLabel, Icon: Clock })
   if (durLabel) quickFacts.push({ label: 'Duration', value: durLabel, Icon: Timer })
   if (priceLabel) {
+    // Informational range, not a promo — the promotional Early Bird framing
+    // (tier name, "Reg." callout) lives in the sticky bar and the booking
+    // card's tier selector, not here. A tiered product still inside its
+    // Early Bird window shows the overall ticket price range; once Early
+    // Bird has ended (or the product has no second tier at all) there's
+    // nothing to range against, so it collapses to a single price.
+    const rangeValue =
+      isEarlyBird && effectivePrice != null && regularPriceForDisplay != null
+        ? `฿${effectivePrice.toLocaleString()}–${regularPriceForDisplay.toLocaleString()}`
+        : null
     quickFacts.push({
-      label: isEarlyBird ? 'Early Bird Price' : 'Price',
-      value:
-        isEarlyBird && regularPriceLabel
-          ? `${priceLabel} / person · Reg. ${regularPriceLabel}`
-          : `${priceLabel} / person`,
+      label: 'Price',
+      value: rangeValue ?? (hasTierPricing ? priceLabel : `${priceLabel} / person`),
       Icon: TagIcon,
     })
   }
@@ -704,13 +720,10 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
               {priceLabel && (
                 <div className="pp-sticky-price">
                   {isEarlyBird && <span className="pp-sticky-price-tier">EARLY BIRD</span>}
-                  <span className="pp-sticky-price-amount">
-                    {priceLabel}
-                    {isEarlyBird && regularPriceLabel && (
-                      <span className="pp-sticky-price-regular"> · Reg. {regularPriceLabel}</span>
-                    )}
-                  </span>
-                  <span className="pp-sticky-price-unit">/ PERSON</span>
+                  <span className="pp-sticky-price-amount">{priceLabel}</span>
+                  {isEarlyBird && regularPriceLabel && (
+                    <span className="pp-sticky-price-regular">(Reg. {regularPriceLabel})</span>
+                  )}
                 </div>
               )}
               <div className="pp-sticky-cta">Book Your Spot →</div>
@@ -770,7 +783,6 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
         .pp-sticky-price-tier { font-family: Inter, sans-serif; font-weight: 700; font-size: 9px; letter-spacing: 0.12em; color: #FFC400; margin-bottom: 2px; }
         .pp-sticky-price-amount { font-family: Inter, sans-serif; font-weight: 700; font-size: 17px; color: #FFFFFF; }
         .pp-sticky-price-regular { font-weight: 500; font-size: 12px; color: rgba(255,255,255,0.70); }
-        .pp-sticky-price-unit { font-family: Inter, sans-serif; font-weight: 600; font-size: 9px; letter-spacing: 0.1em; color: rgba(255,255,255,0.80); }
         .pp-sticky-cta { font-family: Inter, sans-serif; font-weight: 700; font-size: 14px; color: #FFFFFF; letter-spacing: 0.02em; }
         .pp-sticky-preview {
           width: 100%; text-align: center;

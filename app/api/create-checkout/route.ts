@@ -21,7 +21,7 @@ function formatEventDate(eventDate: string): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const { eventId, nightSlug, eventDate, quantity } = await req.json()
+    const { eventId, nightSlug, eventDate, quantity, priceTier } = await req.json()
 
     // Identity: prefer the canonical event-instance id (event_id) when the
     // caller supplies it; otherwise fall back to the legacy (night_slug,
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
       // — a forged/absent storefront in the body can't buy BNT-only pricing
       // or bypass BCC visibility, because the body never carries one at all.
       const storefront = resolveStorefront(req.headers.get('host'))
-      return await createDynamicCheckout({ eventId, nightSlug, eventDate, quantity, storefront })
+      return await createDynamicCheckout({ eventId, nightSlug, eventDate, quantity, storefront, priceTier })
     }
     // Same resolver every other URL-building call site uses (ticket page, QR
     // route, confirmation email, dynamic checkout above) — Preview deployments
@@ -67,18 +67,30 @@ async function createDynamicCheckout({
   eventDate,
   quantity,
   storefront,
+  priceTier,
 }: {
   eventId?: string | null
   nightSlug?: string | null
   eventDate?: string | null
   quantity: any
   storefront: 'bcc' | 'bnt'
+  priceTier?: string | null
 }) {
   // Basic quantity guard. The /book calendar caps at 12–24 per night; reject
   // anything outside a sane integer range rather than trusting the client.
   const qty = Number(quantity)
   if (!Number.isInteger(qty) || qty < 1 || qty > 24) {
     return NextResponse.json({ error: 'Invalid quantity' }, { status: 400 })
+  }
+
+  // Tier-selector UX (Gate B pricing refinement): the client may express a
+  // PREFERENCE for which tier it wants, but never a price. undefined/null
+  // means "no preference" — falls through to the exact auto-resolved
+  // behavior this endpoint always had (pricing.tier/pricing.price below),
+  // unchanged for every caller that doesn't send this (Bangkok Club Crawl's
+  // flat-price checkout included, since it never sends priceTier at all).
+  if (priceTier !== undefined && priceTier !== null && priceTier !== 'early_bird' && priceTier !== 'regular') {
+    return NextResponse.json({ error: 'Invalid priceTier' }, { status: 400 })
   }
 
   // ── Resolve the actual event instance + its product ──
@@ -204,7 +216,37 @@ async function createDynamicCheckout({
     earlyBirdPrice: product.early_bird_price ?? null,
     earlyBirdCutoffHours: product.early_bird_cutoff_hours ?? null,
   })
-  const effectivePrice = pricing.price
+
+  // 8. Honor an explicit tier PREFERENCE, still never trusting a client-sent
+  //    price — every number charged below is re-derived here from the same
+  //    server-resolved `pricing`/`regularPrice`, never from the request body.
+  //    - No preference (priceTier omitted): unchanged — exactly today's
+  //      auto-resolved pricing.tier/pricing.price, e.g. Bangkok Club Crawl's
+  //      flat-price flow, which never sends this field.
+  //    - 'regular' requested: General Admission is always a valid choice,
+  //      before or after the Early Bird cutoff, as long as this event has a
+  //      price at all — already guaranteed by gate 6 above.
+  //    - 'early_bird' requested: only honored if `pricing.earlyBirdAvailable`
+  //      is true for THIS event at THIS exact moment (the same resolver the
+  //      calendar and this route always used) — a request replaying an
+  //      Early Bird selection made before the cutoff, submitted after it has
+  //      passed, is rejected here rather than silently charging the stale
+  //      ฿390. This is the one and only place tier eligibility is decided.
+  let effectiveTier = pricing.tier
+  let effectivePrice = pricing.price
+  if (priceTier === 'regular') {
+    effectiveTier = 'regular'
+    effectivePrice = regularPrice
+  } else if (priceTier === 'early_bird') {
+    if (!pricing.earlyBirdAvailable || pricing.earlyBirdPrice == null) {
+      return NextResponse.json(
+        { error: 'Early Bird pricing is no longer available for this date' },
+        { status: 409 }
+      )
+    }
+    effectiveTier = 'early_bird'
+    effectivePrice = pricing.earlyBirdPrice
+  }
 
   // ── Build the Stripe session from canonical data ──
   // unit_amount is in the smallest currency unit (satang); THB is 2-decimal, so
@@ -250,7 +292,7 @@ async function createDynamicCheckout({
       // foundation Phase 6 needs to pick BCC vs BNT transactional-email
       // branding per booking.
       storefront,
-      price_tier: pricing.tier,
+      price_tier: effectiveTier,
       // Legacy keys (unchanged contract with the webhook)
       night_slug: event.night_slug,
       night_name: event.night_name,

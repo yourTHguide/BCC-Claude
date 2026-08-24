@@ -119,6 +119,14 @@ export async function GET(req: NextRequest) {
       effectivePrice: pricing.price,
       priceTier: pricing.tier,
       regularPrice: pricing.regularPrice,
+      // Tier-selector UX (Gate B pricing refinement): lets a caller offer
+      // both tiers explicitly instead of only the auto-resolved default.
+      // earlyBirdPrice is null for any product without early-bird pricing
+      // configured (e.g. Bangkok Club Crawl) — exactly resolveEventPricing's
+      // own signal for "this product has no second tier at all," reused
+      // here rather than re-deriving it.
+      earlyBirdPrice: pricing.earlyBirdPrice,
+      earlyBirdAvailable: pricing.earlyBirdAvailable,
       effectiveStartTime,
       // Per-event capacity; NULL = no defined capacity. Surfaced for future use;
       // it does NOT drive the calendar's purchase quantity in Phase 3.

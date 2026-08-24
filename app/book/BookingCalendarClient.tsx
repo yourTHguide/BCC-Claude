@@ -17,6 +17,12 @@ interface EventInstance {
   effectivePrice: number | null
   priceTier: 'early_bird' | 'regular'
   regularPrice: number | null
+  // Tier-selector UX (Gate B pricing refinement). earlyBirdPrice is null for
+  // any product with no Early Bird tier configured at all (e.g. Bangkok Club
+  // Crawl) — distinct from earlyBirdAvailable=false, which means a tiered
+  // product whose cutoff has already passed for this specific event.
+  earlyBirdPrice: number | null
+  earlyBirdAvailable: boolean
   effectiveStartTime: string | null // HH:MM:SS
   capacity: number | null
 }
@@ -109,6 +115,9 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
   const [selectedDateISO, setSelectedDateISO] = useState<string | null>(null)
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
   const [quantity, setQuantity] = useState(1)
+  // Tier-selector UX (Gate B pricing refinement) — only meaningful for a
+  // tiered event (earlyBirdPrice != null); null/ignored otherwise.
+  const [selectedTier, setSelectedTier] = useState<'early_bird' | 'regular' | null>(null)
 
   // ── Load availability from the canonical layer ──
   const loadEvents = useCallback(async () => {
@@ -167,6 +176,23 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
   const selectedEvent =
     eventsOnSelected.find((e) => e.eventId === selectedEventId) ?? eventsOnSelected[0] ?? null
 
+  const hasTierPricing = selectedEvent?.earlyBirdPrice != null
+
+  // Default the tier selection whenever the selected event changes — Early
+  // Bird while it's genuinely still available, General Admission otherwise
+  // (including post-cutoff, where Early Bird is shown but disabled). Runs
+  // once per event switch rather than being threaded through every place
+  // selectedEventId changes (date click, event-row click, preselect-by-slug
+  // effect), so it can't drift out of sync with any of them.
+  useEffect(() => {
+    if (!selectedEvent) return
+    if (selectedEvent.earlyBirdPrice == null) {
+      setSelectedTier(null)
+      return
+    }
+    setSelectedTier(selectedEvent.earlyBirdAvailable ? 'early_bird' : 'regular')
+  }, [selectedEvent?.eventId])
+
   function handleDateClick(iso: string) {
     const dayEvents = eventsByDate[iso]
     if (!dayEvents || dayEvents.length === 0) return
@@ -192,7 +218,18 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
     } else setViewMonth((m) => m + 1)
   }
 
-  const unitPrice = selectedEvent?.effectivePrice ?? null
+  // Tier-selector UX: once a tiered event has a selected tier, the unit price
+  // reflects THAT tier — never the auto-resolved effectivePrice, which would
+  // silently ignore an intentional General Admission choice made while Early
+  // Bird is still technically available. A non-tiered event (or no tier
+  // chosen yet) falls back to the original auto-resolved price — unchanged
+  // behavior for Bangkok Club Crawl and any product without Early Bird.
+  const unitPrice =
+    hasTierPricing && selectedTier
+      ? selectedTier === 'early_bird'
+        ? selectedEvent!.earlyBirdPrice
+        : selectedEvent!.regularPrice
+      : selectedEvent?.effectivePrice ?? null
   const totalPrice = unitPrice != null ? unitPrice * quantity : null
   const selectedDateStr = selectedDateISO ? formatDateLabel(selectedDateISO) : null
   const capMax = maxTickets()
@@ -528,20 +565,19 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                           </p>
                         </div>
                         <div style={{ textAlign: 'right', marginLeft: '16px' }}>
-                          {event.effectivePrice != null && (
+                          {/* A tiered event's price now lives in the tier
+                              selector below (once this event is chosen) —
+                              showing it here too would just be a second,
+                              potentially conflicting number for the same
+                              event. Untiered events (e.g. Bangkok Club
+                              Crawl) keep this exact display, unchanged. */}
+                          {event.effectivePrice != null && event.earlyBirdPrice == null && (
                             <>
-                              {event.priceTier === 'early_bird' && (
-                                <p style={{ fontWeight: 700, fontSize: '9px', letterSpacing: '0.1em', color: '#FFC400', marginBottom: '2px' }}>
-                                  EARLY BIRD
-                                </p>
-                              )}
                               <p style={{ fontWeight: 700, fontSize: '16px', color: '#fff' }}>
                                 {formatPrice(event.effectivePrice)}
                               </p>
                               <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.40)', marginTop: '2px' }}>
-                                {event.priceTier === 'early_bird' && event.regularPrice != null
-                                  ? `per person · Reg. ${formatPrice(event.regularPrice)}`
-                                  : 'per person'}
+                                per person
                               </p>
                             </>
                           )}
@@ -569,6 +605,97 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                 {/* Quantity + total + CTA */}
                 {selectedEvent && (
                   <div style={{ padding: '20px' }}>
+                    {/* ── Tier selector — Early Bird vs General Admission ──
+                        Only rendered for a product with Early Bird pricing
+                        configured at all (earlyBirdPrice != null); a
+                        flat-price product like Bangkok Club Crawl never
+                        shows this. Early Bird is selectable and defaulted
+                        while genuinely available; once its cutoff has
+                        passed it's shown greyed-out with an ENDED tag and
+                        can't be selected, while General Admission remains
+                        selectable both before and after the cutoff. */}
+                    {hasTierPricing && (
+                      <div style={{ marginBottom: '16px' }}>
+                        <div
+                          onClick={() => selectedEvent.earlyBirdAvailable && setSelectedTier('early_bird')}
+                          style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            padding: '14px 16px', borderRadius: '10px', marginBottom: '8px',
+                            border: selectedTier === 'early_bird' ? '1px solid #EA003A' : '1px solid rgba(255,255,255,0.10)',
+                            background: selectedTier === 'early_bird' ? 'rgba(234,0,58,0.10)' : 'rgba(255,255,255,0.03)',
+                            opacity: selectedEvent.earlyBirdAvailable ? 1 : 0.45,
+                            cursor: selectedEvent.earlyBirdAvailable ? 'pointer' : 'not-allowed',
+                            transition: 'all 0.15s',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div
+                              style={{
+                                width: '18px', height: '18px', borderRadius: '50%', flexShrink: 0,
+                                border: selectedTier === 'early_bird' ? 'none' : '1px solid rgba(255,255,255,0.20)',
+                                background: selectedTier === 'early_bird' ? 'linear-gradient(135deg, #EA003A, #820065)' : 'transparent',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              }}
+                            >
+                              {selectedTier === 'early_bird' && (
+                                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#fff' }} />
+                              )}
+                            </div>
+                            <p style={{ fontWeight: 700, fontSize: '11px', letterSpacing: '0.1em', color: selectedEvent.earlyBirdAvailable ? '#FFC400' : 'rgba(255,255,255,0.45)' }}>
+                              EARLY BIRD
+                              {!selectedEvent.earlyBirdAvailable && (
+                                <span
+                                  style={{
+                                    marginLeft: '8px', fontWeight: 700, fontSize: '9px', letterSpacing: '0.05em',
+                                    padding: '2px 6px', borderRadius: '4px',
+                                    background: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.55)',
+                                  }}
+                                >
+                                  ENDED
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                          <p style={{ fontWeight: 700, fontSize: '15px', color: '#fff' }}>
+                            {selectedEvent.earlyBirdPrice != null ? formatPrice(selectedEvent.earlyBirdPrice) : ''}
+                          </p>
+                        </div>
+
+                        <div
+                          onClick={() => setSelectedTier('regular')}
+                          style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            padding: '14px 16px', borderRadius: '10px',
+                            border: selectedTier === 'regular' ? '1px solid #EA003A' : '1px solid rgba(255,255,255,0.10)',
+                            background: selectedTier === 'regular' ? 'rgba(234,0,58,0.10)' : 'rgba(255,255,255,0.03)',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div
+                              style={{
+                                width: '18px', height: '18px', borderRadius: '50%', flexShrink: 0,
+                                border: selectedTier === 'regular' ? 'none' : '1px solid rgba(255,255,255,0.20)',
+                                background: selectedTier === 'regular' ? 'linear-gradient(135deg, #EA003A, #820065)' : 'transparent',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              }}
+                            >
+                              {selectedTier === 'regular' && (
+                                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#fff' }} />
+                              )}
+                            </div>
+                            <p style={{ fontWeight: 700, fontSize: '11px', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.65)' }}>
+                              GENERAL ADMISSION
+                            </p>
+                          </div>
+                          <p style={{ fontWeight: 700, fontSize: '15px', color: '#fff' }}>
+                            {selectedEvent.regularPrice != null ? formatPrice(selectedEvent.regularPrice) : ''}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     <div
                       style={{
                         display: 'flex', alignItems: 'center',
@@ -650,6 +777,13 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                               nightSlug: selectedEvent.nightSlug,
                               eventDate: selectedEvent.eventDate,
                               quantity,
+                              // Tier PREFERENCE only, omitted entirely for a
+                              // non-tiered event (Bangkok Club Crawl's request
+                              // body is byte-identical to before) — the server
+                              // independently re-verifies eligibility and
+                              // computes the actual price, never trusting
+                              // anything sent here.
+                              ...(hasTierPricing && selectedTier ? { priceTier: selectedTier } : {}),
                             }),
                           })
                           const data = await res.json()
