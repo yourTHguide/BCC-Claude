@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect } from 'react'
-import { clientDebugLog, isDiagnosticEnvironment } from '@/lib/clientDebugLog'
 
 // The /dashboard subtree (including /dashboard/checkin/[token], the QR
 // check-in resolver) previously had NO error boundary anywhere in the app —
@@ -9,14 +8,7 @@ import { clientDebugLog, isDiagnosticEnvironment } from '@/lib/clientDebugLog'
 // dead-end "Application error: a client-side exception has occurred" with no
 // retry path and no visible detail. This is the first boundary in the app,
 // scoped to /dashboard so a host mid-scan gets a recoverable screen instead
-// of a blank crash, and so an occurrence shows the real error instead of
-// requiring another round of blind diagnosis.
-//
-// TEMPORARY (Stage 9 real-iPhone crash diagnosis): the diagnostic block
-// below -- on-screen error detail and the debug-log POST -- only activates
-// off the real production hostname (bkkclubcrawl.com), so production never
-// shows raw error internals. Trim back to just the generic message + Try
-// Again once the real root cause is found and fixed.
+// of a blank crash.
 export default function DashboardError({
   error,
   reset,
@@ -24,17 +16,8 @@ export default function DashboardError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  const diagnostic = isDiagnosticEnvironment()
-
   useEffect(() => {
     console.error('Dashboard error boundary caught:', error)
-    clientDebugLog('error_boundary_caught', {
-      name: error?.name ?? null,
-      message: error?.message ?? null,
-      digest: error?.digest ?? null,
-      stack: error?.stack ?? null,
-      stringified: String(error),
-    })
   }, [error])
 
   return (
@@ -74,39 +57,11 @@ export default function DashboardError({
             fontSize: '12px',
             color: 'rgba(255,255,255,0.35)',
             wordBreak: 'break-word',
-            marginBottom: diagnostic ? '12px' : '24px',
+            marginBottom: '24px',
           }}
         >
           {error.message || 'Unknown error'}
         </p>
-
-        {diagnostic && (
-          <div
-            style={{
-              textAlign: 'left',
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(255,255,255,0.10)',
-              borderRadius: '8px',
-              padding: '12px',
-              marginBottom: '24px',
-              fontFamily: 'monospace',
-              fontSize: '11px',
-              lineHeight: 1.6,
-              color: 'rgba(255,255,255,0.70)',
-              wordBreak: 'break-word',
-              whiteSpace: 'pre-wrap',
-              maxHeight: '260px',
-              overflowY: 'auto',
-            }}
-          >
-            <div>path: {typeof window !== 'undefined' ? window.location.pathname : 'n/a'}</div>
-            <div>name: {error?.name || 'n/a'}</div>
-            <div>digest: {error?.digest || 'n/a'}</div>
-            <div>String(error): {String(error)}</div>
-            <div style={{ marginTop: '6px' }}>stack:</div>
-            <div>{error?.stack || 'n/a'}</div>
-          </div>
-        )}
 
         <button
           onClick={reset}

@@ -1,11 +1,145 @@
 # Phase 4 — Internal Product & Schedule Builder — Checkpoint
 
-_Last updated: 2026-08-24. The QR-scan crash below (previously the one open
-launch blocker) is RESOLVED and physically verified. A real, live Stripe
-payment has now been run through the full Stage 9 booking lifecycle
+_Last updated: 2026-08-24 (pre-merge remediation pass — see "Pre-merge
+remediation" immediately below). Stage 9 itself closed earlier the same day;
+that record is preserved unchanged further down this file. A real, live
+Stripe payment has now been run through the full Stage 9 booking lifecycle
 end-to-end and verified. New in Bangkok is back to Draft/invisible after
 the test — see "Stage 9m" below for the full result and what's left before
 a real launch._
+
+## Pre-merge remediation (2026-08-24, post-Stage-9-close, still on this branch — NOT merged to `main`)
+
+A separate audit session, run specifically to assess promoting this branch
+(`f457026`, "Close Stage 9") to `main`/production, found one real regression
+this Stage 9 work would have introduced and a few smaller cleanup items.
+Guide approved remediation but explicitly withheld merge approval — this
+section records what was fixed, on this branch, still unmerged.
+
+**1. Real regression found and fixed: `bangkok-club-crawl` had zero
+`product_content` rows.** `app/api/webhook/route.ts` (Stage 9b) generates a
+`ticket_token` unconditionally for every paid booking, legacy checkout path
+included, and `emails/confirmation.ts` (Stage 9l) is now a single template
+driven entirely by `product_content` — "a Product with no
+itinerary/inclusions renders without that section, never a default/
+hardcoded substitute," by design. `bangkok-club-crawl` (the real BCC
+product, unlike `new-in-bkk`) had never had its content populated, because
+Stage 8's content work only ever targeted New in Bangkok. Left alone, this
+branch would have shipped every future real BCC customer a confirmation
+email missing meet-up time, WhatsApp/location process, the minimum-
+participant/refund policy, run of show, inclusions, dress code, and tips —
+the operational information that actually gets someone to the venue.
+
+**Fixed via direct `INSERT` into `product_content`** for `bangkok-club-crawl`
+(`product_id bbacd61d-1063-4b69-a0d6-4fd147ef98ea`), transcribing the exact
+content from the current production `emails/confirmation.ts` (verified
+against `main` @ `03dc06c`, not rewritten or redesigned):
+- `itinerary`: the 4 real run-of-show blocks (9:30–10:30 PM through
+  1:30–2:30 AM), title/description pairs, verbatim copy.
+- `whats_included` / `whats_not_included`: the 5 included / 4 not-included
+  items, verbatim (the DJ-nights cover-charge caveat folded into the string
+  itself, since the generic renderer has no sub-badge mechanism).
+- `duration_minutes`: 300 (9:30 PM–2:30 AM span).
+- `meeting_point`: `{"visibility":"private"}` — **not** a literal address.
+  BCC's real model is "time is fixed, location is withheld until WhatsApp
+  day-of," which the `meeting_point` JSONB shape (built for a disclosed
+  venue) doesn't represent natively. `visibility:'private'` is the accurate
+  choice (discloses nothing electronically) and the template already has a
+  built-in fallback line for it ("The exact meeting point will be shared
+  closer to the event") — verified by rendering, not assumed.
+- `important_info`: the WhatsApp/7PM and 9:30PM-sharp/no-show process text,
+  the minimum-5-participants/refund policy, both dress-code paragraphs, and
+  all 4 tips — 11 items total, verbatim, since none of these have a
+  purpose-built field in the current schema (see below).
+
+**Content that does not map cleanly to the current `product_content` schema
+— reported, not silently dropped:**
+- The schema has no dedicated field for a cancellation/refund policy, a
+  dress code, or tips/reminders. All three were placed in the generic
+  `important_info` string array, which is the least-bad available fit —
+  functionally correct (everything renders), but the original email's four
+  distinct labeled sections (MEET-UP DETAILS / CONFIRMATION PROCESS / DRESS
+  CODE / TIPS & REMINDERS) are now flattened into one bulleted "Good To
+  Know" list under a single heading. No content is lost; the presentation
+  is less structured than before. Restoring separate headings would need a
+  template change, out of scope for a content-only remediation.
+- `startTime` renders as 24-hour `21:30` (via the shared `formatStartTime()`
+  every product now uses) rather than the original `9:30 PM`. A formatting
+  difference, not a content gap — already the standard format for the new
+  pipeline (matches how New in Bangkok's own Tuesday 20:30 renders), so this
+  is existing shared behavior, not something introduced by this fix.
+- The email header/brand line already reads "BEST NIGHTLIFE THAILAND" /
+  "Booking Confirmed" instead of "BANGKOK CLUB CRAWL" / "You're booked for
+  tonight." — this was Guide's own explicit Stage 9l decision, already
+  shipped on this branch before this remediation pass; noted here for
+  completeness, not something this pass touched or was asked to touch.
+
+**Verified by rendering, not by reading the code:** the actual
+`generateConfirmationEmail()` function (unmodified) was executed via `npx
+tsx` against this real `product_content` data plus a realistic sample
+booking (this sandbox cannot reach a live authenticated `/dashboard/
+email-preview/[token]` session — same `next dev`-can't-authenticate
+constraint recorded elsewhere in this doc — so the equivalent, more direct
+verification already used elsewhere in Stage 9 was applied here: exercise
+the real template function standalone). Full rendered HTML was inspected
+line-by-line; every item above confirmed present and correctly formatted.
+The scratch script used for this was deleted immediately after (never
+committed).
+
+**2. `CHECKOUT_DYNAMIC_PRICING` in Production — status not independently
+verifiable from this session.** No tool available here reads actual Vercel
+environment variable values (only project/deployment metadata). Guide must
+confirm directly in the Vercel dashboard that this flag is unset/false for
+Production before any merge. **Not enabled by this remediation pass** — no
+env var was touched.
+
+**3. Removed the temporary Stage-9 QR-crash diagnostic scaffolding**, now
+that the crash it was diagnosing (documented above as RESOLVED, commit
+`69f5d77`) is fixed and confirmed:
+- Deleted `app/api/debug-client-log/route.ts` and `lib/clientDebugLog.ts`
+  entirely (both were explicitly self-commented "TEMPORARY... must be
+  deleted once the real root cause is found").
+- `app/dashboard/checkin/[token]/page.tsx`: removed the temporary
+  window-level `error`/`unhandledrejection` listeners and every
+  `clientDebugLog(...)` breadcrumb call; the actual fetch/state/check-in
+  logic is unchanged.
+- `app/dashboard/error.tsx` / `app/global-error.tsx`: removed the
+  `clientDebugLog` call and the `isDiagnosticEnvironment()`-gated on-screen
+  error-detail block (path/name/digest/stack), per each file's own comment
+  ("Trim back to just the generic message + Try Again once the real root
+  cause is found and fixed"). Both boundaries still exist, still catch
+  errors, still log to the console, still show "Try Again" — just without
+  the temporary diagnostic detail panel. This was already production's
+  actual behavior (the diagnostic block only ever activated off the real
+  `bkkclubcrawl.com` hostname), so this is a zero production-behavior
+  change, code-cleanup only.
+- Confirmed via `grep` across the whole tree: zero remaining references to
+  either deleted file after the edits.
+
+**4. `public._migration_p1_audit` (RLS-disabled, 41 rows) — recorded as
+separate technical/security debt, deliberately not touched.** Unrelated to
+Stage 9 or this remediation; flagged by Supabase's own advisor during the
+audit. Not fixed here per explicit instruction — enabling RLS without a
+policy would block all access, and no one has decided what should read this
+table. Left exactly as found.
+
+**5. New in Bangkok public URL — architecture decision recorded, not
+implemented.** The duplicate-surface problem (`app/new-in-bangkok/page.tsx`,
+stale Wednesday/฿1,000 copy, wired to the legacy no-ticket checkout path, vs.
+the real, tested `new-in-bkk` product at `/events/new-in-bkk`) is unchanged
+by this pass — deliberately, per instruction. Recorded intended direction
+for whoever implements it next:
+- The canonical product stays `new-in-bkk` — no slug rename in this task.
+- The desired public marketing URL is `/new-in-bangkok`.
+- That public route should eventually resolve/render the canonical
+  `new-in-bkk` `ProductPage` (today only reachable at `/events/new-in-bkk`)
+  — not a second, separate implementation.
+- `/events/new-in-bkk` may redirect to the public URL once that exists.
+- The existing stale static `/new-in-bangkok` (its own hardcoded copy, its
+  own legacy-checkout wiring) must not remain as a second, parallel
+  product/checkout implementation once this is resolved — whether that's
+  done by redirecting the old URL or by a slug rename is an implementation
+  choice for that future task, not decided here.
 
 ## Where things stand right now
 
