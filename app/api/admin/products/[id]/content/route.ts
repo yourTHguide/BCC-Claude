@@ -1,31 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
+import { validateContentItemList, type Result } from '@/lib/contentItems'
 
 export const dynamic = 'force-dynamic'
 
 const MEETING_POINT_TEXT_KEYS = ['display_name', 'address', 'maps_url', 'instructions'] as const
 const VISIBILITY_VALUES = ['public', 'after_booking', 'private']
 
-type Result<T> = { value: T } | { error: string }
-
 function validateTextField(v: any, label: string): Result<string | null> {
   if (v === undefined || v === null) return { value: null }
   if (typeof v !== 'string') return { error: `${label} must be a string` }
   const t = v.trim()
   return { value: t.length ? t : null }
-}
-
-function validateStringList(v: any, label: string): Result<string[]> {
-  if (v === undefined || v === null) return { value: [] }
-  if (!Array.isArray(v)) return { error: `${label} must be an array of strings` }
-  const out: string[] = []
-  for (const item of v) {
-    if (typeof item !== 'string') return { error: `${label} items must be strings` }
-    const t = item.trim()
-    if (t) out.push(t)
-  }
-  return { value: out }
 }
 
 function validateItinerary(v: any): Result<{ title: string; description: string }[]> {
@@ -156,19 +143,19 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   const meetingPoint = validateMeetingPoint(body.meetingPoint)
   if ('error' in meetingPoint) return NextResponse.json({ error: meetingPoint.error }, { status: 400 })
 
-  const highlights = validateStringList(body.highlights, 'highlights')
+  const highlights = validateContentItemList(body.highlights, 'highlights')
   if ('error' in highlights) return NextResponse.json({ error: highlights.error }, { status: 400 })
 
   const itinerary = validateItinerary(body.itinerary)
   if ('error' in itinerary) return NextResponse.json({ error: itinerary.error }, { status: 400 })
 
-  const whatsIncluded = validateStringList(body.whatsIncluded, 'whatsIncluded')
+  const whatsIncluded = validateContentItemList(body.whatsIncluded, 'whatsIncluded')
   if ('error' in whatsIncluded) return NextResponse.json({ error: whatsIncluded.error }, { status: 400 })
 
-  const whatsNotIncluded = validateStringList(body.whatsNotIncluded, 'whatsNotIncluded')
+  const whatsNotIncluded = validateContentItemList(body.whatsNotIncluded, 'whatsNotIncluded')
   if ('error' in whatsNotIncluded) return NextResponse.json({ error: whatsNotIncluded.error }, { status: 400 })
 
-  const importantInfo = validateStringList(body.importantInfo, 'importantInfo')
+  const importantInfo = validateContentItemList(body.importantInfo, 'importantInfo')
   if ('error' in importantInfo) return NextResponse.json({ error: importantInfo.error }, { status: 400 })
 
   const { data, error } = await supabase

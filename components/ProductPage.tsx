@@ -1,7 +1,9 @@
 'use client'
 
 // Reusable BEST Nightlife Product Page — design-system renderer (Phase 4,
-// Stage 8e/8e.1).
+// Stage 8e/8e.1; icon-content renderer ported from the unmerged
+// claude/mobile-admin-editor-stage-a-kv6e43 branch, see PHASE4_CHECKPOINT.md
+// "New in Bangkok publication — Gate B incident" for why).
 //
 // Presentation-only: no DB fetching, no product-specific hardcoding. Callers
 // (the authenticated Draft Preview and the fail-closed /events/[slug] route
@@ -15,11 +17,26 @@
 // Product/Event Instance props, never from product_content — content only
 // supplies descriptive copy.
 //
+// Highlights/whats_included/whats_not_included/important_info are
+// ContentItem[] (string | {icon?, text} — lib/contentItems.ts). Icons are
+// scoped to What's Included only, matching the admin editor's own scope
+// (see ContentTab.tsx) — Highlights/Not Included/Important Info always
+// render as plain crimson-dot bullets even if an item happens to carry an
+// icon (e.g. legacy data from before this scope was narrowed). A plain
+// string item (all data saved before icon support existed, and still valid
+// forever after) renders exactly as before either way. An unresolvable
+// icon id (unknown/removed from the registry) falls back to the bullet
+// rather than throwing.
+//
 // This component is the reference design system for BEST Nightlife products
 // generally (New in Bangkok, The Builders Club, future products, and
 // potentially Bangkok Club Crawl after a future migration) — it deliberately
 // carries no BCC-specific branding, tracking, or routing. It is NOT wired to
 // any storefront's checkout/pixel setup; the caller owns that via `mode`.
+
+import { Calendar, Clock, Timer, Tag as TagIcon } from 'lucide-react'
+import { getItemText, getItemIcon, type ContentItem } from '@/lib/contentItems'
+import { resolveContentIcon } from '@/lib/contentIcons'
 
 export interface ProductPageProduct {
   id: string
@@ -43,11 +60,11 @@ export interface ProductPageContent {
   full_description: string | null
   duration_minutes: number | null
   meeting_point: ProductPageMeetingPoint | null
-  highlights: string[]
+  highlights: ContentItem[]
   itinerary: { title: string; description: string }[]
-  whats_included: string[]
-  whats_not_included: string[]
-  important_info: string[]
+  whats_included: ContentItem[]
+  whats_not_included: ContentItem[]
+  important_info: ContentItem[]
 }
 
 export interface ProductPageMediaItem {
@@ -175,7 +192,10 @@ function SectionHeadline({ children }: { children: React.ReactNode }) {
   )
 }
 
-function BulletList({ items, small = false }: { items: string[]; small?: boolean }) {
+// Plain crimson-dot bullets — Highlights and both Good To Know lists. Icons
+// are intentionally not resolved/rendered here even if an item happens to
+// carry one (icons are scoped to What's Included only) — see IconItemList.
+function BulletList({ items, small = false }: { items: ContentItem[]; small?: boolean }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: small ? '12px' : '14px' }}>
       {items.map((item, i) => (
@@ -189,10 +209,49 @@ function BulletList({ items, small = false }: { items: string[]; small?: boolean
               lineHeight: 1.6,
             }}
           >
-            {item}
+            {getItemText(item)}
           </p>
         </div>
       ))}
+    </div>
+  )
+}
+
+// Icon-led list — What's Included only. An item with a resolvable icon id
+// gets that icon; a plain string, an item with no icon, or an item whose
+// icon id doesn't resolve falls back to the same crimson-dot bullet
+// BulletList uses, so old or unresolvable data never looks broken.
+function IconItemList({ items, small = false }: { items: ContentItem[]; small?: boolean }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: small ? '12px' : '14px' }}>
+      {items.map((item, i) => {
+        const text = getItemText(item)
+        const Icon = resolveContentIcon(getItemIcon(item))
+        return (
+          <div key={i} style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+            {Icon ? (
+              <Icon
+                size={small ? 15 : 17}
+                strokeWidth={2}
+                color="#EA003A"
+                style={{ flexShrink: 0, marginTop: small ? '1px' : '2px' }}
+              />
+            ) : (
+              <CrimsonDot small={small} />
+            )}
+            <p
+              style={{
+                fontFamily: 'Inter, sans-serif',
+                fontSize: small ? '13px' : '14px',
+                color: small ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.75)',
+                lineHeight: 1.6,
+              }}
+            >
+              {text}
+            </p>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -227,10 +286,12 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
   )
 
   // Early, at-a-glance facts — shown right under the hero, before any copy.
-  const quickFacts: { label: string; value: string }[] = []
-  if (dateLabel) quickFacts.push({ label: 'Next Date', value: dateLabel })
-  if (timeLabel) quickFacts.push({ label: 'Start Time', value: timeLabel })
-  if (durLabel) quickFacts.push({ label: 'Duration', value: durLabel })
+  // Fixed icon per fact (not admin-selectable, so these come straight from
+  // lucide-react rather than the content-item icon registry).
+  const quickFacts: { label: string; value: string; Icon: typeof Calendar }[] = []
+  if (dateLabel) quickFacts.push({ label: 'Next Date', value: dateLabel, Icon: Calendar })
+  if (timeLabel) quickFacts.push({ label: 'Start Time', value: timeLabel, Icon: Clock })
+  if (durLabel) quickFacts.push({ label: 'Duration', value: durLabel, Icon: Timer })
   if (priceLabel) {
     quickFacts.push({
       label: isEarlyBird ? 'Early Bird Price' : 'Price',
@@ -238,6 +299,7 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
         isEarlyBird && regularPriceLabel
           ? `${priceLabel} / person · Reg. ${regularPriceLabel}`
           : `${priceLabel} / person`,
+      Icon: TagIcon,
     })
   }
 
@@ -400,13 +462,16 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
               }}
             >
               {quickFacts.map((fact) => (
-                <div key={fact.label}>
-                  <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.40)', margin: '0 0 4px' }}>
-                    {fact.label}
-                  </p>
-                  <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '16px', color: '#FFFFFF', margin: 0 }}>
-                    {fact.value}
-                  </p>
+                <div key={fact.label} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                  <fact.Icon size={18} strokeWidth={2} color="#EA003A" style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <div>
+                    <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.40)', margin: '0 0 4px' }}>
+                      {fact.label}
+                    </p>
+                    <p style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '16px', color: '#FFFFFF', margin: 0 }}>
+                      {fact.value}
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -457,7 +522,7 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
             <div style={{ maxWidth: '600px', margin: '0 auto' }}>
               <Eyebrow>THE NIGHT</Eyebrow>
               <SectionHeadline>What&rsquo;s included.</SectionHeadline>
-              <BulletList items={whatsIncluded} />
+              <IconItemList items={whatsIncluded} />
             </div>
           </section>
         )}

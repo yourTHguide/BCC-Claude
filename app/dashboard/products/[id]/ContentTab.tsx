@@ -1,6 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type CSSProperties } from 'react'
+import { getItemText, getItemIcon, type ContentItem } from '@/lib/contentItems'
+import { CONTENT_ICON_IDS, CONTENT_ICON_LABELS, resolveContentIcon, type ContentIconId } from '@/lib/contentIcons'
+import { WHATS_INCLUDED_PRESETS, type WhatsIncludedPreset } from '@/lib/whatsIncludedPresets'
 
 interface ItineraryStep {
   title: string
@@ -20,11 +23,11 @@ interface Content {
   full_description: string | null
   duration_minutes: number | null
   meeting_point: MeetingPoint
-  highlights: string[]
+  highlights: ContentItem[]
   itinerary: ItineraryStep[]
-  whats_included: string[]
-  whats_not_included: string[]
-  important_info: string[]
+  whats_included: ContentItem[]
+  whats_not_included: ContentItem[]
+  important_info: ContentItem[]
   updated_at: string | null
 }
 
@@ -60,19 +63,26 @@ const S = {
   banner: (ok: boolean): React.CSSProperties => ({ background: ok ? 'rgba(52,199,89,0.10)' : 'rgba(234,0,58,0.10)', border: `1px solid ${ok ? 'rgba(52,199,89,0.35)' : 'rgba(234,0,58,0.30)'}`, borderRadius: '10px', padding: '12px 14px', margin: '0 0 16px', color: ok ? '#8ff0a6' : '#ff6b8a', fontSize: '13px' }),
 }
 
-// ── Generic repeatable string-list editor (highlights, whats_included, etc.) ──
-function StringListEditor({
+// ── Plain-text repeatable list — Highlights, What's Not Included, Important
+// Info. Icons are scoped to What's Included only (see ItemListEditor below),
+// so this editor has no icon picker — but items are still ContentItem[], not
+// string[]: if an item somehow already carries an icon (e.g. legacy data
+// from before this scope was narrowed), editing its text preserves that
+// icon untouched rather than silently dropping it. A brand-new item is
+// always a plain string. ──
+function TextListEditor({
   items,
   onChange,
   placeholder,
 }: {
-  items: string[]
-  onChange: (next: string[]) => void
+  items: ContentItem[]
+  onChange: (next: ContentItem[]) => void
   placeholder: string
 }) {
-  function update(i: number, value: string) {
+  function update(i: number, text: string) {
+    const icon = getItemIcon(items[i])
     const next = [...items]
-    next[i] = value
+    next[i] = icon ? { icon, text } : text
     onChange(next)
   }
   function remove(i: number) {
@@ -91,7 +101,7 @@ function StringListEditor({
         <div key={i} style={S.row}>
           <input
             style={S.input}
-            value={item}
+            value={getItemText(item)}
             placeholder={placeholder}
             onChange={(e) => update(i, e.target.value)}
           />
@@ -104,6 +114,178 @@ function StringListEditor({
         + Add
       </button>
     </div>
+  )
+}
+
+const ICP = {
+  panel: { display: 'flex', flexWrap: 'wrap' as const, gap: '6px', padding: '10px', marginTop: '6px', marginLeft: '40px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px' } as CSSProperties,
+  option: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.10)', background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.75)', fontSize: '12px', cursor: 'pointer', fontFamily: 'Inter, sans-serif' } as CSSProperties,
+  optionActive: { border: '1px solid #EA003A', background: 'rgba(234,0,58,0.15)', color: '#fff' } as CSSProperties,
+  optionIconEmpty: { width: '16px', textAlign: 'center' as const, opacity: 0.5, fontSize: '12px' } as CSSProperties,
+  iconBtnActive: { border: '1px solid #EA003A', background: 'rgba(234,0,58,0.15)' } as CSSProperties,
+}
+
+// Visual, tap-to-pick icon grid — human-readable labels, never a raw icon
+// id for the admin to type or read.
+function IconPickerPanel({ value, onSelect }: { value: string | null; onSelect: (icon: string | undefined) => void }) {
+  return (
+    <div style={ICP.panel}>
+      <button type="button" style={{ ...ICP.option, ...(value === null ? ICP.optionActive : {}) }} onClick={() => onSelect(undefined)}>
+        <span style={ICP.optionIconEmpty}>—</span>
+        No icon
+      </button>
+      {CONTENT_ICON_IDS.map((id) => {
+        const Icon = resolveContentIcon(id)
+        if (!Icon) return null
+        return (
+          <button type="button" key={id} style={{ ...ICP.option, ...(value === id ? ICP.optionActive : {}) }} onClick={() => onSelect(id)}>
+            <Icon size={16} />
+            {CONTENT_ICON_LABELS[id]}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// Structured item editor — icon + text + reorder + delete. Used by What's
+// Included only. Each item is a ContentItem (string | {icon, text}) — a
+// plain string renders and edits exactly like before and is written back
+// as a plain string unless the admin assigns it an icon, which is the only
+// thing that upgrades it to object form. Clearing an item's icon converts
+// it back to a plain string, so nothing here forces existing data into a
+// new shape just by opening the editor.
+function ItemListEditor({
+  items,
+  onChange,
+  placeholder,
+}: {
+  items: ContentItem[]
+  onChange: (next: ContentItem[]) => void
+  placeholder: string
+}) {
+  const [pickerOpenFor, setPickerOpenFor] = useState<number | null>(null)
+
+  function update(i: number, patch: { icon?: string | undefined; text?: string }) {
+    const current = items[i]
+    const icon = 'icon' in patch ? patch.icon : getItemIcon(current) ?? undefined
+    const text = patch.text !== undefined ? patch.text : getItemText(current)
+    const next = [...items]
+    next[i] = icon ? { icon, text } : text
+    onChange(next)
+  }
+  function remove(i: number) {
+    onChange(items.filter((_, idx) => idx !== i))
+    setPickerOpenFor(null)
+  }
+  function move(i: number, dir: -1 | 1) {
+    const j = i + dir
+    if (j < 0 || j >= items.length) return
+    const next = [...items]
+    ;[next[i], next[j]] = [next[j], next[i]]
+    onChange(next)
+    setPickerOpenFor(null)
+  }
+
+  return (
+    <div>
+      {items.map((item, i) => {
+        const icon = getItemIcon(item)
+        const Icon = resolveContentIcon(icon)
+        const isOpen = pickerOpenFor === i
+        return (
+          <div key={i} style={{ marginBottom: '8px' }}>
+            <div style={S.row}>
+              <button
+                type="button"
+                style={{ ...S.iconBtn, ...(isOpen ? ICP.iconBtnActive : {}) }}
+                onClick={() => setPickerOpenFor(isOpen ? null : i)}
+                title={icon ? CONTENT_ICON_LABELS[icon as ContentIconId] ?? 'Icon' : 'Choose icon'}
+              >
+                {Icon ? <Icon size={16} /> : <span style={{ fontSize: '11px', opacity: 0.5 }}>—</span>}
+              </button>
+              <input
+                style={S.input}
+                value={getItemText(item)}
+                placeholder={placeholder}
+                onChange={(e) => update(i, { text: e.target.value })}
+              />
+              <button type="button" style={S.iconBtn} disabled={i === 0} onClick={() => move(i, -1)} title="Move up">↑</button>
+              <button type="button" style={S.iconBtn} disabled={i === items.length - 1} onClick={() => move(i, 1)} title="Move down">↓</button>
+              <button type="button" style={{ ...S.iconBtn, ...S.iconBtnDanger }} onClick={() => remove(i)} title="Delete">✕</button>
+            </div>
+            {isOpen && (
+              <IconPickerPanel
+                value={icon}
+                onSelect={(nextIcon) => {
+                  update(i, { icon: nextIcon })
+                  setPickerOpenFor(null)
+                }}
+              />
+            )}
+          </div>
+        )
+      })}
+      <button type="button" style={S.addBtn} onClick={() => onChange([...items, ''])}>
+        + Add custom item
+      </button>
+    </div>
+  )
+}
+
+const QA: Record<string, CSSProperties> = {
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '18px' },
+  tile: {
+    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px',
+    padding: '12px 6px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.10)',
+    background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.75)', cursor: 'pointer',
+    fontFamily: 'Inter, sans-serif', fontSize: '11px', fontWeight: 600, textAlign: 'center', lineHeight: 1.3,
+  },
+  tileIcon: {
+    width: '30px', height: '30px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    background: 'rgba(234,0,58,0.12)', color: '#EA003A', flexShrink: 0,
+  },
+  yourItemsHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' },
+  yourItemsLabel: { fontWeight: 600, fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)' },
+  clearAll: { fontSize: '12px', fontWeight: 600, color: '#EA003A', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif' },
+}
+
+// Quick Add tile grid for What's Included — admin-only convenience.
+// Selecting a preset just appends a normal {icon, text} ContentItem; no
+// preset id is ever stored, and components/ProductPage.tsx never imports
+// lib/whatsIncludedPresets.ts.
+function WhatsIncludedQuickAdd({
+  items,
+  onAdd,
+  onClear,
+}: {
+  items: ContentItem[]
+  onAdd: (preset: WhatsIncludedPreset) => void
+  onClear: () => void
+}) {
+  return (
+    <>
+      <p style={{ ...S.label, margin: '14px 0 8px' }}>Quick add (tap to add)</p>
+      <div style={QA.grid}>
+        {WHATS_INCLUDED_PRESETS.map((preset) => {
+          const Icon = resolveContentIcon(preset.icon)
+          return (
+            <button key={preset.id} type="button" style={QA.tile} onClick={() => onAdd(preset)}>
+              <span style={QA.tileIcon}>{Icon && <Icon size={15} />}</span>
+              {preset.label}
+            </button>
+          )
+        })}
+      </div>
+      <div style={QA.yourItemsHead}>
+        <p style={QA.yourItemsLabel}>Your items ({items.length})</p>
+        {items.length > 0 && (
+          <button type="button" style={QA.clearAll} onClick={onClear}>
+            Clear all
+          </button>
+        )}
+      </div>
+    </>
   )
 }
 
@@ -347,7 +529,7 @@ export default function ContentTab({ productId }: { productId: string }) {
 
       <div style={S.card}>
         <p style={S.sectionTitle}>Highlights — why join</p>
-        <StringListEditor
+        <TextListEditor
           items={content.highlights}
           onChange={(v) => setField('highlights', v)}
           placeholder="e.g. Hosted intros — nobody stays a stranger"
@@ -361,7 +543,22 @@ export default function ContentTab({ productId }: { productId: string }) {
 
       <div style={S.card}>
         <p style={S.sectionTitle}>What&rsquo;s included</p>
-        <StringListEditor
+        <p style={S.hint}>What guests get as part of this event. The only field with icons.</p>
+        <WhatsIncludedQuickAdd
+          items={content.whats_included}
+          onAdd={(preset) => {
+            // Best-effort duplicate guard on exact preset taps only — never
+            // applies to custom-typed text, which admins should be free to
+            // repeat.
+            const already = content.whats_included.some(
+              (it) => getItemText(it).trim().toLowerCase() === preset.text.trim().toLowerCase() && preset.text.trim() !== ''
+            )
+            if (already) return
+            setField('whats_included', [...content.whats_included, { icon: preset.icon, text: preset.text }])
+          }}
+          onClear={() => setField('whats_included', [])}
+        />
+        <ItemListEditor
           items={content.whats_included}
           onChange={(v) => setField('whats_included', v)}
           placeholder="e.g. Welcome drink"
@@ -370,7 +567,7 @@ export default function ContentTab({ productId }: { productId: string }) {
 
       <div style={S.card}>
         <p style={S.sectionTitle}>What&rsquo;s not included</p>
-        <StringListEditor
+        <TextListEditor
           items={content.whats_not_included}
           onChange={(v) => setField('whats_not_included', v)}
           placeholder="e.g. Transport to the venue"
@@ -379,7 +576,7 @@ export default function ContentTab({ productId }: { productId: string }) {
 
       <div style={S.card}>
         <p style={S.sectionTitle}>Important info — good to know</p>
-        <StringListEditor
+        <TextListEditor
           items={content.important_info}
           onChange={(v) => setField('important_info', v)}
           placeholder="e.g. Smart casual dress code"
