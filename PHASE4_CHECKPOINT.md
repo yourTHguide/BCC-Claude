@@ -1,27 +1,47 @@
 # Phase 4 — Internal Product & Schedule Builder — Checkpoint
 
-_Last updated: 2026-08-23 (session paused — context window nearly full — with ONE unresolved launch blocker: Alex Chen's real iPhone QR scan still crashes. No application code changed since Stage 9l's last commit; this update is documentation + test-data reset only.)_
+_Last updated: 2026-08-24. The QR-scan crash below (previously the one open
+launch blocker) is RESOLVED and physically verified. A real, live Stripe
+payment has now been run through the full Stage 9 booking lifecycle
+end-to-end and verified. New in Bangkok is back to Draft/invisible after
+the test — see "Stage 9m" below for the full result and what's left before
+a real launch._
 
-## ⏸ SESSION PAUSED — read this section first
+## Where things stand right now
 
-**Branch:** `claude/phase4c-content-media-audit-dvu5c1`
-**HEAD:** `564e992` ("Stage 9l: record final live verification of the getAppUrl() fix") — this checkpoint edit and an Alex-attendance-status DB reset are the only things after it; both are non-code.
-**Working tree:** clean (only the usual harmless `tsconfig.tsbuildinfo` drift, never committed by convention in this repo).
-**Deployment used for the last round of testing:**
-`https://bcc-claude-44w91864y-bestnightlifethailand-projects.vercel.app`
-(built from `bd3e3fa`, one commit behind current HEAD — HEAD's own commit was doc-only, so this is still the right deployment to resume against; confirm it's still the latest before reusing, since every push creates a new one).
+**Branch:** `claude/stripe-e2e-new-bangkok-1v46mg` (rebased onto
+`claude/qr-email-iphone-crash-mvk3tj` @ `69f5d77`, then two further commits
+on top — see Stage 9m). **NOT merged to `main`.**
+**Working tree:** clean.
 
-### THE ONE UNRESOLVED LAUNCH BLOCKER
-**Guide physically scanned Alex Chen's real QR on her iPhone and Safari still
-showed "Application error: a client-side exception has occurred" — AFTER
-the `lib/appUrl.ts` hostname fix below was deployed and independently
-verified from this session's sandbox.** Do not assume the hostname fix
-solved this. It fixed a REAL, confirmed architectural bug (see below), but
-Guide's own physical-device retest after that fix was still failing. The
-exact cause of what she sees on her physical device remains unknown and
-UNVERIFIED beyond what's documented below — the next session must
-diagnose it as a fresh, still-open problem, not as a "double-check" of an
-already-solved fix.
+### QR-scan crash — RESOLVED, physically verified (commit `69f5d77`)
+Previously recorded here as "THE ONE UNRESOLVED LAUNCH BLOCKER": Guide's
+real iPhone scan of Alex Chen's QR crashed with "Application error: a
+client-side exception has occurred" even after the `lib/appUrl.ts` hostname
+fix (Stage 9l) was verified from sandbox. **Root cause, found live via a
+temporary diagnostic error boundary that captured the real thrown error:**
+`app/dashboard/checkin/page.tsx`'s `onScanSuccess` callback already called
+`instance.stop()` on the `html5-qrcode` scanner before navigating to
+`/dashboard/checkin/[token]`; that navigation unmounted the scanner
+component, whose cleanup effect called `instance.stop()` a SECOND,
+unconditional time on an already-stopped instance. `html5-qrcode` throws
+this synchronously (not a rejected promise), so `.catch(() => {})` could
+never intercept it; React attributed the cleanup-phase throw to the
+nearest error boundary, which rendered over the page the navigation had
+already committed to — matching exactly what Guide saw, and explaining why
+the resolver's own `GET /api/admin/checkin/[token]` still logged clean
+200s every time (a trailing error from the OLD page's teardown, unrelated
+to the new page's own successful fetch). **Fix:** a `running` flag set to
+`false` synchronously the instant `onScanSuccess` decides to stop the
+scanner, so the cleanup effect never attempts a redundant `stop()`; the
+cleanup's `stop()` call is also now wrapped in a real `try/catch` (not
+`.catch()`) as defense-in-depth against the same bug class elsewhere.
+Verified: `npx tsc --noEmit`/`npm run build` clean, and — per Guide,
+2026-08-24 — a real physical iPhone scan against a real test booking's QR
+worked end-to-end with no crash, confirming the fix directly (this
+predates and is separate from the Stripe payment test in Stage 9m below;
+Guide intends to personally scan/check in the real paid booking from
+Stage 9m separately — not yet done as of this update).
 
 ### What WAS diagnosed and fixed this session (don't repeat this investigation)
 1. **Decoded the actual deployed QR image byte-for-byte** (`jsQR` + `pngjs`
@@ -91,22 +111,20 @@ structure from Stage 9l) — a small, contained edit to
 `emails/confirmation.ts`'s `ticketCtaHtml` template string.
 
 ### Standing invariants — verify, don't just trust this doc
-- `bookings` where `ticket_token='preview-test-alexchen-b7d2f4a19c3e0561'`
-  (Alex Chen) — **reset to `attendance_status='expected'` as of this
-  update** (it had drifted to `checked_in` twice already from Guide's own
-  testing of the direct-resolve fallback link and/or partial API success
-  before a crash — check it again at the start of the next session, don't
-  assume it's still `expected`).
-- `bookings` where `ticket_token='preview-test-9c8f2a1b4e6d3c5f7a9b1d2e4f6c8a0b'`
-  (Jamie Rivera) — `attendance_status='checked_in'` (from her earlier
-  successful real scan test; no action needed, not a blocker).
-- `products` where `slug='new-in-bkk'` — `status='draft'`,
-  `visible_bcc=false`, `visible_bnt=false`. Do not publish. Verify this at
-  the start of the next session too.
-- **No Stripe test has been run.** No real transaction, no live checkout
-  exercised this entire Stage 9 sequence.
-- **Not merged to `main`.** All Stage 9 work lives only on
-  `claude/phase4c-content-media-audit-dvu5c1`.
+**Superseded by Stage 9m below (2026-08-24) — kept here as the historical
+record of this session's state, not the current one:**
+- Alex Chen's and Jamie Rivera's `preview-test-*` bookings no longer
+  exist — both deleted during Stage 9m cleanup.
+- `products` where `slug='new-in-bkk'` — still `status='draft'`,
+  `visible_bcc=false`, `visible_bnt=false` as of the end of Stage 9m
+  (was briefly `active`/`visible_bcc=true` DURING the real payment test,
+  then restored). Verify this at the start of the next session regardless
+  — don't assume it's still Draft just because this doc says so.
+- **A real Stripe test HAS now been run** — see Stage 9m. One real live
+  payment, one real booking (`stripe_session_id` starting
+  `cs_live_b1ma6R3p...`), preserved as a legitimate record.
+- **Still not merged to `main`.** All Stage 9 work (including Stage 9m)
+  lives on `claude/stripe-e2e-new-bangkok-1v46mg`.
 
 ### Known non-blocking follow-up (do not fix unless asked)
 Host Operations (`/dashboard/host`, `GET /api/admin/host/events`) is
@@ -871,6 +889,170 @@ testing of the "direct resolved check-in" link had flipped it to
 `checked_in` a second time); `new-in-bkk` reconfirmed `status='draft'`,
 both `visible_*=false`.
 
+**Stage 9m — Real, live Stripe end-to-end acceptance test — RUN
+2026-08-24.** The one remaining item from the Stage 9 launch policy
+("a real paid Stripe transaction exercising the full chain... not yet
+run"): a genuine live-mode payment was taken through the actual checkout
+→ webhook → booking → email → ticket → QR chain, on the real production
+Stripe account and the real production Supabase project, reusing existing
+infrastructure throughout — no parallel Stripe/Vercel/Supabase setup.
+
+**Pre-payment audit (branch `claude/stripe-e2e-new-bangkok-1v46mg`,
+rebased onto `claude/qr-email-iphone-crash-mvk3tj` @ `69f5d77` — that
+branch, not `phase4c-content-media-audit-dvu5c1`, turned out to hold the
+actual latest Stage 9 work including the QR fix above; the checkpoint
+doc's own "Branch" pointer had gone stale across sessions) traced the full
+checkout→webhook→email→ticket→QR→check-in code path without redesigning
+anything, and found one real, fixable gap plus several infrastructure
+facts that needed verifying, not assuming:
+
+1. **Blocker A (fixed, commit `ca902ee`):** `app/api/create-checkout/route.ts`
+   was the one Stage 9 URL-building call site that never adopted
+   `getAppUrl()` — it hardcoded `NEXT_PUBLIC_APP_URL || 'https://bkkclubcrawl.com'`
+   for `success_url`/`cancel_url`, so a Preview-initiated checkout would
+   have redirected the browser back to production's pre-Stage-9
+   `/booking-success` after payment. Swapped for `getAppUrl()`, matching
+   every other Stage 9 call site. Minimal, single-file change; verified
+   clean `tsc`/`build`.
+2. **`CHECKOUT_DYNAMIC_PRICING` was not actually active for this branch.**
+   Found via the Vercel dashboard, not assumed: the project had two
+   existing rows for this key — one scoped to Production, one scoped to
+   Preview but restricted to a **Custom Preview Branch** of
+   `phase4-stage0-baseline` specifically. Neither matched
+   `claude/stripe-e2e-new-bangkok-1v46mg`, so the flag would have resolved
+   to `undefined` on this deployment and silently fallen through to the
+   legacy hardcoded-Price checkout path (wrong product, wrong price, no
+   `event_id`/`product_id` metadata). Fixed by Guide adding a third row
+   scoped to Preview + this exact branch name, then redeploying.
+3. **Confirmed live Stripe account, confirmed production runs the legacy
+   checkout path today:** all 7 pre-existing real bookings had
+   `stripe_session_id` starting `cs_live_...` with `event_id`/`product_id`
+   NULL — live mode, legacy path, not assumed.
+4. **Temporary Stripe webhook, reaching a protected Preview deployment —
+   the actual mechanism, not a guess:** Vercel's Deployment Protection
+   ("Vercel Authentication") blocks unauthenticated requests to any
+   `*.vercel.app` URL for this project, including server-to-server ones.
+   Used Vercel's documented **Protection Bypass for Automation** — a
+   project-level secret appended as `?x-vercel-protection-bypass=<secret>`
+   — rather than disabling deployment protection project-wide. A second,
+   temporary Stripe LIVE webhook endpoint (listening ONLY to
+   `checkout.session.completed`) was pointed at this branch's stable
+   alias (`bcc-claude-git-claude-str-7dd00c-bestnightlifethailand-projects.vercel.app`)
+   with that query param; its own new signing secret was stored as a
+   Preview-scoped `STRIPE_WEBHOOK_SECRET` override (the existing
+   Production-scoped value untouched). **A real near-miss caught before
+   the real test:** the first bypass URL also included
+   `x-vercel-set-bypass-cookie=true`, which makes Vercel 307-redirect to
+   set a cookie instead of passing the request through — correct for a
+   browser flow, wrong for a one-shot POST from curl or Stripe. Caught by
+   testing with `curl -i` (saw the 307, not the expected response) before
+   Stripe was ever configured to use it; corrected to the bare
+   `?x-vercel-protection-bypass=<secret>` form (matches Vercel's own
+   documented webhook example), then reachability was independently
+   confirmed by curling the corrected URL and getting back this
+   deployment's own `400 {"error":"Invalid signature"}` — proof the
+   request reached our actual `/api/webhook` code, not Vercel's auth wall.
+5. **Product activated, one real checkout created, verified pre-payment:**
+   `new-in-bkk` flipped to `status='active'`, `visible_bcc=true`,
+   `visible_bnt=false` directly via SQL (mirroring exactly what the
+   Stage 7 activate endpoint would produce). One checkout session created
+   against the real Sept 1, 2026 event id via the dynamic `eventId` path
+   (confirmed used, not assumed: the request carried no `nightSlug`/
+   `eventDate`, so a legacy-path fallback would have hard-failed with
+   `400`instead of returning a session — it didn't). ฿590, quantity 1,
+   live mode (`cs_live_...`).
+
+**The real payment (completed 2026-08-24 by Guide personally; this session
+never had and does not have Stripe credentials to complete a charge
+itself):** first checkout link 404'd in-app (Stripe's generic
+"session not found" — traced to the very long percent-encoded URL
+fragment being mangled by an in-app browser hop, not a real defect; a
+second session, opened by pasting the full URL directly into Safari,
+worked). Result, verified directly against the database:
+
+- **Exactly one booking row created** — total count 9→10, enforced by the
+  pre-existing `UNIQUE(stripe_session_id)` constraint, not just observed.
+  `product_id`, `event_id`, `ticket_token`, `quantity=1`, `total_paid=590`,
+  correct guest name/email all present and correct.
+- Confirmation email received with the "View Ticket & QR" CTA; `/ticket/[token]`
+  loads correctly (QR, real meeting point, booking reference `NEW-01F2D2`);
+  the booking joins correctly to the Sept 1 `event_dates` row that
+  Event Operations/the dashboard calendar query by — all re-verified via
+  direct SQL after the fact, not assumed from the code trace alone.
+- **Real finding: a second, stray confirmation email was also sent** —
+  not a duplicate booking. Stripe delivers a `checkout.session.completed`
+  event to EVERY endpoint subscribed to it on the account, not just one;
+  the pre-existing PRODUCTION webhook (`www.bkkclubcrawl.com/api/webhook`,
+  running pre-Stage-9 code) also received and processed this same live
+  event independently of the temporary Preview one. Both attempted an
+  `INSERT`; the `UNIQUE(stripe_session_id)` constraint let only the first
+  (this session's Preview webhook, which won the race) succeed — so no
+  duplicate booking — but the production webhook's code doesn't stop on
+  that insert failure, it logs and continues, and unconditionally sends
+  its OWN (legacy, non-canonical, `ticket=null`) confirmation email
+  regardless. This is the one real, unplanned side effect a real launch
+  needs to be immune to — see "Recorded technical debt" below. Not
+  refactored now, per instruction, since it isn't launch-blocking (the
+  canonical booking/email/ticket path all worked correctly) and isn't
+  required to close this stage.
+- **Real UI bug found and fixed, commit `2f52a68`:** `app/booking-success/page.tsx`'s
+  post-payment subtitle and "WHAT HAPPENS NEXT" steps were hardcoded BCC
+  copy ("WhatsApp group by 7 PM", "show up at 9:30 PM") shown for every
+  product, including New in Bangkok. Fixed using the same
+  canonical-vs-legacy split pattern Stage 9k/9l already established for
+  the confirmation email: once a `ticketToken` resolves (Stage 9+ dynamic
+  checkout), the page shows generic, product-agnostic copy pointing to
+  the email/ticket/QR instead; a legacy booking with no ticket token
+  keeps the original BCC-specific copy unchanged. Also fixed the steps
+  list's last-item spacing, which was hardcoded to `step === '3'` and
+  would have broken once the canonical list has only 2 steps. Verified:
+  `tsc`/`build` clean. Not retroactively reflected in the email Guide
+  already received; applies to the page going forward.
+- **Real content gap found and fixed:** `product_content.whats_included`
+  for `new-in-bkk` said "Welcome shot on arrival" (singular) — the real
+  offer includes two shots, one at Don't Open the Fridge and one at APT
+  101. Updated directly via SQL (same shape the admin Content API writes)
+  to two separate `{icon:"wine", text:...}` items, keeping the existing
+  icon/card style, ahead of the "Hosted introductions"/"Entry to two
+  venues" items already there.
+
+**Recorded technical debt (not fixed, explicitly deferred per
+instruction):** the webhook (`app/api/webhook/route.ts`) should not send
+the customer confirmation email or the internal `ADMIN_NOTIFY_EMAIL` alert
+when its own booking `INSERT` fails because `stripe_session_id` already
+exists (i.e., a genuine "another endpoint/retry already recorded this
+payment" case, distinct from a real insert error worth alerting on) — right
+now it logs and sends anyway with `ticket=null`, which is what produced
+the stray legacy email during this test. Only surfaces when more than one
+webhook endpoint is subscribed to `checkout.session.completed` on the same
+Stripe account at once (true during this test's temporary dual-webhook
+setup; not the normal single-endpoint steady state) or on a genuine Stripe
+retry of an already-processed event. Not required for launch as currently
+scoped — noted here so it isn't rediscovered as a surprise later, not
+before this Stripe test.
+
+**Cleanup performed after the test, all confirmed via direct SQL:**
+- Temporary Stripe LIVE webhook endpoint — Guide is removing this
+  directly in the Stripe dashboard (this session has no Stripe API
+  access to do it itself); the existing production webhook was never
+  touched.
+- Alex Chen's and Jamie Rivera's `preview-test-*` bookings — deleted
+  (`DELETE ... WHERE ticket_token IN (...)`). The real ฿590 booking
+  (`stripe_session_id` starting `cs_live_b1ma6R3p...`) was explicitly
+  preserved as a legitimate paid booking, not touched.
+- `new-in-bkk` restored: `status='draft'`, `visible_bcc=false`,
+  `visible_bnt=false` — confirmed via `RETURNING`, not assumed.
+- Total `bookings` count after cleanup: 8 (the 7 original real BCC
+  bookings + this one real New in Bangkok booking). No other production
+  data touched.
+
+**What Stage 9m does NOT close:**
+- Guide has not yet physically scanned/checked in the real paid booking
+  (`ticket_token = pyzXGn9poN3RQOy6dRBc04X8p0Z2F9o0`) — she intends to do
+  this herself; this session was explicitly instructed not to check it in.
+- The stray-email technical debt above is open, not fixed.
+- Not merged to `main`. Not published — `new-in-bkk` is Draft again.
+
 ## BNT integration (separate track from the New in Bangkok onboarding below)
 A second, separately-audited storefront (`bestnightlifethailand.com`, repo
 `NightlifeAntigravity`, project `nightlife-antigravity`) will consume this
@@ -1211,7 +1393,9 @@ launching a new experience becomes an **admin task, not a code/SQL task**.
   it isn't rediscovered as a surprise later.
 
 ## How to resume
-1. `git fetch && git checkout phase4-stage0-baseline` (verify latest commit).
+1. `git fetch && git checkout claude/stripe-e2e-new-bangkok-1v46mg` (verify
+   latest commit — this is the current branch as of Stage 9m, 2026-08-24;
+   `phase4-stage0-baseline` is an old, now-superseded baseline branch).
 2. Scope the next stage, keep changes additive + Preview-only, never merge to
    `main` without explicit approval.
 3. Test with unmistakable `zzz-*` Draft products, verify in the DB via direct
