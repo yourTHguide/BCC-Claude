@@ -1,13 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
 const DAY_LABELS = ['Mo','Tu','We','Th','Fr','Sa','Su']
@@ -183,30 +177,48 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
   }, [event.id])
 
   async function loadDetail() {
-    const [b, o, e] = await Promise.all([
-      supabase.from('bookings').select('*').eq('event_date', event.event_date).eq('night_slug', event.night_slug).eq('status','confirmed'),
-      supabase.from('ota_bookings').select('*').eq('event_date', event.event_date).eq('night_slug', event.night_slug),
-      supabase.from('expenses').select('*').eq('event_date', event.event_date).eq('night_slug', event.night_slug),
-    ])
-    setBookings(b.data || [])
-    setOtaBookings(o.data || [])
-    setExpenses(e.data || [])
+    const params = new URLSearchParams({ eventDate: event.event_date, nightSlug: event.night_slug })
+    const res = await fetch(`/api/admin/dashboard/day-detail?${params}`)
+    const data = await res.json().catch(() => ({} as any))
+    setBookings(data.bookings || [])
+    setOtaBookings(data.otaBookings || [])
+    setExpenses(data.expenses || [])
   }
 
   async function toggleOpen() {
-    await supabase.from('event_dates').update({ is_open: !localEvent.is_open }).eq('id', localEvent.id)
+    await fetch(`/api/admin/dashboard/events/${localEvent.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isOpen: !localEvent.is_open }),
+    })
     setLocalEvent(e => ({ ...e, is_open: !e.is_open }))
     onUpdate()
   }
 
   async function updateHost(host: string) {
-    await supabase.from('event_dates').update({ host_assigned: host }).eq('id', localEvent.id)
+    await fetch(`/api/admin/dashboard/events/${localEvent.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hostAssigned: host }),
+    })
     setLocalEvent(e => ({ ...e, host_assigned: host }))
     onUpdate()
   }
 
   async function addOTA() {
-    await supabase.from('ota_bookings').insert({ event_date: event.event_date, night_slug: event.night_slug, ...otaForm, total_paid: parseInt(otaForm.total_paid)||0 })
+    await fetch('/api/admin/dashboard/ota-bookings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        eventDate: event.event_date,
+        nightSlug: event.night_slug,
+        source: otaForm.source,
+        guestName: otaForm.guest_name,
+        guestEmail: otaForm.guest_email,
+        quantity: otaForm.quantity,
+        totalPaid: parseInt(otaForm.total_paid) || 0,
+      }),
+    })
     setAddingOTA(false)
     setOtaForm({ source:'klook', guest_name:'', guest_email:'', quantity:1, total_paid:'' })
     loadDetail()
@@ -241,18 +253,42 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
   }
 
   async function addExpense() {
-    await supabase.from('expenses').insert({ event_date: event.event_date, night_slug: event.night_slug, ...expForm, amount: parseInt(expForm.amount)||0 })
+    await fetch('/api/admin/dashboard/expenses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        eventDate: event.event_date,
+        nightSlug: event.night_slug,
+        category: expForm.category,
+        description: expForm.description,
+        amount: parseInt(expForm.amount) || 0,
+      }),
+    })
     setAddingExp(false)
     setExpForm({ category:'van', description:'', amount:'' })
     loadDetail()
   }
 
   // ── Operations layer handlers ──
-  // event_dates has a permissive public UPDATE policy already (see toggleOpen/
-  // updateHost above), so these write directly via the client like the rest
-  // of this panel does — no new API route needed for them.
+  // Security migration (Phase 2A): previously wrote directly to event_dates
+  // via the anon-key client (same permissive public UPDATE policy toggleOpen/
+  // updateHost used above); now routed through the same requireAdmin()-gated
+  // PATCH endpoint they use, via an explicit field-name allowlist server-side.
   async function saveOpsField(patch: Partial<EventDate>) {
-    await supabase.from('event_dates').update(patch).eq('id', localEvent.id)
+    const body: Record<string, any> = {}
+    if ('operation_verdict' in patch) body.operationVerdict = patch.operation_verdict
+    if ('meet_up_location' in patch) body.meetUpLocation = patch.meet_up_location
+    if ('whatsapp_group_link' in patch) body.whatsappGroupLink = patch.whatsapp_group_link
+    if ('venue_route' in patch) body.venueRoute = patch.venue_route
+    if ('van_or_taxi_contact' in patch) body.vanOrTaxiContact = patch.van_or_taxi_contact
+    if ('special_notes' in patch) body.specialNotes = patch.special_notes
+    if ('host_fee_final' in patch) body.hostFeeFinal = patch.host_fee_final
+    if ('host_payment_status' in patch) body.hostPaymentStatus = patch.host_payment_status
+    await fetch(`/api/admin/dashboard/events/${localEvent.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
     setLocalEvent(e => ({ ...e, ...patch }))
     onUpdate()
   }
@@ -825,16 +861,16 @@ export default function Dashboard() {
     // cause of a real bug: Sept 1 New in Bangkok + a long-closed legacy
     // Solo Night both fall on the same date, and an unordered fetch
     // happened to return the closed one first).
-    const { data } = await supabase.from('event_dates').select('*')
-      .gte('event_date',start).lte('event_date',end)
-      .order('event_date').order('is_open',{ascending:false}).order('created_at')
-    setEvents(data||[])
+    const res = await fetch(`/api/admin/dashboard/events?start=${start}&end=${end}`)
+    const data = await res.json().catch(() => ({} as any))
+    setEvents(data.events||[])
     setLoading(false)
   }, [calYear, calMonth])
 
   const loadBookings = useCallback(async () => {
-    const { data } = await supabase.from('bookings').select('*').eq('status','confirmed').order('created_at',{ascending:false})
-    setAllBookings(data||[])
+    const res = await fetch('/api/admin/dashboard/bookings')
+    const data = await res.json().catch(() => ({} as any))
+    setAllBookings(data.bookings||[])
   }, [])
 
   async function resendConfirmation(bookingId: string) {
