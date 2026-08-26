@@ -40,6 +40,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   for (const [key, column] of Object.entries(ALLOWED)) {
     if (key in body) patch[column] = body[key]
   }
+  // TEMPORARY diagnostic for the Phase 2A verdict-regression investigation —
+  // remove once root-caused. Logs only operational event_dates fields, no PII.
+  console.log('admin/dashboard/events/[id]: PATCH', { id: params.id, receivedKeys: Object.keys(body), patch })
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
   }

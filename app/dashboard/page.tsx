@@ -274,7 +274,17 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
   // via the anon-key client (same permissive public UPDATE policy toggleOpen/
   // updateHost used above); now routed through the same requireAdmin()-gated
   // PATCH endpoint they use, via an explicit field-name allowlist server-side.
-  async function saveOpsField(patch: Partial<EventDate>) {
+  //
+  // Regression fix (verdict/modal freeze): this previously fired the PATCH
+  // and applied the local optimistic update unconditionally, never checking
+  // whether the request actually succeeded — matching the OLD anon-key
+  // client's behavior, but not the res.ok-checked pattern this same file
+  // already uses for deleteOTABooking/updateAttendance. A confirm-modal
+  // caller (updateVerdict, markHostPaid) also never awaited this, so the
+  // modal closed before the save even reached the server, leaving no visual
+  // feedback while a request was still in flight. Now returns whether the
+  // save succeeded, and both confirm-modal callers await it.
+  async function saveOpsField(patch: Partial<EventDate>): Promise<boolean> {
     const body: Record<string, any> = {}
     if ('operation_verdict' in patch) body.operationVerdict = patch.operation_verdict
     if ('meet_up_location' in patch) body.meetUpLocation = patch.meet_up_location
@@ -284,13 +294,24 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
     if ('special_notes' in patch) body.specialNotes = patch.special_notes
     if ('host_fee_final' in patch) body.hostFeeFinal = patch.host_fee_final
     if ('host_payment_status' in patch) body.hostPaymentStatus = patch.host_payment_status
-    await fetch(`/api/admin/dashboard/events/${localEvent.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
+    try {
+      const res = await fetch(`/api/admin/dashboard/events/${localEvent.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({} as any))
+        alert(`Couldn't save: ${errBody.error || res.statusText}`)
+        return false
+      }
+    } catch (err: any) {
+      alert(`Couldn't save: ${err?.message || 'network error, please try again'}`)
+      return false
+    }
     setLocalEvent(e => ({ ...e, ...patch }))
     onUpdate()
+    return true
   }
 
   function updateVerdict(verdict: string) {
@@ -301,7 +322,7 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
           ? `Mark ${localEvent.night_name} on ${event.event_date} as Operation Confirmed? This unlocks the "Send Confirmed Meetup" email.`
           : `Mark ${localEvent.night_name} on ${event.event_date} as Cancelled / Rescheduled? This does not automatically refund or notify guests — use the Bookings tab for that.`,
         confirmLabel: 'Confirm',
-        onConfirm: () => { saveOpsField({ operation_verdict: verdict }); setConfirmModal(null) },
+        onConfirm: async () => { await saveOpsField({ operation_verdict: verdict }); setConfirmModal(null) },
       })
     } else {
       saveOpsField({ operation_verdict: verdict })
@@ -360,7 +381,7 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
       title: 'Mark host payment as Paid?',
       message: `Confirm ${localEvent.host_assigned || 'the assigned host'} has been paid ฿${(localEvent.host_fee_final||0).toLocaleString()} for this date.`,
       confirmLabel: 'Mark Paid',
-      onConfirm: () => { saveOpsField({ host_payment_status: 'Paid' }); setConfirmModal(null) },
+      onConfirm: async () => { await saveOpsField({ host_payment_status: 'Paid' }); setConfirmModal(null) },
     })
   }
 
