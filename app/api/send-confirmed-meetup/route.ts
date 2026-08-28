@@ -4,6 +4,7 @@ import { Resend } from 'resend'
 import { generateConfirmedMeetupEmail } from '@/emails/confirmed-meetup'
 import type { Storefront } from '@/lib/storefront'
 import { resendFromHeader } from '@/lib/storefrontBrand'
+import { requireAdmin } from '@/lib/admin-auth'
 
 // Lazily instantiated — see lib/supabase.ts for why: constructing this at
 // module scope crashes the Next.js build-time "collecting page data" step
@@ -13,6 +14,9 @@ function getResend() {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdmin()
+  if ('response' in auth) return auth.response
+
   try {
     const { eventId } = await req.json()
     if (!eventId) {

@@ -5,6 +5,7 @@ import { Resend } from 'resend'
 import { generateConfirmationEmail } from '@/emails/confirmation'
 import type { Storefront } from '@/lib/storefront'
 import { resendFromHeader } from '@/lib/storefrontBrand'
+import { requireRole } from '@/lib/admin-auth'
 
 // Lazily instantiated so importing this route doesn't run the Resend
 // constructor during Next.js's build-time "collecting page data" step,
@@ -14,6 +15,9 @@ function getResend() {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireRole(['owner', 'admin'])
+  if ('response' in auth) return auth.response
+
   try {
     const { bookingId } = await req.json()
     if (!bookingId) {

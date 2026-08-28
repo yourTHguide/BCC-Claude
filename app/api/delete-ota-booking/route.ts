@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
+import { requireRole } from '@/lib/admin-auth'
 
 export async function POST(req: NextRequest) {
+  const auth = await requireRole(['owner', 'admin'])
+  if ('response' in auth) return auth.response
+
   try {
     const { id } = await req.json()
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
