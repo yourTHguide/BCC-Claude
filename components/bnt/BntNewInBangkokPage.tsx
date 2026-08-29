@@ -176,8 +176,8 @@ export default function BntNewInBangkokPage({ product, content, upcomingEvents }
       >
         <div style={{ position: 'absolute', inset: 0 }}>
           <img
-            src={IMG.cheers}
-            alt="Guests laughing and toasting together at a Bangkok social night"
+            src={IMG.speakeasy}
+            alt="Guests talking in a low-lit Bangkok speakeasy"
             style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: '60% 35%' }}
           />
           <div
@@ -305,8 +305,8 @@ export default function BntNewInBangkokPage({ product, content, upcomingEvents }
               n: '01',
               h: 'Start easy',
               b: 'Meet at our first speakeasy, try your first cocktail tasting shot and let your host make the introductions.',
-              img: IMG.speakeasy,
-              alt: 'Guests talking in a low-lit Bangkok speakeasy',
+              img: IMG.cheers,
+              alt: 'Guests laughing and toasting together at a Bangkok social night',
             },
             {
               n: '02',
