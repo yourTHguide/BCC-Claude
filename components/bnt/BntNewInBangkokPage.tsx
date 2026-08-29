@@ -160,7 +160,7 @@ export default function BntNewInBangkokPage({ product, content, upcomingEvents }
   const finalCtaLabel = hasUpcoming ? 'Book New in Bangkok' : 'Check upcoming dates'
 
   return (
-    <main style={{ position: 'relative', overflowX: 'hidden', background: '#1A0015', color: '#FFFFFF' }}>
+    <main style={{ position: 'relative', overflowX: 'hidden', background: '#070707', color: '#FFFFFF' }}>
       <SiteHeader brand={brand} bookHref={bookHref} />
 
       {/* 01 HERO */}
@@ -184,14 +184,14 @@ export default function BntNewInBangkokPage({ product, content, upcomingEvents }
             style={{
               position: 'absolute',
               inset: 0,
-              background: 'linear-gradient(to bottom, rgba(26,0,21,0.55) 0%, rgba(26,0,21,0.55) 45%, #1A0015 100%)',
+              background: 'linear-gradient(to bottom, rgba(7,7,7,0.55) 0%, rgba(7,7,7,0.55) 45%, #070707 100%)',
             }}
           />
           <div
             style={{
               position: 'absolute',
               inset: 0,
-              background: 'linear-gradient(to right, rgba(26,0,21,0.85) 0%, rgba(26,0,21,0.30) 55%, transparent 100%)',
+              background: 'linear-gradient(to right, rgba(7,7,7,0.85) 0%, rgba(7,7,7,0.30) 55%, transparent 100%)',
             }}
           />
         </div>
@@ -526,7 +526,7 @@ export default function BntNewInBangkokPage({ product, content, upcomingEvents }
           not replaced), no "confirm within the hour" claim. */}
       <section style={{ position: 'relative', overflow: 'hidden', padding: '80px 24px', textAlign: 'center' }}>
         <img src={IMG.apt101} alt="" aria-hidden="true" loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: -2 }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, #1A0015 0%, rgba(26,0,21,0.82) 40%, #1A0015 100%)', zIndex: -1 }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, #070707 0%, rgba(7,7,7,0.82) 40%, #070707 100%)', zIndex: -1 }} />
 
         <div style={{ maxWidth: '640px', margin: '0 auto' }}>
           <SectionHeadline size="xl">
@@ -615,7 +615,8 @@ export default function BntNewInBangkokPage({ product, content, upcomingEvents }
           display: none;
           position: fixed; left: 0; right: 0; bottom: 0; z-index: 250;
           align-items: center; justify-content: space-between;
-          background: linear-gradient(135deg, #EA003A 0%, #820065 100%);
+          background: rgba(7,7,7,0.95);
+          border-top: 1px solid rgba(255,255,255,0.10);
           padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
         }
         .nib-sticky-text { font-family: Inter, sans-serif; font-size: 13px; color: rgba(255,255,255,0.90); margin: 0; }
@@ -623,7 +624,7 @@ export default function BntNewInBangkokPage({ product, content, upcomingEvents }
         .nib-sticky-cta {
           font-family: Inter, sans-serif; font-weight: 700; font-size: 12px;
           letter-spacing: 0.14em; text-transform: uppercase; color: #FFFFFF;
-          text-decoration: none; background: rgba(0,0,0,0.20);
+          text-decoration: none; background: linear-gradient(135deg, #EA003A 0%, #820065 100%);
           padding: 10px 18px; border-radius: 9999px; flex-shrink: 0;
         }
 
@@ -666,7 +667,7 @@ function SiteHeader({ brand, bookHref }: { brand: ReturnType<typeof brandFor>; b
         left: 0,
         right: 0,
         zIndex: 200,
-        background: 'rgba(26,0,21,0.75)',
+        background: 'rgba(7,7,7,0.50)',
         backdropFilter: 'blur(14px)',
         borderBottom: '1px solid rgba(255,255,255,0.06)',
       }}
