@@ -373,7 +373,7 @@ export default function BntNewInBangkokPage({ product, content, upcomingEvents }
             { Icon: MapPin, t: `${VENUE_COUNT} venues` },
             { Icon: UserRound, t: 'Hosted night' },
             { Icon: Martini, t: 'A tasting at each venue' },
-            { Icon: Sparkles, t: 'Made for meeting people' },
+            { Icon: Sparkles, t: 'Designed to connect' },
           ].map(({ Icon, t }) => (
             <li key={t} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
               <Icon size={18} strokeWidth={1.5} color="#EA003A" style={{ flexShrink: 0, marginTop: '2px' }} />
@@ -411,12 +411,17 @@ export default function BntNewInBangkokPage({ product, content, upcomingEvents }
           Real conversations. No forced networking, no matching, no pressure.
         </p>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginTop: '28px' }} className="nib-proof-grid">
-          <div style={{ gridColumn: 'span 2' }} className="nib-proof-main">
-            <Figure src={IMG.apt101} alt="Crowd under red lights at the second venue" aspect="16 / 10" />
+        {/* Photography hierarchy (Stage 4B): primary slot = people connecting
+            (laughing), secondary/tertiary = doing-the-experience/venue
+            documentation (apt101/neonsign) — reordered from the Lovable
+            source's own apt101-primary arrangement to satisfy that
+            hierarchy; same three approved assets, no new imagery. */}
+        <div style={{ display: 'grid', gap: '12px', marginTop: '28px' }} className="nib-proof-grid">
+          <div className="nib-proof-main">
+            <Figure src={IMG.laughing} alt="Guests laughing together" aspect="16 / 10" />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }} className="nib-proof-side">
-            <Figure src={IMG.laughing} alt="Guests laughing together" aspect="1 / 1" />
+            <Figure src={IMG.apt101} alt="Crowd under red lights at the second venue" aspect="1 / 1" />
             <Figure src={IMG.neonsign} alt="Neon sign: pool table, beer pong, games, karaoke" aspect="1 / 1" />
           </div>
         </div>
@@ -605,7 +610,6 @@ export default function BntNewInBangkokPage({ product, content, upcomingEvents }
         .nib-good-to-know { grid-template-columns: 1fr; }
         .nib-venue-cards { grid-template-columns: 1fr; }
         .nib-proof-grid { grid-template-columns: 1fr; }
-        .nib-proof-main { grid-column: span 1 !important; }
 
         .nib-sticky-bar {
           display: none;
@@ -633,6 +637,8 @@ export default function BntNewInBangkokPage({ product, content, upcomingEvents }
           .nib-good-to-know { grid-template-columns: 2fr 1fr; gap: 48px; }
           .nib-venue-cards { grid-template-columns: 1fr 1fr; }
           .nib-quickvalue { grid-template-columns: repeat(4, 1fr); }
+          .nib-proof-grid { grid-template-columns: repeat(3, 1fr); }
+          .nib-proof-main { grid-column: span 2; }
         }
       `}</style>
     </main>
