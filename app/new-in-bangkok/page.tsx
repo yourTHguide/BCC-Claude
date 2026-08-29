@@ -1,10 +1,9 @@
 import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import ProductPage from '@/components/ProductPage'
+import BntNewInBangkokPage from '@/components/bnt/BntNewInBangkokPage'
 import { resolveStorefront } from '@/lib/storefront'
 import { loadPublicProductPage } from '@/lib/publicProductPage'
-import { brandFor } from '@/lib/storefrontBrand'
 
 export const dynamic = 'force-dynamic'
 
@@ -43,9 +42,11 @@ export default async function NewInBangkokPage() {
   const data = await loadPublicProductPage('new-in-bkk', storefront)
   if (!data) notFound()
 
-  // Stage 10 Phase 6 — closes the "no path back to Home/About/Contact" gap
-  // Phase 4 flagged and deliberately left open (new-in-bkk was Draft/
-  // invisible throughout, so no real visitor could hit it yet).
-  const brand = brandFor(storefront)
-  return <ProductPage {...data} mode="public" backHref={brand.homeHref} backLabel={brand.name} />
+  // Stage 3 (Lovable presentation port) — renders the NIB-specific
+  // BntNewInBangkokPage instead of the generic ProductPage, from the exact
+  // same loadPublicProductPage() data above (same gate, same shape, no
+  // second fetch/data layer). BntNewInBangkokPage owns its own header/footer
+  // and booking CTAs (all pointing at /book?night=<slug>), so no
+  // backHref/backLabel props are needed here the way ProductPage required.
+  return <BntNewInBangkokPage {...data} />
 }
