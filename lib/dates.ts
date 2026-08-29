@@ -38,3 +38,18 @@ export function formatStartTime(time: string | null): string | null {
   if (!time) return null
   return time.slice(0, 5)
 }
+
+// 12h "8:30 PM" from a Postgres TIME string ("20:30:00" or "20:30") — the
+// same conversion app/book/BookingCalendarClient.tsx's local `formatTime`
+// already does (minus its "– Late" suffix), centralized here so a new
+// caller doesn't need to re-derive it inline.
+export function formatStartTime12h(time: string | null): string | null {
+  if (!time) return null
+  const [hStr, mStr] = time.split(':')
+  let h = parseInt(hStr, 10)
+  if (Number.isNaN(h)) return null
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  h = h % 12
+  if (h === 0) h = 12
+  return `${h}:${mStr} ${ampm}`
+}
