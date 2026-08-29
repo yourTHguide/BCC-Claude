@@ -127,7 +127,7 @@ function SuccessContent({ storefront }: { storefront: Storefront }) {
   return (
     <div style={{
       minHeight: '100vh',
-      background: '#1A0015',
+      background: storefront === 'bnt' ? '#070707' : '#1A0015',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
@@ -261,7 +261,7 @@ function SuccessContent({ storefront }: { storefront: Storefront }) {
 export default function BookingSuccessClient({ storefront }: { storefront: Storefront }) {
   return (
     <Suspense fallback={
-      <div style={{ minHeight: '100vh', background: '#1A0015', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ minHeight: '100vh', background: storefront === 'bnt' ? '#070707' : '#1A0015', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <p style={{ color: 'rgba(255,255,255,0.40)', fontFamily: 'Inter, sans-serif' }}>Loading...</p>
       </div>
     }>

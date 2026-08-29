@@ -245,7 +245,11 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
     <div
       style={{
         minHeight: '100vh',
-        background: '#1A0015',
+        // BNT uses the neutral near-black system approved for New in
+        // Bangkok (Stage 4B-A); BCC keeps its existing purple/plum brand
+        // canvas unchanged. Scoped to this shared component's existing
+        // storefront prop -- no new architecture, no change to BCC.
+        background: storefront === 'bnt' ? '#070707' : '#1A0015',
         paddingTop: '64px',
         fontFamily: 'Inter, sans-serif',
       }}
@@ -256,7 +260,8 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
           position: 'fixed', top: 0, left: 0, right: 0, height: '64px',
           padding: '0 24px', display: 'flex', alignItems: 'center',
           justifyContent: 'space-between', zIndex: 100,
-          background: 'rgba(26,0,21,0.97)', backdropFilter: 'blur(12px)',
+          background: storefront === 'bnt' ? 'rgba(7,7,7,0.97)' : 'rgba(26,0,21,0.97)',
+          backdropFilter: 'blur(12px)',
           borderBottom: '1px solid rgba(255,255,255,0.06)',
         }}
       >
@@ -913,7 +918,7 @@ export default function BookingCalendarClient({ storefront }: { storefront: Stor
   return (
     <Suspense
       fallback={
-        <div style={{ minHeight: '100vh', background: '#1A0015', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ minHeight: '100vh', background: storefront === 'bnt' ? '#070707' : '#1A0015', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <p style={{ color: 'rgba(255,255,255,0.40)', fontFamily: 'Inter, sans-serif' }}>Loading…</p>
         </div>
       }

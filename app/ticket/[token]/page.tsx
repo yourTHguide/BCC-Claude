@@ -89,7 +89,10 @@ export default async function TicketPage({ params }: { params: { token: string }
   const S = {
     page: {
       minHeight: '100vh',
-      background: '#1A0015',
+      // Storefront comes from the booking record itself (booking.storefront,
+      // above) -- not the request Host -- so this is correct on every host,
+      // including Preview, with no Preview-QA scaffolding needed.
+      background: storefront === 'bnt' ? '#070707' : '#1A0015',
       display: 'flex',
       flexDirection: 'column' as const,
       alignItems: 'center',
