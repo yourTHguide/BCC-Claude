@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import type { Metadata } from 'next'
 import { resolveStorefront } from '@/lib/storefront'
 import { brandFor } from '@/lib/storefrontBrand'
+import { isNibPreviewQaBranch } from '@/lib/previewQaOverride'
 import BookingCalendarClient from './BookingCalendarClient'
 
 export const dynamic = 'force-dynamic'
@@ -76,6 +77,11 @@ export async function generateMetadata(): Promise<Metadata> {
 // this page yet either way).
 export default function BookPage() {
   const host = headers().get('host')
-  const storefront = resolveStorefront(host)
+  // isNibPreviewQaBranch() is temporary Stage 3A/3B/5B Preview-QA scaffolding
+  // (lib/previewQaOverride.ts) — always false in Production and on every
+  // other Preview branch, so this never changes real bkkclubcrawl.com/
+  // bestnightlifethailand.com behavior. Lets this branch's Preview exercise
+  // the real BNT booking flow for New in Bangkok end-to-end.
+  const storefront = isNibPreviewQaBranch() ? 'bnt' : resolveStorefront(host)
   return <BookingCalendarClient storefront={storefront} />
 }
