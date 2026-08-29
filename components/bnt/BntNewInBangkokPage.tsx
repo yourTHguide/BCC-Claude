@@ -33,6 +33,7 @@ import type {
 } from '@/components/ProductPage'
 import { formatStartTime12h } from '@/lib/dates'
 import { brandFor } from '@/lib/storefrontBrand'
+import { Playfair_Display } from 'next/font/google'
 import {
   CalendarDays,
   Clock,
@@ -51,6 +52,22 @@ export interface BntNewInBangkokPageProps {
   media: ProductPageMediaItem[]
   upcomingEvents: ProductPageUpcomingEvent[]
 }
+
+// Stage 4A — the editorial serif Lovable's design uses for every H1/H2
+// (its own `.font-display` rule, weight 500, both normal and italic faces
+// for the magenta emphasis clause). Loaded via next/font/google rather than
+// a runtime Google Fonts <link>: self-hosted at build time, scoped to this
+// component's own bundle only (BCC and every other route are unaffected —
+// this import never touches app/globals.css), and named-export so there is
+// exactly one instantiation to remove if this page's typography changes
+// again. Inter (already global) stays the only sans-serif for navigation,
+// body copy, metadata, labels, and buttons — untouched by this addition.
+const playfairDisplay = Playfair_Display({
+  subsets: ['latin'],
+  weight: ['500', '600'],
+  style: ['normal', 'italic'],
+  display: 'swap',
+})
 
 // ─── Presentation-only constants — NIB-specific storytelling, no canonical
 // source (see PHASE4_CHECKPOINT.md-adjacent recon: "venue count," the
@@ -184,11 +201,11 @@ export default function BntNewInBangkokPage({ product, content, upcomingEvents }
             <Eyebrow>A BEST NIGHTLIFE THAILAND SOCIAL NIGHT</Eyebrow>
             <h1
               style={{
-                fontFamily: 'Inter, sans-serif',
-                fontWeight: 700,
+                fontFamily: playfairDisplay.style.fontFamily,
+                fontWeight: 500,
                 fontSize: 'clamp(34px, 7vw, 60px)',
-                lineHeight: 1.05,
-                letterSpacing: '-0.01em',
+                lineHeight: 1.0,
+                letterSpacing: '-0.02em',
                 color: '#FFFFFF',
                 margin: '10px 0 0',
               }}
@@ -716,8 +733,19 @@ function TwoCol({ children, figure, reverse = false }: { children: React.ReactNo
 
 function SectionHeadline({ children, size = 'md' }: { children: React.ReactNode; size?: 'md' | 'lg' | 'xl' }) {
   const fontSize = size === 'xl' ? 'clamp(28px, 6vw, 46px)' : size === 'lg' ? 'clamp(24px, 5vw, 38px)' : 'clamp(24px, 5vw, 38px)'
+  const lineHeight = size === 'xl' ? 1.05 : 1.08
   return (
-    <h2 style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize, lineHeight: 1.15, letterSpacing: '-0.01em', color: '#FFFFFF', margin: 0 }}>
+    <h2
+      style={{
+        fontFamily: playfairDisplay.style.fontFamily,
+        fontWeight: 500,
+        fontSize,
+        lineHeight,
+        letterSpacing: '-0.02em',
+        color: '#FFFFFF',
+        margin: 0,
+      }}
+    >
       {children}
     </h2>
   )
