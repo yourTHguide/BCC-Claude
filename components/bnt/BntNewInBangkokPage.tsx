@@ -394,7 +394,7 @@ export default function BntNewInBangkokPage({ product, content, upcomingEvents }
 
       {/* 05 BEST HOSTING */}
       <Section border>
-        <TwoCol reverse figure={<Figure src={IMG.hosted} alt="Guests hosted around the bar, drinks in hand, mid-conversation" aspect="4 / 3" />}>
+        <TwoCol reverse figure={<Figure src={IMG.hosted} alt="Guests hosted around the bar, drinks in hand, mid-conversation" aspect="4 / 3" position="75% center" />}>
           <SectionHeadline size="lg">
             Hosted, so the room <em style={emStyle}>opens faster.</em>
           </SectionHeadline>
@@ -770,7 +770,17 @@ function Eyebrow({ children, color = 'rgba(255,255,255,0.55)' }: { children: Rea
   return <p className="nib-micro-caps" style={{ color, margin: 0 }}>{children}</p>
 }
 
-function Figure({ src, alt, aspect }: { src: string; alt: string; aspect: string }) {
+function Figure({
+  src,
+  alt,
+  aspect,
+  position = 'center',
+}: {
+  src: string
+  alt: string
+  aspect: string
+  position?: string
+}) {
   return (
     <figure
       style={{
@@ -783,7 +793,7 @@ function Figure({ src, alt, aspect }: { src: string; alt: string; aspect: string
       }}
       className="nib-figure"
     >
-      <img src={src} alt={alt} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      <img src={src} alt={alt} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: position }} />
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.40), transparent 55%)', pointerEvents: 'none' }} />
     </figure>
   )
