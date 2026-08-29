@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import BntNewInBangkokPage from '@/components/bnt/BntNewInBangkokPage'
 import { resolveStorefront } from '@/lib/storefront'
 import { loadPublicProductPage } from '@/lib/publicProductPage'
+import { isNibPreviewQaBranch } from '@/lib/previewQaOverride'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,30 +36,16 @@ export default async function NewInBangkokPage() {
   const host = headers().get('host')
   const storefront = resolveStorefront(host)
 
-  // Stage 3A — Preview-only visual-QA exception, LOCAL TO THIS ROUTE.
+  // Stage 3A/3B — Preview-only visual-QA exception (lib/previewQaOverride.ts).
   // resolveStorefront() itself is completely untouched: production hostname
   // routing (bestnightlifethailand.com -> 'bnt', bkkclubcrawl.com -> 'bcc',
   // any other host -> 'bcc') is unaffected, and this file never calls
   // resolveStorefront() with anything other than the real Host header above.
-  //
-  // Vercel serves this feature branch's Preview deployment from a
-  // *.vercel.app hostname, which resolveStorefront() correctly does NOT
-  // recognize as BNT — and must not: a blanket "*.vercel.app -> bnt" rule
-  // would misclassify every OTHER Preview deployment this app will ever
-  // have, including main's own. Instead this is a narrow, dual-keyed
-  // exception that only evaluates true when BOTH hold simultaneously:
-  //   1. VERCEL_ENV === 'preview' — never true in Production, where Vercel
-  //      always sets this to 'production'.
-  //   2. VERCEL_GIT_COMMIT_REF === this exact branch name — never true for
-  //      any other branch's Preview build.
-  // Both are Vercel System Environment Variables this project already reads
-  // server-side elsewhere (lib/appUrl.ts's VERCEL_ENV/VERCEL_URL check), so
-  // this relies on no new infrastructure. Remove this block once visual QA
-  // on this branch is done and before merging to main.
-  const isThisPreviewBranch =
-    process.env.VERCEL_ENV === 'preview' &&
-    process.env.VERCEL_GIT_COMMIT_REF === 'claude/new-in-bangkok-lovable-port'
-  const effectiveStorefront = isThisPreviewBranch ? 'bnt' : storefront
+  // isNibPreviewQaBranch() is false everywhere except this exact branch's
+  // own Preview deployment — see that file for the full explanation. The
+  // same helper also gates app/page.tsx and app/about/page.tsx (Stage 3B)
+  // so this page's own Home/About links stay on BNT during Preview QA.
+  const effectiveStorefront = isNibPreviewQaBranch() ? 'bnt' : storefront
 
   if (effectiveStorefront !== 'bnt') {
     notFound()

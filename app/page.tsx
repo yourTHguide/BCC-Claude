@@ -13,6 +13,7 @@ import FinalCTA from '@/components/FinalCTA'
 import Footer from '@/components/Footer'
 import StickyBar from '@/components/StickyBar'
 import { resolveStorefront } from '@/lib/storefront'
+import { isNibPreviewQaBranch } from '@/lib/previewQaOverride'
 import BntLandingPage from '@/components/bnt/BntLandingPage'
 
 export const dynamic = 'force-dynamic'
@@ -48,7 +49,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function Home() {
   const host = headers().get('host')
-  if (resolveStorefront(host) === 'bnt') {
+  // isNibPreviewQaBranch() is temporary Stage 3A/3B Preview-QA scaffolding
+  // (lib/previewQaOverride.ts) — always false in Production, so this OR
+  // never changes real bestnightlifethailand.com/bkkclubcrawl.com behavior.
+  if (resolveStorefront(host) === 'bnt' || isNibPreviewQaBranch()) {
     return <BntLandingPage />
   }
 
