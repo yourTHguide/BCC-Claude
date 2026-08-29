@@ -1,6 +1,15 @@
 # Phase 4 — Internal Product & Schedule Builder — Checkpoint
 
-_Last updated: 2026-08-24 — Phase 8 Gate A: `bestnightlifethailand.com` and
+_Last updated: 2026-08-28 — **Security remediation (Phases 1–3) COMPLETE,
+LIVE IN PRODUCTION at commit `b9ca410ebc919588cbadb866de4985b31f063e86`.**
+The critical `rls_disabled_in_public` Supabase advisor warning that triggered
+this remediation, and the broader anon-key/authorization exposure it led to
+auditing, are now resolved in production — see "Security Remediation —
+Phases 1–3" immediately below for the full record. Preceded by Phase 8 Gate
+A (BNT domain cutover, 2026-08-24), still accurate and unaffected by this
+work; its own record is retained below._
+
+_Previously last updated: 2026-08-24 — Phase 8 Gate A: `bestnightlifethailand.com` and
 `www.bestnightlifethailand.com` moved from the legacy `nightlife-antigravity`
 Vercel project to the unified `bcc-claude` production project. Real BNT host
 verified live: homepage/About/Contact/Book render correctly, BNT chrome, no
@@ -20,6 +29,134 @@ BNT/storefront consolidation (this branch's history). The original "Stage
 at the time unresolved — is kept immediately below Stage 10 for history;
 it was later root-caused and fixed on `main` (see "Where things stand
 right now" → "QR-scan crash — RESOLVED")._
+
+## Security Remediation — Phases 1–3 — COMPLETE, applied 2026-08-26/27/28, LIVE IN PRODUCTION
+
+**Trigger:** a live Supabase security-advisor warning, `rls_disabled_in_public`
+("Table publicly accessible — Row-Level Security is not enabled"), which led
+to a full audit of RLS posture and API authorization across the production
+Supabase project (`oomhftxgvikzxlvqdcmr`, `BCC - Claude`) and the `bcc-claude`
+Next.js app. **The original warning, and the broader exposure the audit
+found underneath it, are both resolved in production as of commit
+`b9ca410ebc919588cbadb866de4985b31f063e86`.**
+
+**Audit finding, for the record:** the table the advisor named
+(`_migration_p1_audit`, a leftover migration-audit log with RLS fully
+disabled) was real but low-severity — no PII, confirmed unused by any app
+code. The actual critical exposure was underneath it and not what the
+advisor flagged: four tables (`bookings`, `event_dates`, `expenses`,
+`ota_bookings`) had RLS *enabled* but carried leftover permissive
+`USING (true)` / `WITH CHECK (true)` policies open to the `public` role —
+functionally equivalent to no RLS at all, and reachable by anyone holding
+the anon key (bundled into every page's client JS). `bookings` alone exposed
+guest name/email/phone/WhatsApp, `ticket_token` (bypassing the QR resolver
+entirely), and `stripe_session_id`, plus direct INSERT.
+
+**Phase 1 — COMPLETE.** `_migration_p1_audit`: RLS enabled, no policy
+(deny-by-default, matching the advisor's own suggested remediation; confirmed
+unused by any app code, zero regression risk). `daily_summary` (a
+`SECURITY DEFINER` view aggregating revenue/expenses per event, also
+confirmed unused by any app code): `anon`/`authenticated` `SELECT` grant
+revoked, closing a silent revenue-data leak that would have survived RLS
+changes on the underlying tables (SECURITY DEFINER bypasses RLS by design).
+No application code touched. Verified via a re-run Supabase advisor (both
+findings gone) and a full BCC/BNT production regression pass.
+
+**Phase 2A — COMPLETE.** The owner dashboard (`app/dashboard/page.tsx`) was
+the only remaining code path reading/writing `bookings`/`event_dates`/
+`ota_bookings`/`expenses` directly with the anon key — every other surface in
+the app already went through `getServiceSupabase()`. Migrated all 8 of its
+direct-Supabase call sites onto 6 new `requireAdmin()`-gated, service-role
+API routes under `app/api/admin/dashboard/` (`events`, `events/[id]`,
+`bookings`, `day-detail`, `ota-bookings`, `expenses`) — same queries, same
+field shapes, no behavior change. Preview testing surfaced a real regression
+(the Operation Verdict confirm-modal flow never awaited its save or checked
+the response, so a failed/slow save looked like a UI freeze) — root-caused
+via a frame-by-frame screen-recording analysis and fixed by properly
+awaiting the save and checking `res.ok`, matching the pattern this same file
+already used elsewhere (`deleteOTABooking`/`updateAttendance`). Merged to
+`main` and deployed at commit `2b94aeb`; confirmed via live Preview log
+traces (`operation_verdict` PATCH → 200 → DB row updated correctly) and a
+full production regression pass after merge.
+
+**Phase 2B — COMPLETE.** With Phase 2A confirmed live and a fresh
+full-codebase grep re-confirming zero remaining anon-key dependencies on the
+four tables, dropped the exact 9 permissive policies (2 each on `bookings`/
+`expenses`/`ota_bookings`, 3 on `event_dates`; SELECT/INSERT/UPDATE, all
+`USING`/`WITH CHECK (true)` for the `public` role) — no replacement policies
+added. **End state, live: RLS enabled on all four tables, zero anon/
+authenticated policies — the same "RLS on, no policy, service-role only"
+posture already proven safe on `products`/`product_content`/`admin_users`/
+etc.** Verified before/after via direct role-simulation against production
+(`SET ROLE anon`): SELECT now returns 0 rows despite real data present,
+INSERT rejected with `42501`, UPDATE silently affects 0 rows;
+`service_role` confirmed `rolbypassrls = true` at the Postgres level, so
+every existing service-role route continues working unchanged. Re-run
+advisor: all four tables now show only the benign `rls_enabled_no_policy`
+INFO classification, zero ERROR-level findings. Full BCC/BNT/checkout/
+ticket-QR/check-in production regression pass, zero runtime errors.
+
+**Phase 3 — COMPLETE.** A follow-on API-authorization audit (starting fresh
+from current code, not trusting old tech-debt notes) found 5 service-role
+`/api/*` routes with **zero auth checks**: `cancel-booking`,
+`reschedule-booking`, `delete-ota-booking`, `resend-confirmation`,
+`send-confirmed-meetup`. **`update-attendance` was independently verified
+already protected** (Stage 9e, 2026-08-23, `requireAdmin()`) and was left
+untouched. A full-codebase caller grep confirmed every single caller of all
+five vulnerable routes is internal dashboard code (`app/dashboard/page.tsx`)
+— no customer-facing flow depends on any of them, so the fix is the existing
+admin-auth architecture, not a new booking-token/customer-auth model.
+`send-confirmed-meetup` was the standout real-world risk: its only
+"credential" (`eventId`) is handed out by the fully public, unauthenticated
+`/api/events` endpoint (needed for checkout), so anyone could have
+triggered unlimited "tonight is confirmed" emails — revealing the real
+meet-up location and WhatsApp link — to every guest of any live event, with
+zero credentials. The other four require a `bookingId`/OTA `id` (a UUID
+traced through every email template, the ticket page, and the
+`bookings/by-session` poller and confirmed never exposed to any
+customer-facing surface), so real-world exploitability was lower but the
+missing gate was still real. Fixed: `cancel-booking`, `reschedule-booking`,
+`delete-ota-booking`, `resend-confirmation` → `requireRole(['owner','admin'])`
+(financial/destructive actions, same tier as `/api/admin/products/[id]/
+activate|deactivate`); `send-confirmed-meetup` → `requireAdmin()` (matches
+the rest of the Day Panel's existing Phase 2A gating level). Verified live
+in Preview and again after merge to `main`/production (commit `b9ca410`):
+all five routes return `401 {"error":"Unauthorized"}` for an unauthenticated
+caller (tested against the real deployed app, bypassing only Vercel's own
+deployment-protection SSO wall, not the app's own auth), `update-attendance`
+reconfirmed byte-identical/unchanged, zero runtime errors, full BCC/BNT
+regression pass.
+
+**Production state, end of Phase 3 (verify, don't just trust this doc):**
+- `main` HEAD: `b9ca410ebc919588cbadb866de4985b31f063e86`, deployed and
+  confirmed live on `bkkclubcrawl.com`/`bestnightlifethailand.com`.
+- `bookings`, `event_dates`, `expenses`, `ota_bookings`: RLS enabled, zero
+  anon/authenticated policies, service-role only.
+- Owner dashboard: 100% authenticated service-role API routes, zero direct
+  anon-key Supabase access anywhere in `app/dashboard/page.tsx`.
+- `cancel-booking`, `reschedule-booking`, `delete-ota-booking`,
+  `resend-confirmation` — `requireRole(['owner','admin'])`.
+- `send-confirmed-meetup` — `requireAdmin()`.
+- `update-attendance` — `requireAdmin()` (unchanged since Stage 9e).
+- `_migration_p1_audit` — RLS enabled, no policy. `daily_summary` —
+  `anon`/`authenticated` `SELECT` grant revoked.
+- Supabase advisor: zero ERROR-level findings.
+
+**Remaining non-blocking items, tracked here, not fixed (none are the
+original critical exposure — that is closed):**
+1. **`auth_leaked_password_protection`** (Supabase Auth advisor WARN) —
+   confirmed not actionable today: this Supabase org
+   (`Sanctuary Nexus's Org`) is on the **Free plan**, and the feature
+   requires Pro or above. Revisit only if/when the plan is upgraded.
+2. **`/api/contact` and `/api/vip-inquiry`** — correctly public-by-design
+   (audited for IDOR specifically; INSERT-only, no id-based lookup or
+   mutation path found), but carry no rate-limiting or CAPTCHA. A spam-
+   hardening item, not an authorization vulnerability.
+3. **`admin_users` staff role ↔ `event_dates.host_assigned` matching** — a
+   pre-existing, already-acknowledged (Stage 9j) limitation: this is a
+   case-sensitive free-text string match, not a real foreign-key
+   relationship. Works today; a future cleanup could replace it with a
+   proper `user_id` FK.
 
 ## Phase 8 — Gate A: BNT domain cutover — COMPLETE, applied 2026-08-24, LIVE IN PRODUCTION
 
