@@ -85,6 +85,15 @@ const IMG = {
   apt101: '/images/nib/nib-apt101.jpg',
   neonsign: '/images/nib/nib-neonsign.jpg',
   fridge: '/images/nib/nib-fridge.webp',
+  // Real BCC event photos, added post-Lovable-port to replace specific
+  // slots per direct instruction — not part of the original 9 Lovable
+  // assets. beerpong/interior/laughing/apt101 above are kept: apt101 and
+  // laughing are still used elsewhere on this page (venue card/final-CTA
+  // background, and the "Bangkok can feel new again" section).
+  beerpongshot: '/images/nib/nib-beerpongshot.png',
+  hosted: '/images/nib/nib-hosted.png',
+  grouppic: '/images/nib/nib-grouppic.jpg',
+  walkin: '/images/nib/nib-walkin.jpg',
 }
 
 function baht(n: number | null): string | null {
@@ -312,8 +321,8 @@ export default function BntNewInBangkokPage({ product, content, upcomingEvents }
               n: '02',
               h: 'Play, talk, loosen up',
               b: 'Conversation, pool, beer pong and a little Bangkok nightlife context from your host along the way.',
-              img: IMG.beerpong,
-              alt: 'Group playing beer pong at the first venue',
+              img: IMG.beerpongshot,
+              alt: 'Group cheering during a beer pong game',
             },
             {
               n: '03',
@@ -385,7 +394,7 @@ export default function BntNewInBangkokPage({ product, content, upcomingEvents }
 
       {/* 05 BEST HOSTING */}
       <Section border>
-        <TwoCol reverse figure={<Figure src={IMG.interior} alt="Host and guests relaxed together inside the first venue" aspect="4 / 3" />}>
+        <TwoCol reverse figure={<Figure src={IMG.hosted} alt="Guests hosted around the bar, drinks in hand, mid-conversation" aspect="4 / 3" />}>
           <SectionHeadline size="lg">
             Hosted, so the room <em style={emStyle}>opens faster.</em>
           </SectionHeadline>
@@ -411,17 +420,16 @@ export default function BntNewInBangkokPage({ product, content, upcomingEvents }
           Real conversations. No forced networking, no matching, no pressure.
         </p>
 
-        {/* Photography hierarchy (Stage 4B): primary slot = people connecting
-            (laughing), secondary/tertiary = doing-the-experience/venue
-            documentation (apt101/neonsign) — reordered from the Lovable
-            source's own apt101-primary arrangement to satisfy that
-            hierarchy; same three approved assets, no new imagery. */}
+        {/* Photography hierarchy (Stage 4B, updated with real BCC event
+            photos): primary slot = people connecting (grouppic), secondary
+            = people doing the experience (walkin), tertiary = venue
+            documentation (neonsign, unchanged). */}
         <div style={{ display: 'grid', gap: '12px', marginTop: '28px' }} className="nib-proof-grid">
           <div className="nib-proof-main">
-            <Figure src={IMG.laughing} alt="Guests laughing together" aspect="16 / 10" />
+            <Figure src={IMG.grouppic} alt="Group photo together at the end of the night" aspect="16 / 10" />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }} className="nib-proof-side">
-            <Figure src={IMG.apt101} alt="Crowd under red lights at the second venue" aspect="1 / 1" />
+            <Figure src={IMG.walkin} alt="Group walking together between venues at night" aspect="1 / 1" />
             <Figure src={IMG.neonsign} alt="Neon sign: pool table, beer pong, games, karaoke" aspect="1 / 1" />
           </div>
         </div>
