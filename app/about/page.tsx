@@ -2,7 +2,6 @@ import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { resolveStorefront } from '@/lib/storefront'
-import { isNibPreviewQaBranch } from '@/lib/previewQaOverride'
 import BntAboutPage from '@/components/bnt/BntAboutPage'
 
 export const dynamic = 'force-dynamic'
@@ -16,10 +15,7 @@ export const metadata: Metadata = {
 // exposing BNT content as a de facto BCC page.
 export default function AboutPage() {
   const host = headers().get('host')
-  // isNibPreviewQaBranch() is temporary Stage 3A/3B Preview-QA scaffolding
-  // (lib/previewQaOverride.ts) — always false in Production, so this
-  // doesn't weaken the real bkkclubcrawl.com/other-host 404 gate below.
-  if (resolveStorefront(host) !== 'bnt' && !isNibPreviewQaBranch()) {
+  if (resolveStorefront(host) !== 'bnt') {
     notFound()
   }
   return <BntAboutPage />

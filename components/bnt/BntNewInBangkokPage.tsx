@@ -79,17 +79,15 @@ const IMG = {
   cheers: '/images/nib/nib-cheers.png',
   laughing: '/images/nib/nib-laughing.png',
   speakeasy: '/images/nib/nib-speakeasy.jpeg',
-  beerpong: '/images/nib/nib-beerpong.jpg',
   soi11: '/images/nib/nib-soi11.png',
-  interior: '/images/nib/nib-interior.jpeg',
   apt101: '/images/nib/nib-apt101.jpg',
   neonsign: '/images/nib/nib-neonsign.jpg',
   fridge: '/images/nib/nib-fridge.webp',
   // Real BCC event photos, added post-Lovable-port to replace specific
   // slots per direct instruction — not part of the original 9 Lovable
-  // assets. beerpong/interior/laughing/apt101 above are kept: apt101 and
-  // laughing are still used elsewhere on this page (venue card/final-CTA
-  // background, and the "Bangkok can feel new again" section).
+  // assets. apt101 and laughing above are still used elsewhere on this page
+  // (venue card/final-CTA background, and the "Bangkok can feel new again"
+  // section).
   beerpongshot: '/images/nib/nib-beerpongshot.png',
   hosted: '/images/nib/nib-hosted.png',
   grouppic: '/images/nib/nib-grouppic.jpg',

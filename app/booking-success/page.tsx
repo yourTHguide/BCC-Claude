@@ -1,6 +1,5 @@
 import { headers } from 'next/headers'
 import { resolveStorefront } from '@/lib/storefront'
-import { isNibPreviewQaBranch } from '@/lib/previewQaOverride'
 import BookingSuccessClient from './BookingSuccessClient'
 
 export const dynamic = 'force-dynamic'
@@ -15,10 +14,6 @@ export const dynamic = 'force-dynamic'
 // always implicitly was — zero behavior change for BCC.
 export default function BookingSuccessPage() {
   const host = headers().get('host')
-  // isNibPreviewQaBranch() is temporary Stage 3A/3B/5B/5C Preview-QA
-  // scaffolding (lib/previewQaOverride.ts) — always false in Production and
-  // on every other Preview branch. Lets this branch's Preview render the
-  // BNT success-page color treatment for visual verification.
-  const storefront = isNibPreviewQaBranch() ? 'bnt' : resolveStorefront(host)
+  const storefront = resolveStorefront(host)
   return <BookingSuccessClient storefront={storefront} />
 }

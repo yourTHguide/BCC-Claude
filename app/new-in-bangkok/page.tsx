@@ -4,7 +4,6 @@ import type { Metadata } from 'next'
 import BntNewInBangkokPage from '@/components/bnt/BntNewInBangkokPage'
 import { resolveStorefront } from '@/lib/storefront'
 import { loadPublicProductPage } from '@/lib/publicProductPage'
-import { isNibPreviewQaBranch } from '@/lib/previewQaOverride'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,22 +35,11 @@ export default async function NewInBangkokPage() {
   const host = headers().get('host')
   const storefront = resolveStorefront(host)
 
-  // Stage 3A/3B — Preview-only visual-QA exception (lib/previewQaOverride.ts).
-  // resolveStorefront() itself is completely untouched: production hostname
-  // routing (bestnightlifethailand.com -> 'bnt', bkkclubcrawl.com -> 'bcc',
-  // any other host -> 'bcc') is unaffected, and this file never calls
-  // resolveStorefront() with anything other than the real Host header above.
-  // isNibPreviewQaBranch() is false everywhere except this exact branch's
-  // own Preview deployment — see that file for the full explanation. The
-  // same helper also gates app/page.tsx and app/about/page.tsx (Stage 3B)
-  // so this page's own Home/About links stay on BNT during Preview QA.
-  const effectiveStorefront = isNibPreviewQaBranch() ? 'bnt' : storefront
-
-  if (effectiveStorefront !== 'bnt') {
+  if (storefront !== 'bnt') {
     notFound()
   }
 
-  const data = await loadPublicProductPage('new-in-bkk', effectiveStorefront)
+  const data = await loadPublicProductPage('new-in-bkk', storefront)
   if (!data) notFound()
 
   // Stage 3 (Lovable presentation port) — renders the NIB-specific
