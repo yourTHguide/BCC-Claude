@@ -1,11 +1,24 @@
 # Phase 4 — Internal Product & Schedule Builder — Checkpoint
 
-_Last updated: 2026-08-28 — **Security remediation (Phases 1–3) COMPLETE,
+_Last updated: 2026-08-30 — **New in Bangkok production launch COMPLETE,
+LIVE IN PRODUCTION at commit `7cc3546357aa826aa324c67a53faf64799551fd7`.**
+The Lovable-designed New in Bangkok redesign is now the production
+presentation for the canonical `new-in-bkk` Product, live at
+`bestnightlifethailand.com/new-in-bangkok` (BNT-only, `bkkclubcrawl.com`
+correctly 404s), verified end-to-end — schedule/pricing, the BNT charcoal
+booking journey, Stripe Early Bird/Standard tier resolution, Meta Pixel and
+event tracking, zero runtime errors. See "New in Bangkok — Production
+Launch" immediately below for the full record. Preceded by Security
+remediation (Phases 1–3, 2026-08-28) and Phase 8 Gate A (BNT domain
+cutover, 2026-08-24), both still accurate and unaffected by this work;
+their own records are retained below._
+
+_Previously last updated: 2026-08-28 — **Security remediation (Phases 1–3) COMPLETE,
 LIVE IN PRODUCTION at commit `b9ca410ebc919588cbadb866de4985b31f063e86`.**
 The critical `rls_disabled_in_public` Supabase advisor warning that triggered
 this remediation, and the broader anon-key/authorization exposure it led to
 auditing, are now resolved in production — see "Security Remediation —
-Phases 1–3" immediately below for the full record. Preceded by Phase 8 Gate
+Phases 1–3" below for the full record. Preceded by Phase 8 Gate
 A (BNT domain cutover, 2026-08-24), still accurate and unaffected by this
 work; its own record is retained below._
 
@@ -29,6 +42,172 @@ BNT/storefront consolidation (this branch's history). The original "Stage
 at the time unresolved — is kept immediately below Stage 10 for history;
 it was later root-caused and fixed on `main` (see "Where things stand
 right now" → "QR-scan crash — RESOLVED")._
+
+## New in Bangkok — Production Launch (Lovable redesign port) — COMPLETE, applied 2026-08-30, LIVE IN PRODUCTION
+
+**Scope:** ports the Lovable-designed "New in Bangkok" (NIB) landing page
+(source: `yourTHguide/bangkok-nights-concierge`, read-access-only, never
+cloned into or merged with this repo) into this codebase as the production
+presentation for the canonical `new-in-bkk` Product, then published it live
+on the BNT storefront. A 10-stage engagement on feature branch
+`claude/new-in-bangkok-lovable-port`, merged to `main` via a clean
+fast-forward (`cd37d04` → `7cc3546357aa826aa324c67a53faf64799551fd7`, zero
+conflicts — `main` had not moved since the branch diverged) after a full
+merge-readiness audit and Preview-QA-scaffolding removal. This closes out
+the architecture decision recorded above in "Pre-merge remediation" item 5
+("New in Bangkok public URL — architecture decision recorded, not
+implemented") — the canonical product stays `new-in-bkk`, no slug rename,
+and `/new-in-bangkok` now resolves/renders the real product directly.
+
+**1. Production presentation.** `components/bnt/BntNewInBangkokPage.tsx`
+(new, ~830 lines) is now the production render for `/new-in-bangkok`,
+sourcing 100% of its content/price/schedule from
+`loadPublicProductPage('new-in-bkk', storefront)` — the exact same data
+contract `ProductPage.tsx`/`/events/[slug]` uses, no second data layer, no
+fabricated testimonials or copy. Replaces the prior stale hardcoded page at
+the same path (Tuesday-should've-been-Wednesday copy, a ฿1,000 price that
+never matched the canonical product, the legacy no-ticket-lifecycle
+checkout path). Owns its own minimal header/footer (matching the Lovable
+source), not `BntNav`/`BntFooter`.
+
+**2. Live public URL, BNT-only.** `bestnightlifethailand.com/new-in-bangkok`
+→ 200. `bkkclubcrawl.com/new-in-bangkok` → 404 (fail-closed, storefront
+resolved via `resolveStorefront()` off the request's own Host header —
+unchanged, untouched by this work). Canonical slug: `new-in-bkk`. Supabase
+`products` row: `status='active'`, `visible_bnt=true`, `visible_bcc=false`
+— **already in exactly this state when this port's own launch stage began**
+(row `updated_at`, `2026-08-24`), apparently toggled during the unrelated
+dynamic-pricing work referenced in [[phase2-checkout-state]]. This port's
+launch stage made **zero Supabase writes** — verified the existing row,
+found it already matched the target state, and stopped there rather than
+writing a redundant update. No real-visitor exposure gap: the production
+route serving `BntNewInBangkokPage` didn't exist on `main` until this
+merge, so `visible_bnt=true` sitting on the old stale-page route (or on no
+route at all, historically) never actually exposed this presentation
+early.
+
+**3. Schedule and pricing, verified against live Supabase + live rendered
+page.** Wednesdays, `default_start_time=20:30:00`, `default_price=490`
+(Standard/General Admission), `early_bird_price=390`,
+`early_bird_cutoff_hours=48`. Live-rendered hero on 2026-08-30 correctly
+showed the next open event ("WED 2 SEPT · 8:30 PM · Early bird ฿390 ·
+Standard ฿490"); `/book?night=new-in-bkk` correctly auto-selected that date
+and showed both tiers with Early Bird still eligible (cutoff
+`2026-08-31 20:30` had not yet passed at test time). Pricing/tier
+resolution (`lib/pricing.ts::resolveEventPricing()`) and Stripe checkout
+gating (`app/api/create-checkout/route.ts`) are byte-identical to pre-port
+`main` — confirmed via empty `git diff` — this port only changed
+presentation, never pricing/schedule/checkout logic.
+
+**4. BNT charcoal customer journey — permanent, not Preview-only.**
+`app/book/BookingCalendarClient.tsx`, `app/booking-success/
+BookingSuccessClient.tsx`, and `app/ticket/[token]/page.tsx` all branch
+their background on the existing `storefront` prop: BNT → `#070707`
+(confirmed live via computed style, `rgb(7,7,7)`), BCC → unchanged
+`#1A0015`, byte-for-byte. The ticket page derives `storefront` from the
+persisted `booking.storefront` DB column (set at checkout), not the
+request Host — correct on every host including Preview, by construction,
+no scaffolding needed. **BCC presentation is otherwise completely
+unaffected by this port** — confirmed via scoped `git diff main` returning
+empty for every BCC-only/shared-logic file (`lib/pricing.ts`,
+`lib/stripe.ts`, `app/api/webhook`, `app/api/cancel-booking`,
+`app/api/reschedule-booking`, all `/api/admin/*`, `lib/storefront.ts`,
+`lib/supabase.ts`, all `*.sql`), plus a live production regression pass
+(`bkkclubcrawl.com` unaffected).
+
+**5. Stripe checkout — verified, not exercised to payment.** Both Early
+Bird and Standard tiers were confirmed to reach real Stripe (live mode —
+`cs_live_` session prefix, the same shared `STRIPE_SECRET_KEY` Production
+already used) during this branch's own Preview QA, via read-only session
+inspection only — zero payments completed. The production launch smoke
+test confirmed the "Book Now" CTA renders with the correct tier/price but
+was **not clicked** in production, specifically to avoid creating a real
+live Stripe Checkout Session unnecessarily.
+
+**6. Meta Pixel and event tracking — verified live, zero regression.**
+Pixel `302051565703286` (`app/layout.tsx`, untouched by this port — empty
+`git diff`) loads on the NIB page: exactly one `meta-pixel` script tag in
+the DOM, one tracked `PageView` beacon fired
+(`ev=PageView&dl=.../new-in-bangkok`). `ViewContent` also confirmed firing
+live (`ev=ViewContent&content_ids=["new-in-bkk"]`) — this is driven
+entirely by a Meta Events Manager URL-rule (per `layout.tsx`'s own
+comment: "Event rules scoped to bestnightlifethailand.com... distinguish
+New in Bangkok traffic via content_id: new-in-bkk"), not application code,
+so it survived the redesign with zero code changes needed.
+`InitiateCheckout` (`app/book/BookingCalendarClient.tsx`) and `Purchase`
+(`app/booking-success/BookingSuccessClient.tsx`) are both implemented
+generically (keyed off the real product slug/content, not hardcoded per
+night), confirmed unchanged by this port's diff, and confirmed wired to
+the live "Book Now" button — not exercised to an actual purchase during
+this launch's smoke test, per instruction. `BntNewInBangkokPage.tsx` itself
+contains zero `fbq`/pixel references — no duplicate initialization
+introduced by the redesign.
+
+**7. Preview-QA scaffolding — fully removed before merge.**
+`lib/previewQaOverride.ts` and every `isNibPreviewQaBranch()` call site
+(`/`, `/about`, `/new-in-bangkok`, `/book`, `/booking-success`,
+`/api/create-checkout`) — temporary, dual-keyed
+(`VERCEL_ENV==='preview' && VERCEL_GIT_COMMIT_REF===<this branch>`) helpers
+used only to exercise the real BNT rendering/checkout path against this
+branch's own `*.vercel.app` Preview host during development — were deleted
+and reverted to plain `resolveStorefront()`-only resolution. Confirmed via
+repo-wide grep: zero remaining references. The 6 affected files are
+byte-identical to pre-port `main` except for the presentation/styling
+changes recorded in item 4. Two now-orphaned image assets
+(`nib-beerpong.jpg`, `nib-interior.jpeg`, superseded mid-port by real BCC
+event photos) and their dead `IMG` map entries in
+`BntNewInBangkokPage.tsx` were also removed, confirmed unused via
+repo-wide grep before deletion.
+
+**8. Deployment verification.** Production deployment
+`dpl_64E2dsJ4tW5cJxTV25NFzRhAPEfx`, `readyState=READY`,
+`githubCommitSha` exact-matches `main` HEAD, aliased live to
+`bkkclubcrawl.com`/`www.bkkclubcrawl.com`/`bestnightlifethailand.com`/
+`www.bestnightlifethailand.com`. Zero build errors, zero runtime errors
+(`get_runtime_errors`) in the window covering all launch smoke-test
+requests. `npx tsc --noEmit` and `npm run build` both clean immediately
+pre-merge and again immediately pre-launch.
+
+**Production code commit as of this documentation update:**
+`7cc3546357aa826aa324c67a53faf64799551fd7`. This documentation update
+itself makes no application code, database, Vercel configuration, Stripe,
+or Supabase changes.
+
+**BEST Instagram icon/link — checked, confirmed NOT present in the NIB
+header.** `BntNewInBangkokPage.tsx`'s own `SiteHeader`/`NibFooter`
+functions carry no social icons/links at all — only the wordmark, in-page
+nav, and the Book CTA. An Instagram link
+(`instagram.com/nightlife.thailand`) exists elsewhere in the codebase, on
+`BntContactPage.tsx` only (a different route, unrelated to this port).
+**Not implemented here** — recorded as a known gap for a future task, per
+explicit instruction not to implement it as part of this documentation
+pass.
+
+**Non-blocking technical backlog, tracked here, not fixed:**
+1. **Preview Stripe credentials are not separated from Production.**
+   `STRIPE_SECRET_KEY` is the exact same value (confirmed via `vercel env
+   ls` scope inspection — one row, not two — and independently via the
+   `cs_live_` session prefix seen during this port's own Preview checkout
+   QA) for both the `Preview` and `Production` Vercel environments. Any
+   Preview deployment can create real live-mode Stripe Checkout Sessions.
+   Not New-in-Bangkok-specific — pre-existing across the whole app — but
+   surfaced concretely by this port's own checkout QA stages. Fix
+   direction: a separate Stripe **test**-mode secret key (and matching
+   webhook secret) scoped to `Preview` only in Vercel; no application code
+   change needed beyond that env-var split.
+2. **Supabase `auth_leaked_password_protection`** — already tracked above
+   under "Security Remediation — Phases 1–3 → Remaining non-blocking
+   items", item 1: not actionable until the Supabase org is upgraded off
+   the Free plan. Unchanged by this launch, not duplicated here as a
+   separate item.
+3. **`/api/contact`/`/api/vip-inquiry` rate-limiting/CAPTCHA** — already
+   tracked above under the same section, item 2: correctly public-by-design,
+   no IDOR, just no spam-hardening yet. Unchanged by this launch, not
+   duplicated here as a separate item.
+
+**Feature branch `claude/new-in-bangkok-lovable-port` — intentionally NOT
+deleted.** Kept live on `origin` pending further review, per explicit
+instruction.
 
 ## Security Remediation — Phases 1–3 — COMPLETE, applied 2026-08-26/27/28, LIVE IN PRODUCTION
 
