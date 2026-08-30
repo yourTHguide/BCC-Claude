@@ -4,6 +4,7 @@ import { getServiceSupabase } from '@/lib/supabase'
 import { getAppUrl } from '@/lib/appUrl'
 import { resolveStorefront, VISIBILITY_COLUMN } from '@/lib/storefront'
 import { resolveEventPricing } from '@/lib/pricing'
+import { isNibPreviewQaBranch } from '@/lib/previewQaOverride'
 
 // Format the YYYY-MM-DD string into a friendly label.
 // Parse into LOCAL date components (not new Date(eventDate), which parses as
@@ -43,7 +44,13 @@ export async function POST(req: NextRequest) {
       // Host header, never from anything the client's JSON body could claim
       // — a forged/absent storefront in the body can't buy BNT-only pricing
       // or bypass BCC visibility, because the body never carries one at all.
-      const storefront = resolveStorefront(req.headers.get('host'))
+      // isNibPreviewQaBranch() (Stage 5D) is temporary Preview-QA scaffolding
+      // (lib/previewQaOverride.ts, already used by /, /about, /new-in-bangkok,
+      // /book, /booking-success) — always false in Production and on every
+      // other Preview branch, so it never changes real bkkclubcrawl.com/
+      // bestnightlifethailand.com checkout behavior. Lets this branch's
+      // Preview exercise the real BNT checkout path for New in Bangkok.
+      const storefront = isNibPreviewQaBranch() ? 'bnt' : resolveStorefront(req.headers.get('host'))
       return await createDynamicCheckout({ eventId, nightSlug, eventDate, quantity, storefront, priceTier })
     }
     // Same resolver every other URL-building call site uses (ticket page, QR
