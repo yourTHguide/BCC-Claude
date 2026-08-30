@@ -241,21 +241,6 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
   const capMax = maxTickets()
   const brand = brandFor(storefront)
 
-  // Deep-purple "illuminated surface" treatment for BNT's calendar/booking
-  // cards, sitting on the neutral #070707 canvas — subtle, distinct from
-  // both the bright magenta CTA accent and flat neutral gray. Scales every
-  // card/border alpha that would otherwise be neutral white by the same
-  // formula, so relative visual hierarchy (which surfaces read "more
-  // prominent") is preserved exactly as before, just re-tinted. BCC's
-  // surfaces are returned byte-identical to their original neutral values.
-  const isBnt = storefront === 'bnt'
-  function surfaceBg(whiteAlpha: number): string {
-    return isBnt ? `rgba(92, 40, 132, ${Math.min(whiteAlpha * 3.5, 0.5)})` : `rgba(255,255,255,${whiteAlpha})`
-  }
-  function surfaceBorder(whiteAlpha: number): string {
-    return isBnt ? `rgba(150, 90, 190, ${Math.min(whiteAlpha * 2.5, 0.55)})` : `rgba(255,255,255,${whiteAlpha})`
-  }
-
   return (
     <div
       style={{
@@ -319,7 +304,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
         {status === 'loading' && (
           <div
             style={{
-              background: surfaceBg(0.04), border: `1px solid ${surfaceBorder(0.08)}`,
+              background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
               borderRadius: '16px', padding: '48px 20px', textAlign: 'center',
             }}
           >
@@ -331,7 +316,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
         {status === 'error' && (
           <div
             style={{
-              background: surfaceBg(0.04), border: '1px solid rgba(234,0,58,0.30)',
+              background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(234,0,58,0.30)',
               borderRadius: '16px', padding: '32px 20px', textAlign: 'center',
             }}
           >
@@ -360,7 +345,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
             {/* Calendar card */}
             <div
               style={{
-                background: surfaceBg(0.04), border: `1px solid ${surfaceBorder(0.08)}`,
+                background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
                 borderRadius: '16px', padding: '20px', marginBottom: '16px',
               }}
             >
@@ -375,7 +360,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                   onClick={prevMonth}
                   style={{
                     width: '32px', height: '32px', borderRadius: '50%',
-                    background: surfaceBg(0.06), border: `1px solid ${surfaceBorder(0.10)}`,
+                    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)',
                     color: '#fff', fontSize: '16px', cursor: 'pointer', display: 'flex',
                     alignItems: 'center', justifyContent: 'center',
                   }}
@@ -391,7 +376,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                   onClick={nextMonth}
                   style={{
                     width: '32px', height: '32px', borderRadius: '50%',
-                    background: surfaceBg(0.06), border: `1px solid ${surfaceBorder(0.10)}`,
+                    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)',
                     color: '#fff', fontSize: '16px', cursor: 'pointer', display: 'flex',
                     alignItems: 'center', justifyContent: 'center',
                   }}
@@ -448,8 +433,8 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                   } else if (hasEvent) {
                     color = '#fff'
                     cursor = 'pointer'
-                    bg = surfaceBg(0.06)
-                    border = `1px solid ${surfaceBorder(0.12)}`
+                    bg = 'rgba(255,255,255,0.06)'
+                    border = '1px solid rgba(255,255,255,0.12)'
                     dotColor = '#EA003A'
                   } else {
                     color = 'rgba(255,255,255,0.35)'
@@ -496,7 +481,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
               <div
                 style={{
                   display: 'flex', gap: '20px', marginTop: '16px',
-                  paddingTop: '16px', borderTop: `1px solid ${surfaceBorder(0.06)}`,
+                  paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.06)',
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -514,14 +499,14 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
             {selectedDateISO && eventsOnSelected.length > 0 && (
               <div
                 style={{
-                  background: surfaceBg(0.04), border: `1px solid ${surfaceBorder(0.08)}`,
+                  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
                   borderRadius: '16px', overflow: 'hidden', animation: 'fadeUp 0.25s ease',
                 }}
               >
                 {/* Date header */}
                 <div
                   style={{
-                    padding: '16px 20px', borderBottom: `1px solid ${surfaceBorder(0.06)}`,
+                    padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)',
                     display: 'flex', alignItems: 'center', gap: '12px',
                   }}
                 >
@@ -566,7 +551,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                         setQuantity(1)
                       }}
                       style={{
-                        padding: '16px 20px', borderBottom: `1px solid ${surfaceBorder(0.06)}`,
+                        padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)',
                         cursor: 'pointer',
                         background: isChosen ? 'rgba(234,0,58,0.08)' : 'transparent',
                         borderLeft: isChosen ? '3px solid #EA003A' : '3px solid transparent',
@@ -614,7 +599,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                         <div
                           style={{
                             width: '18px', height: '18px', borderRadius: '50%',
-                            border: isChosen ? 'none' : `1px solid ${surfaceBorder(0.20)}`,
+                            border: isChosen ? 'none' : '1px solid rgba(255,255,255,0.20)',
                             background: isChosen ? 'linear-gradient(135deg, #EA003A, #820065)' : 'transparent',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                           }}
@@ -647,8 +632,8 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                           style={{
                             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                             padding: '14px 16px', borderRadius: '10px', marginBottom: '8px',
-                            border: selectedTier === 'early_bird' ? '1px solid #EA003A' : `1px solid ${surfaceBorder(0.10)}`,
-                            background: selectedTier === 'early_bird' ? 'rgba(234,0,58,0.10)' : surfaceBg(0.03),
+                            border: selectedTier === 'early_bird' ? '1px solid #EA003A' : '1px solid rgba(255,255,255,0.10)',
+                            background: selectedTier === 'early_bird' ? 'rgba(234,0,58,0.10)' : 'rgba(255,255,255,0.03)',
                             opacity: selectedEvent.earlyBirdAvailable ? 1 : 0.45,
                             cursor: selectedEvent.earlyBirdAvailable ? 'pointer' : 'not-allowed',
                             transition: 'all 0.15s',
@@ -658,7 +643,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                             <div
                               style={{
                                 width: '18px', height: '18px', borderRadius: '50%', flexShrink: 0,
-                                border: selectedTier === 'early_bird' ? 'none' : `1px solid ${surfaceBorder(0.20)}`,
+                                border: selectedTier === 'early_bird' ? 'none' : '1px solid rgba(255,255,255,0.20)',
                                 background: selectedTier === 'early_bird' ? 'linear-gradient(135deg, #EA003A, #820065)' : 'transparent',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                               }}
@@ -674,7 +659,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                                   style={{
                                     marginLeft: '8px', fontWeight: 700, fontSize: '9px', letterSpacing: '0.05em',
                                     padding: '2px 6px', borderRadius: '4px',
-                                    background: surfaceBg(0.10), color: 'rgba(255,255,255,0.55)',
+                                    background: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.55)',
                                   }}
                                 >
                                   ENDED
@@ -692,8 +677,8 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                           style={{
                             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                             padding: '14px 16px', borderRadius: '10px',
-                            border: selectedTier === 'regular' ? '1px solid #EA003A' : `1px solid ${surfaceBorder(0.10)}`,
-                            background: selectedTier === 'regular' ? 'rgba(234,0,58,0.10)' : surfaceBg(0.03),
+                            border: selectedTier === 'regular' ? '1px solid #EA003A' : '1px solid rgba(255,255,255,0.10)',
+                            background: selectedTier === 'regular' ? 'rgba(234,0,58,0.10)' : 'rgba(255,255,255,0.03)',
                             cursor: 'pointer',
                             transition: 'all 0.15s',
                           }}
@@ -702,7 +687,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                             <div
                               style={{
                                 width: '18px', height: '18px', borderRadius: '50%', flexShrink: 0,
-                                border: selectedTier === 'regular' ? 'none' : `1px solid ${surfaceBorder(0.20)}`,
+                                border: selectedTier === 'regular' ? 'none' : '1px solid rgba(255,255,255,0.20)',
                                 background: selectedTier === 'regular' ? 'linear-gradient(135deg, #EA003A, #820065)' : 'transparent',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                               }}
@@ -741,7 +726,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                           onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                           style={{
                             width: '36px', height: '36px', borderRadius: '8px 0 0 8px',
-                            background: surfaceBg(0.06), border: `1px solid ${surfaceBorder(0.10)}`,
+                            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)',
                             color: '#fff', fontSize: '18px', cursor: 'pointer',
                             display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 300,
                           }}
@@ -750,8 +735,8 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                         </button>
                         <div
                           style={{
-                            width: '44px', height: '36px', background: surfaceBg(0.04),
-                            border: `1px solid ${surfaceBorder(0.10)}`, borderLeft: 'none', borderRight: 'none',
+                            width: '44px', height: '36px', background: 'rgba(255,255,255,0.04)',
+                            border: '1px solid rgba(255,255,255,0.10)', borderLeft: 'none', borderRight: 'none',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             fontWeight: 600, fontSize: '15px', color: '#fff',
                           }}
@@ -762,7 +747,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                           onClick={() => setQuantity((q) => Math.min(capMax, q + 1))}
                           style={{
                             width: '36px', height: '36px', borderRadius: '0 8px 8px 0',
-                            background: surfaceBg(0.06), border: `1px solid ${surfaceBorder(0.10)}`,
+                            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)',
                             color: '#EA003A', fontSize: '18px', cursor: 'pointer',
                             display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 300,
                           }}
@@ -776,7 +761,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                       <div
                         style={{
                           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                          padding: '12px 0', borderTop: `1px solid ${surfaceBorder(0.06)}`, marginBottom: '16px',
+                          padding: '12px 0', borderTop: '1px solid rgba(255,255,255,0.06)', marginBottom: '16px',
                         }}
                       >
                         <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)' }}>
@@ -865,7 +850,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
             {selectedDateISO && eventsOnSelected.length === 0 && (
               <div
                 style={{
-                  background: surfaceBg(0.03), border: `1px solid ${surfaceBorder(0.06)}`,
+                  background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
                   borderRadius: '16px', padding: '32px 20px', textAlign: 'center',
                 }}
               >
@@ -882,7 +867,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
             {!selectedDateISO && events.length === 0 && (
               <div
                 style={{
-                  background: surfaceBg(0.02), border: `1px dashed ${surfaceBorder(0.08)}`,
+                  background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.08)',
                   borderRadius: '16px', padding: '32px 20px', textAlign: 'center',
                 }}
               >
@@ -901,7 +886,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
             {!selectedDateISO && events.length > 0 && (
               <div
                 style={{
-                  background: surfaceBg(0.02), border: `1px dashed ${surfaceBorder(0.08)}`,
+                  background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.08)',
                   borderRadius: '16px', padding: '32px 20px', textAlign: 'center',
                 }}
               >
