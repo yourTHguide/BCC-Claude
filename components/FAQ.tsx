@@ -8,10 +8,6 @@ const faqs = [
     a: 'Not at all. Most people book solo or in pairs. The host actively introduces guests from the first stop — by venue two, you\'ll have people you want to see again.',
   },
   {
-    q: 'What\'s the minimum age?',
-    a: 'Minimum age is 20 years. Some venues enforce this strictly. A valid ID may be required at the door.',
-  },
-  {
     q: 'How do I book?',
     a: 'Select your night, pick a date, add your details, and complete checkout. Booking confirmation and meeting point are sent immediately by email.',
   },
@@ -19,17 +15,13 @@ const faqs = [
     q: 'What if it\'s cancelled?',
     a: 'Events are confirmed or cancelled at 7:00 PM on the night. If cancelled, you receive a full refund within 3–5 business days. You\'ll be notified by WhatsApp and email.',
   },
-  {
-    q: 'Can I book a private group?',
-    a: 'Yes — private group bookings are available for 8+ guests. Contact us directly via WhatsApp for availability, pricing, and custom arrangements.',
-  },
 ]
 
 export default function FAQ() {
   const [open, setOpen] = useState<number | null>(null)
 
   return (
-    <section className="section-pad" style={{ background: '#1A0015' }}>
+    <section id="faq" className="section-pad" style={{ background: '#120009', paddingTop: '40px', paddingBottom: '40px' }}>
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '0 24px' }}>
         <p className="eyebrow" style={{ marginBottom: '12px' }}>
           QUESTIONS
@@ -38,9 +30,9 @@ export default function FAQ() {
           style={{
             fontFamily: 'Inter, sans-serif',
             fontWeight: 600,
-            fontSize: '28px',
+            fontSize: '24px',
             color: '#FFFFFF',
-            marginBottom: '32px',
+            marginBottom: '24px',
           }}
         >
           Common questions.

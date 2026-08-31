@@ -1,140 +1,131 @@
 export default function HowItWorks() {
-  const steps = [
+  const stages = [
     {
-      num: '01',
-      pct: 40,
-      label: 'Meet & Warm Up',
-      desc: 'First drinks. The ice breaks itself.',
+      time: '9:30 PM',
+      head: 'You arrive knowing nobody.',
+      desc: 'Check in, grab your first drink, and our hosts introduce everyone.',
+      img: '/images/First-stop.png',
     },
     {
-      num: '02',
-      pct: 65,
-      label: 'Social Build',
-      desc: 'The group locks in. Energy lifts.',
+      time: '10:30 PM',
+      head: 'You stop remembering who came with who.',
+      desc: 'Conversations flow. The group warms up. New friends start to click.',
+      img: '/images/Rhodes mirror selfie.jpg',
     },
     {
-      num: '03',
-      pct: 80,
-      label: 'On the Move',
-      desc: 'Private van between venues. The night keeps rolling.',
+      time: 'Midnight',
+      head: 'The group moves together.',
+      desc: 'We handle the route, timing and transitions. You just enjoy the ride.',
+      img: '/images/gallery/g7.jpg',
     },
     {
-      num: '04',
-      pct: 100,
-      label: 'The Peak',
-      desc: "VIP entry. Bangkok's best clubs. You're already in.",
+      time: 'Late',
+      head: "You're not on a tour anymore.",
+      desc: "You're out with your new Bangkok crew. This is where the night peaks.",
+      img: '/images/Rhodes group shot.png',
     },
   ]
 
   return (
-    <section
-      id="how-it-works"
-      className="section-pad"
-      style={{ background: '#1A0015' }}
-    >
-      <div style={{ maxWidth: '600px', margin: '0 auto', padding: '0 24px' }}>
-        {/* Eyebrow */}
+    <section id="how-it-works" className="section-pad" style={{ background: '#1D0010' }}>
+      <div className="hiw-container" style={{ margin: '0 auto' }}>
         <p className="eyebrow" style={{ marginBottom: '12px' }}>
           THE EXPERIENCE
         </p>
-
-        {/* Headline */}
         <h2
           style={{
             fontFamily: 'Inter, sans-serif',
-            fontWeight: 600,
-            fontSize: '28px',
+            fontWeight: 700,
+            fontSize: 'clamp(28px, 4vw, 40px)',
             color: '#FFFFFF',
-            marginBottom: '32px',
+            lineHeight: 1.1,
+            marginBottom: '36px',
           }}
         >
-          From first drink to peak energy.
+          From strangers to a night you won&apos;t forget.
         </h2>
 
-        {/* Cards */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {steps.map((step) => (
-            <div key={step.num} className="card" style={{ padding: '20px' }}>
-              {/* Top row */}
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: 'Inter, sans-serif',
-                    fontWeight: 600,
-                    fontSize: '11px',
-                    color: 'rgba(255,255,255,0.25)',
-                  }}
-                >
-                  {step.num}
-                </span>
-                <span
-                  style={{
-                    fontFamily: 'Inter, sans-serif',
-                    fontWeight: 600,
-                    fontSize: '11px',
-                    color: '#EA003A',
-                  }}
-                >
-                  {step.pct}%
-                </span>
-              </div>
-
-              {/* Progress bar */}
-              <div className="progress-track">
-                <div
-                  className="progress-fill"
-                  style={{ width: `${step.pct}%` }}
+        <div className="hiw-timeline">
+          <div className="hiw-line" />
+          {stages.map((s) => (
+            <div key={s.time} className="hiw-stage">
+              <span className="hiw-dot" />
+              <p className="eyebrow" style={{ marginBottom: '12px', fontSize: '11px' }}>
+                {s.time}
+              </p>
+              <div className="hiw-image">
+                <img
+                  src={s.img}
+                  alt={s.head}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                 />
               </div>
-
-              {/* Step name */}
-              <p
+              <h3
                 style={{
                   fontFamily: 'Inter, sans-serif',
                   fontWeight: 600,
-                  fontSize: '17px',
+                  fontSize: '18px',
                   color: '#FFFFFF',
-                  marginBottom: '4px',
+                  marginTop: '16px',
+                  marginBottom: '6px',
+                  lineHeight: 1.25,
                 }}
               >
-                {step.label}
-              </p>
-
-              {/* Descriptor */}
+                {s.head}
+              </h3>
               <p
-                className="font-cormorant"
                 style={{
+                  fontFamily: 'Inter, sans-serif',
                   fontSize: '14px',
                   color: 'rgba(255,255,255,0.60)',
-                  lineHeight: 1.4,
+                  lineHeight: 1.55,
                 }}
               >
-                {step.desc}
+                {s.desc}
               </p>
             </div>
           ))}
         </div>
-
-        {/* Timing */}
-        <p
-          style={{
-            fontFamily: 'Inter, sans-serif',
-            fontWeight: 400,
-            fontSize: '12px',
-            color: 'rgba(255,255,255,0.35)',
-            textAlign: 'center',
-            marginTop: '24px',
-          }}
-        >
-          Meet up 9:30 PM · End 2:00–3:00 AM
-        </p>
       </div>
+
+      <style>{`
+        .hiw-container { max-width: 600px; padding: 0 24px; }
+        .hiw-timeline { position: relative; }
+        .hiw-line {
+          position: absolute;
+          top: 4px;
+          bottom: 0;
+          left: 5px;
+          width: 1px;
+          background: rgba(234,0,58,0.28);
+        }
+        .hiw-stage { position: relative; padding-left: 28px; padding-bottom: 40px; }
+        .hiw-stage:last-child { padding-bottom: 0; }
+        .hiw-dot {
+          position: absolute;
+          left: 0;
+          top: 3px;
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          background: #EA003A;
+          box-shadow: 0 0 10px rgba(234,0,58,0.55);
+        }
+        .hiw-image { border-radius: 10px; overflow: hidden; height: 190px; }
+
+        @media (min-width: 1024px) {
+          .hiw-container { max-width: 1160px; padding: 0 48px; }
+          .hiw-timeline {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 28px;
+          }
+          .hiw-line { top: 3px; left: 0; right: 0; bottom: auto; width: auto; height: 1px; }
+          .hiw-stage { padding-left: 0; padding-top: 28px; padding-bottom: 0; }
+          .hiw-dot { left: 0; top: -3px; }
+          .hiw-image { height: 260px; }
+        }
+      `}</style>
     </section>
   )
 }
