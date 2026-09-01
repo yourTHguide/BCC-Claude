@@ -190,10 +190,11 @@ Current model:
 - `requireRole()` is used for owner/admin-only route protection where applied.
 - Staff routing is UX-gated in `app/dashboard/layout.tsx`.
 
-Important caveat:
-- `bookings`, `event_dates`, `expenses`, and `ota_bookings` currently have permissive public `SELECT` policies in `supabase-schema.sql`.
-- Several newer admin routes now read through service-role API handlers, but the underlying RLS posture remains a structural security concern for a broader SNX Operator OS.
-- Code comments explicitly note this gap in `app/dashboard/layout.tsx` and `app/api/admin/host/events/[id]/route.ts`.
+Important caveat — corrected 2026-09-01, see `SNX_PHASE0.5_SECURITY_REPORT.md`:
+- This audit originally stated that `bookings`, `event_dates`, `expenses`, and `ota_bookings` had permissive public `SELECT` policies and rated this Critical. That claim was based on reading `supabase-schema.sql`, which does not reflect production.
+- Verified directly against live production (Supabase project `oomhftxgvikzxlvqdcmr`): all four tables have RLS **enabled with zero policies**. This is deny-by-default for `anon` and `authenticated` — both roles hold blanket table grants, but RLS blocks every row on every command because no policy exists to allow it. Only `service_role`/`postgres` (which carry `BYPASSRLS`) can access these tables, and every app code path already uses `getServiceSupabase()`.
+- The remaining risk is stale schema drift, not a live exposure: `supabase-schema.sql` contained the permissive `USING (true)` policies this audit originally described. Had that file ever been re-applied to production, it would have created the exact hole this audit originally flagged. The stale policy block in `supabase-schema.sql` has been corrected as part of this fix.
+- Code comments in `app/dashboard/layout.tsx` and `app/api/admin/host/events/[id]/route.ts` still note RLS as a caveat worth tightening before broader exposure; that general caution stands even though the specific "permissive policy" claim did not.
 
 ### Environment Variables
 
@@ -545,7 +546,7 @@ Local/runtime caveats:
 | Host brief | Yes | Generated client-side from event/bookings/expenses state | Partial | High | Copy/download works; not a structured module | High |
 | Admin auth | Yes | Supabase Auth + `admin_users` | Yes | Medium | Login path is generic enough | High |
 | Staff RBAC | Partial | `admin_users.role`, `display_name`, route filtering | Partial | High | Host UX works; security model needs hardening | High |
-| RLS security | Partial/problematic | Supabase policies in `supabase-schema.sql` | No | High | Not a UI gap | Critical |
+| RLS security | Enabled, zero policies (deny-by-default); verified live 2026-09-01 | Live production, not `supabase-schema.sql` (see corrected note above) | No | Low — schema file drift only | Not a UI gap | Medium; documentation-drift risk, not a live exposure |
 | BNT private inquiry/contact | Yes | `bnt_experience_inquiries`, `bnt_contact_messages` | No | Low | Public BNT forms only | Low |
 | Storefront branding | Yes | `lib/storefrontBrand.ts`, `lib/appUrl.ts` | Partial | Medium | Mostly presentation-level | Medium |
 | Local static marketing pages | Yes | `app/*`, `components/*`, `public/*` | No | Low | Varies by page | Low |

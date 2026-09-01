@@ -214,42 +214,35 @@ ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE promo_codes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ota_bookings ENABLE ROW LEVEL SECURITY;
 
--- RLS POLICIES (as they exist in production).
--- All are PERMISSIVE, granted to role `public`, with permissive (`true`)
--- expressions. `promo_codes` has RLS enabled but NO policies (locked to the
--- service role, which bypasses RLS). `products` has RLS DISABLED in production
--- and is therefore intentionally left without ENABLE / policies here.
--- (Service-role clients bypass RLS regardless of these policies.)
-DROP POLICY IF EXISTS "Allow public read on bookings" ON bookings;
-CREATE POLICY "Allow public read on bookings" ON bookings
-  FOR SELECT TO public USING (true);
-DROP POLICY IF EXISTS "Allow service role insert on bookings" ON bookings;
-CREATE POLICY "Allow service role insert on bookings" ON bookings
-  FOR INSERT TO public WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Allow public read on event_dates" ON event_dates;
-CREATE POLICY "Allow public read on event_dates" ON event_dates
-  FOR SELECT TO public USING (true);
-DROP POLICY IF EXISTS "Allow service role insert on event_dates" ON event_dates;
-CREATE POLICY "Allow service role insert on event_dates" ON event_dates
-  FOR INSERT TO public WITH CHECK (true);
-DROP POLICY IF EXISTS "Allow service role update on event_dates" ON event_dates;
-CREATE POLICY "Allow service role update on event_dates" ON event_dates
-  FOR UPDATE TO public USING (true);
-
-DROP POLICY IF EXISTS "Allow public read on expenses" ON expenses;
-CREATE POLICY "Allow public read on expenses" ON expenses
-  FOR SELECT TO public USING (true);
-DROP POLICY IF EXISTS "Allow service role insert on expenses" ON expenses;
-CREATE POLICY "Allow service role insert on expenses" ON expenses
-  FOR INSERT TO public WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Allow public read on ota_bookings" ON ota_bookings;
-CREATE POLICY "Allow public read on ota_bookings" ON ota_bookings
-  FOR SELECT TO public USING (true);
-DROP POLICY IF EXISTS "Allow service role insert on ota_bookings" ON ota_bookings;
-CREATE POLICY "Allow service role insert on ota_bookings" ON ota_bookings
-  FOR INSERT TO public WITH CHECK (true);
+-- RLS POLICIES — verified against live production 2026-09-01 (Supabase
+-- project oomhftxgvikzxlvqdcmr) via pg_policies/pg_class/pg_roles/get_advisors.
+-- Full verification detail: SNX_PHASE0.5_SECURITY_REPORT.md.
+--
+-- bookings, event_dates, expenses, and ota_bookings have RLS ENABLED with
+-- ZERO policies in production. This is deny-by-default for `anon` and
+-- `authenticated`: both roles hold blanket table GRANTs from Supabase's
+-- bootstrap, but RLS blocks every row on every command regardless, because
+-- no policy exists to allow it. Only `service_role` (and `postgres`), which
+-- carry BYPASSRLS, can read or write these tables — which is how every app
+-- code path already accesses them (getServiceSupabase() in lib/supabase.ts).
+--
+-- promo_codes: RLS enabled, no policies, service-role only. Same posture.
+-- products: RLS is ENABLED with no policies in production, NOT disabled —
+-- an earlier version of this comment was wrong about that.
+--
+-- Do NOT add `CREATE POLICY ... USING (true)` (or similarly permissive)
+-- policies for these tables. This file previously contained exactly such
+-- policies, documented here as "how production works" — they were never
+-- actually applied to production, but if this file were ever re-run against
+-- production (schema resync, disaster recovery, spinning up a new
+-- environment from this file), they would have silently opened all four
+-- tables to public read via the anon key, since the dormant anon/
+-- authenticated GRANTs above are already in place to be activated by
+-- exactly that kind of policy. If a policy is ever genuinely needed here
+-- (e.g. an authenticated, admin-scoped read for a future SNX Operator OS
+-- surface), scope it narrowly to `admin_users` membership — see
+-- SNX_PHASE0.5_SECURITY_REPORT.md §4b for a draft that was proposed and
+-- explicitly NOT applied.
 
 -- ── USEFUL VIEWS ────────────────────────────────────────────
 
