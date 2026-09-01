@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
 import { getServiceSupabase } from '@/lib/supabase'
-import { getAdminUser } from '@/lib/admin-auth'
 import { bangkokToday, addDaysISO } from '@/lib/dates'
 import { operatorTheme as T, eyebrow } from '@/lib/operator/theme'
 
@@ -21,7 +20,6 @@ const VERDICT_COLOR: Record<string, string> = {
 // than over a fetch() round trip (see Phase 1 plan note). No direct client
 // Supabase reads — this is a Server Component, never shipped to the browser.
 export default async function OperatorRecordsEventsPage() {
-  await getAdminUser() // layout already gates; explicit for clarity at this leaf.
   const supabase = getServiceSupabase()
   const start = addDaysISO(bangkokToday(), -14)
   const end = addDaysISO(bangkokToday(), 45)

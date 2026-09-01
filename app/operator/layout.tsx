@@ -46,9 +46,8 @@ export default async function OperatorLayout({
             zIndex: 40,
             display: 'flex',
             justifyContent: 'flex-end',
-            padding: '10px 16px',
+            padding: '6px 14px',
             background: T.bg,
-            borderBottom: `1px solid ${T.border}`,
           }}
         >
           <ThemeToggle />

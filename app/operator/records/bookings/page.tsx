@@ -14,6 +14,18 @@ const SOURCE_LABEL: Record<string, string> = {
   manual: 'Manual',
 }
 
+// ota_bookings has no night_name column (only night_slug), unlike bookings.
+// Fallback for when the (event_date, night_slug) pair has no matching
+// event_dates row — a plain, safe transform of the slug itself, not
+// invented data: "girls-night" -> "Girls Night".
+function humanizeSlug(slug: string): string {
+  return slug
+    .split('-')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+}
+
 // Read-only, most-recent-first. Same tables/filters as
 // app/api/admin/dashboard/bookings/route.ts (website) and the OTA equivalent,
 // merged into one list here. Server Component — service role never leaves
@@ -35,12 +47,27 @@ export default async function OperatorRecordsBookingsPage() {
       .limit(30),
   ])
 
+  const otaRows = ota ?? []
+  const otaDates = Array.from(new Set(otaRows.map((o: any) => o.event_date)))
+  const { data: nameRows, error: nErr } = otaDates.length
+    ? await supabase.from('event_dates').select('event_date, night_slug, night_name').in('event_date', otaDates)
+    : { data: [], error: null }
+  const nightNameByKey = new Map<string, string>()
+  for (const e of nameRows ?? []) {
+    nightNameByKey.set(`${e.event_date}::${e.night_slug}`, e.night_name)
+  }
+
   const merged = [
     ...((bookings ?? []).map((b: any) => ({ ...b, kind: 'website' as const, sourceLabel: 'Website' }))),
-    ...((ota ?? []).map((o: any) => ({ ...o, night_name: o.night_slug, kind: 'ota' as const, sourceLabel: SOURCE_LABEL[o.source] ?? o.source }))),
+    ...(otaRows.map((o: any) => ({
+      ...o,
+      night_name: nightNameByKey.get(`${o.event_date}::${o.night_slug}`) ?? humanizeSlug(o.night_slug),
+      kind: 'ota' as const,
+      sourceLabel: SOURCE_LABEL[o.source] ?? o.source,
+    }))),
   ].sort((a, b) => (a.created_at < b.created_at ? 1 : -1)).slice(0, 40)
 
-  const error = bErr || oErr
+  const error = bErr || oErr || nErr
 
   return (
     <div style={{ padding: '20px 18px 8px' }}>

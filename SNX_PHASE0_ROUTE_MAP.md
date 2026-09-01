@@ -3,6 +3,12 @@
 Date: 2026-09-01
 Scope: planning only. No code, schema, or routing changes made. Completes the last open Phase 0 output from `SNX_OPERATOR_ARCHITECTURE_V1.md` ("define the SNX mobile shell route structure"), building on [BCC_EXISTING_OPERATIONS_AUDIT.md](./BCC_EXISTING_OPERATIONS_AUDIT.md).
 
+## Implementation note (added 2026-09-01, after Phase 1 build + review)
+
+This doc's "What Phase 1 actually has to build" section (below) describes Home/Work/Records as **wrapping existing admin API endpoints**. What was actually built instead: Home, Work, and Records read Supabase directly from Server Components (`lib/operator/queue.ts` and each Records page), using the same tables and the same `getServiceSupabase()` service-role pattern as those endpoints, but not the endpoints themselves.
+
+This was a deliberate, disclosed choice — it avoids a public JSON round-trip for data that only ever needs to reach the server-rendered page, and it still honors the architecture doc's deeper rule (same tables, same auth boundary, no parallel backend). Accepted for Phase 1. The risk: the same query logic (e.g. "today's events") now exists in two places — `lib/operator/queue.ts` and `app/api/admin/dashboard/events/route.ts` — that could drift apart if one is changed without the other. **Watch for this in Phase 2+**: if `/dashboard`'s admin routes gain new filtering/fields that `/operator` needs, or vice versa, they won't pick it up automatically.
+
 ## Shell placement decision
 
 New route group: **`/operator/*`**, mobile-first, additive alongside the existing `/dashboard/*` console.

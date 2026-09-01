@@ -6,6 +6,21 @@
 // posture these tables carry — service-role-only, by design).
 import { getServiceSupabase } from '@/lib/supabase'
 import { bangkokToday, addDaysISO, formatStartTime12h } from '@/lib/dates'
+import { operatorTheme as T } from '@/lib/operator/theme'
+
+// Shared between Home's Work In Progress preview and the full /operator/work
+// list, so a reason always reads the same severity color in both places.
+export const REASON_COLOR: Record<string, string> = {
+  'Missing host assignment': T.statusAmber,
+  'Past event still open': T.statusRed,
+  'Host fee not finalized': T.statusBlue,
+}
+
+// operation_verdict values that mean an event's operational lifecycle is
+// over — cancelled, or already closed out. Rows in these states are
+// excluded from the queue entirely so they don't linger forever just
+// because is_open/host_payment_status weren't also updated.
+const NON_ACTIONABLE_VERDICTS = new Set(['Cancelled / Rescheduled', 'Completed', 'Reviewed'])
 
 export interface TodayEvent {
   id: string
@@ -96,7 +111,7 @@ export async function getOpenOperationalItems(): Promise<QueueItem[]> {
 
   const { data, error } = await supabase
     .from('event_dates')
-    .select('id, event_date, night_name, night_slug, is_open, host_assigned, host_payment_status')
+    .select('id, event_date, night_name, night_slug, is_open, host_assigned, host_payment_status, operation_verdict')
     .gte('event_date', windowStart)
     .lte('event_date', windowEnd)
     .order('event_date', { ascending: true })
@@ -108,6 +123,8 @@ export async function getOpenOperationalItems(): Promise<QueueItem[]> {
 
   const items: QueueItem[] = []
   for (const e of data as any[]) {
+    if (NON_ACTIONABLE_VERDICTS.has(e.operation_verdict)) continue
+
     const reasons: string[] = []
     const isPast = e.event_date < today
     const isTodayOrFuture = e.event_date >= today

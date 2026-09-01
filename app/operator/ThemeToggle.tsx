@@ -43,12 +43,12 @@ export default function ThemeToggle() {
       onClick={toggle}
       aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
       style={{
-        width: '30px',
-        height: '30px',
-        borderRadius: '9px',
-        border: `1px solid ${T.border}`,
-        background: T.bgElevated,
-        color: T.textMuted,
+        width: '26px',
+        height: '26px',
+        borderRadius: '8px',
+        border: 'none',
+        background: 'transparent',
+        color: T.textFaint,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',

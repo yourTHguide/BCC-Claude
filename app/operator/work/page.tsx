@@ -1,14 +1,8 @@
 import { ListChecks } from 'lucide-react'
-import { getOpenOperationalItems } from '@/lib/operator/queue'
+import { getOpenOperationalItems, REASON_COLOR } from '@/lib/operator/queue'
 import { operatorTheme as T, eyebrow } from '@/lib/operator/theme'
 
 export const dynamic = 'force-dynamic'
-
-const REASON_COLOR: Record<string, string> = {
-  'Missing host assignment': T.statusAmber,
-  'Past event still open': T.statusRed,
-  'Host fee not finalized': T.statusBlue,
-}
 
 // Read-only operational queue — the same data lib/operator/queue.ts feeds
 // into Home's "Work In Progress" preview, shown here in full. No proposal/

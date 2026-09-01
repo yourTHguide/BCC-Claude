@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Bell, ChevronRight, CalendarDays, ListChecks, Users, CheckCircle2, CalendarPlus, Receipt, UserPlus, StickyNote } from 'lucide-react'
 import { getAdminUser } from '@/lib/admin-auth'
-import { getTodaysEvents, getOpenOperationalItems } from '@/lib/operator/queue'
+import { getTodaysEvents, getOpenOperationalItems, REASON_COLOR } from '@/lib/operator/queue'
 import { operatorTheme as T, eyebrow } from '@/lib/operator/theme'
 
 export const dynamic = 'force-dynamic'
@@ -9,7 +9,12 @@ export const dynamic = 'force-dynamic'
 // Home content density is deliberately capped (2 agenda rows, 2 WIP cards)
 // so the lower sections don't feel squeezed on a real phone viewport — see
 // SNX_PHASE0_ROUTE_MAP.md's Phase 1 scope and Guide's 2026-09-01 polish
-// request. "View all" links to the full, uncapped lists on /operator/work.
+// request. "View all" for Work In Progress and any hidden queue items in
+// the agenda links to /operator/work (the full queue); an agenda that
+// overflows on today's EVENTS instead gets its own "+N more" row pointing
+// to /operator/records/events, since Work never lists events, only queue
+// items — see the 2026-09-01 cleanup-pass review for why that distinction
+// matters.
 const AGENDA_CAP = 2
 const WIP_PREVIEW_CAP = 2
 
@@ -45,10 +50,16 @@ export default async function OperatorHomePage() {
   }
 
   // Today's Agenda: today's events first, then top open items, capped.
-  const agendaItems: { key: string; icon: React.ReactNode; title: string; detail: string; chip?: { label: string; color: string; bg: string } }[] = []
-  for (const e of todaysEvents) {
+  // If events alone exceed the cap, the last slot becomes an explicit
+  // "+N more events today" row linking to Records/Events instead of
+  // silently dropping them — there is no page that lists "all of today's
+  // events" other than Records, so this must not point at Work.
+  type AgendaItem = { key: string; icon: React.ReactNode; title: string; detail: string; chip?: { label: string; color: string; bg: string }; href?: string }
+  const agenda: AgendaItem[] = []
+
+  function eventRow(e: (typeof todaysEvents)[number]): AgendaItem {
     const guestCount = e.confirmedGuests + e.otaGuests
-    agendaItems.push({
+    return {
       key: `event-${e.id}`,
       icon: <CalendarDays size={17} color={T.statusAmber} />,
       title: e.nightName,
@@ -56,18 +67,33 @@ export default async function OperatorHomePage() {
       chip: e.isOpen
         ? { label: 'LIVE', color: T.statusGreen, bg: T.statusGreenSoft }
         : { label: 'Closed', color: T.textMuted, bg: T.chipBg },
-    })
+    }
   }
-  for (const item of queueItems.slice(0, Math.max(0, AGENDA_CAP - agendaItems.length))) {
-    agendaItems.push({
-      key: `queue-${item.id}`,
-      icon: <ListChecks size={17} color={T.statusBlue} />,
-      title: item.reasons[0],
-      detail: `${item.nightName} · ${item.eventDate}`,
+
+  if (todaysEvents.length > AGENDA_CAP) {
+    const shown = todaysEvents.slice(0, AGENDA_CAP - 1)
+    const overflowCount = todaysEvents.length - shown.length
+    agenda.push(...shown.map(eventRow))
+    agenda.push({
+      key: 'events-overflow',
+      icon: <CalendarDays size={17} color={T.statusAmber} />,
+      title: `+${overflowCount} more event${overflowCount === 1 ? '' : 's'} today`,
+      detail: 'See the full list in Records',
+      href: '/operator/records/events',
     })
+  } else {
+    agenda.push(...todaysEvents.map(eventRow))
+    for (const item of queueItems.slice(0, Math.max(0, AGENDA_CAP - agenda.length))) {
+      agenda.push({
+        key: `queue-${item.id}`,
+        icon: <ListChecks size={17} color={T.statusBlue} />,
+        title: item.reasons[0],
+        detail: `${item.nightName} · ${item.eventDate}`,
+      })
+    }
   }
-  const agenda = agendaItems.slice(0, AGENDA_CAP)
-  const agendaQueueCount = agenda.filter((a) => a.key.startsWith('queue')).length
+  const agendaQueueCount = agenda.filter((a) => a.key.startsWith('queue-')).length
+  const hasHiddenQueueItems = queueItems.length > agendaQueueCount
 
   const glanceTiles = [
     { label: "Today's Events", value: String(todaysEvents.length), sub: liveCount > 0 ? `${liveCount} live` : 'scheduled', icon: CalendarDays, color: T.statusAmber },
@@ -131,7 +157,7 @@ export default async function OperatorHomePage() {
       {/* Today's Agenda */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
         <p style={{ ...eyebrow(T.textFaint), margin: 0 }}>Today's Agenda</p>
-        {(todaysEvents.length + queueItems.length > agenda.length || queueItems.length > agendaQueueCount) && (
+        {hasHiddenQueueItems && (
           <Link href="/operator/work" style={{ fontSize: '12px', color: T.accent, textDecoration: 'none' }}>View all</Link>
         )}
       </div>
@@ -139,28 +165,33 @@ export default async function OperatorHomePage() {
         {agenda.length === 0 && (
           <p style={{ fontSize: '13px', color: T.textFaint, padding: '6px 0' }}>Nothing on the agenda right now.</p>
         )}
-        {agenda.map((item) => (
-          <div
-            key={item.key}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '11px', padding: '10px 4px',
-              borderBottom: `1px solid ${T.border}`,
-            }}
-          >
-            {item.icon}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: '13.5px', fontWeight: 600, margin: '0 0 2px' }}>{item.title}</p>
-              <p style={{ fontSize: '12px', color: T.textMuted, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.detail}</p>
-            </div>
-            {item.chip ? (
-              <span style={{ fontSize: '10px', fontWeight: 700, padding: '3px 8px', borderRadius: '999px', background: item.chip.bg, color: item.chip.color, flexShrink: 0 }}>
-                {item.chip.label}
-              </span>
-            ) : (
-              <ChevronRight size={16} color={T.textFaint} style={{ flexShrink: 0 }} />
-            )}
-          </div>
-        ))}
+        {agenda.map((item) => {
+          const rowStyle = {
+            display: 'flex' as const, alignItems: 'center' as const, gap: '11px', padding: '10px 4px',
+            borderBottom: `1px solid ${T.border}`, textDecoration: 'none', color: 'inherit',
+          }
+          const rowContent = (
+            <>
+              {item.icon}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: '13.5px', fontWeight: 600, margin: '0 0 2px', color: item.href ? T.accent : undefined }}>{item.title}</p>
+                <p style={{ fontSize: '12px', color: T.textMuted, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.detail}</p>
+              </div>
+              {item.chip ? (
+                <span style={{ fontSize: '10px', fontWeight: 700, padding: '3px 8px', borderRadius: '999px', background: item.chip.bg, color: item.chip.color, flexShrink: 0 }}>
+                  {item.chip.label}
+                </span>
+              ) : (
+                <ChevronRight size={16} color={item.href ? T.accent : T.textFaint} style={{ flexShrink: 0 }} />
+              )}
+            </>
+          )
+          return item.href ? (
+            <Link key={item.key} href={item.href} style={rowStyle}>{rowContent}</Link>
+          ) : (
+            <div key={item.key} style={rowStyle}>{rowContent}</div>
+          )
+        })}
       </div>
 
       {/* Work In Progress — fixed 2-column grid, not a horizontal scroller:
@@ -181,7 +212,7 @@ export default async function OperatorHomePage() {
             key={item.id}
             style={{ background: T.bgElevated, border: `1px solid ${T.border}`, borderRadius: T.radiusSm, padding: '11px' }}
           >
-            <p style={{ fontSize: '10px', fontWeight: 700, color: T.statusAmber, textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 6px' }}>
+            <p style={{ fontSize: '10px', fontWeight: 700, color: REASON_COLOR[item.reasons[0]] ?? T.statusAmber, textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 6px' }}>
               {item.reasons[0]}
             </p>
             <p style={{ fontSize: '13px', fontWeight: 600, margin: '0 0 2px' }}>{item.nightName}</p>
