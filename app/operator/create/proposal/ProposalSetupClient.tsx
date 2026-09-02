@@ -4,26 +4,18 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, Plus, X, Check } from 'lucide-react'
 import { operatorTheme as T, eyebrow } from '@/lib/operator/theme'
-import type { PartnerOrganizationType, RelationshipStatus, PartnerDealStatus, PartnerDeal, PartnerLocation } from '@/lib/partners'
+import type { RelationshipStatus, PartnerDealStatus, PartnerDeal, PartnerLocation } from '@/lib/partners'
 
 type PartnerRow = { id: string; displayName: string; relationshipStatus: RelationshipStatus }
 
-const ORG_TYPES: { value: PartnerOrganizationType; label: string }[] = [
-  { value: 'hospitality-group', label: 'Hospitality group' },
-  { value: 'venue', label: 'Venue' },
-  { value: 'brand', label: 'Brand' },
-  { value: 'agency', label: 'Agency' },
-  { value: 'individual', label: 'Individual' },
-  { value: 'other', label: 'Organization' },
-]
-const REL_STATUSES: { value: RelationshipStatus; label: string }[] = [
-  { value: 'prospect', label: 'Prospect' },
-  { value: 'in-conversation', label: 'In conversation' },
-  { value: 'proposal-pending', label: 'Proposal pending' },
-  { value: 'active', label: 'Active' },
-  { value: 'paused', label: 'Paused' },
-  { value: 'archived', label: 'Archived' },
-]
+// Phase 3E refinement: the New Partner form is deliberately minimal — this
+// workflow optimizes for starting a proposal quickly, not for completing the
+// full Partner record. Organization type and relationship status are NOT
+// collected here; they're left to their schema/domain defaults (organization
+// type stays null, relationship status defaults to 'prospect' — see
+// createPartner() in lib/partners.ts, unchanged) and can be set later via
+// Manage → Partner. No field is removed from the schema or domain model,
+// only from this one entry point's UI.
 const DEAL_STATUSES: { value: PartnerDealStatus; label: string }[] = [
   { value: 'proposed', label: 'Proposed' },
   { value: 'informal', label: 'Informal' },
@@ -64,7 +56,7 @@ export default function ProposalSetupClient({ partners }: { partners: PartnerRow
   const [partnerTab, setPartnerTab] = useState<'existing' | 'new'>(partners.length > 0 ? 'existing' : 'new')
   const [search, setSearch] = useState('')
   const [selectedPartner, setSelectedPartner] = useState<{ id: string; displayName: string } | null>(null)
-  const [newPartner, setNewPartner] = useState({ displayName: '', legalName: '', organizationType: '' as PartnerOrganizationType | '', relationshipStatus: 'prospect' as RelationshipStatus, relationshipSummary: '' })
+  const [newPartner, setNewPartner] = useState({ displayName: '', legalName: '', relationshipSummary: '' })
   const [creatingPartner, setCreatingPartner] = useState(false)
 
   // Step 2 — Deal
@@ -119,8 +111,8 @@ export default function ProposalSetupClient({ partners }: { partners: PartnerRow
         body: JSON.stringify({
           displayName: newPartner.displayName,
           legalName: newPartner.legalName || undefined,
-          organizationType: newPartner.organizationType || undefined,
-          relationshipStatus: newPartner.relationshipStatus,
+          // organizationType/relationshipStatus intentionally omitted — the
+          // API route's own defaults apply (null / 'prospect'), unchanged.
           relationshipSummary: newPartner.relationshipSummary || undefined,
         }),
       })
@@ -239,29 +231,21 @@ export default function ProposalSetupClient({ partners }: { partners: PartnerRow
             {partnerTab === 'new' && (
               <div style={{ display: 'grid', gap: '10px' }}>
                 <div>
-                  <label style={labelStyle}>Display name *</label>
+                  <label style={labelStyle}>Partner / Company Name *</label>
                   <input style={fieldStyle} value={newPartner.displayName} onChange={(e) => setNewPartner((s) => ({ ...s, displayName: e.target.value }))} placeholder="e.g. Soho Hospitality" />
                 </div>
                 <div>
-                  <label style={labelStyle}>Legal name</label>
+                  <label style={labelStyle}>Legal Name</label>
                   <input style={fieldStyle} value={newPartner.legalName} onChange={(e) => setNewPartner((s) => ({ ...s, legalName: e.target.value }))} />
                 </div>
                 <div>
-                  <label style={labelStyle}>Organization type</label>
-                  <select style={fieldStyle} value={newPartner.organizationType} onChange={(e) => setNewPartner((s) => ({ ...s, organizationType: e.target.value as PartnerOrganizationType | '' }))}>
-                    <option value="">—</option>
-                    {ORG_TYPES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={labelStyle}>Relationship status</label>
-                  <select style={fieldStyle} value={newPartner.relationshipStatus} onChange={(e) => setNewPartner((s) => ({ ...s, relationshipStatus: e.target.value as RelationshipStatus }))}>
-                    {REL_STATUSES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={labelStyle}>Summary</label>
-                  <textarea style={{ ...fieldStyle, minHeight: '60px', resize: 'vertical' }} value={newPartner.relationshipSummary} onChange={(e) => setNewPartner((s) => ({ ...s, relationshipSummary: e.target.value }))} />
+                  <label style={labelStyle}>Quick Note</label>
+                  <textarea
+                    style={{ ...fieldStyle, minHeight: '60px', resize: 'vertical' }}
+                    value={newPartner.relationshipSummary}
+                    onChange={(e) => setNewPartner((s) => ({ ...s, relationshipSummary: e.target.value }))}
+                    placeholder="e.g. Hospitality group we work with across several venues"
+                  />
                 </div>
                 <button type="button" disabled={!newPartner.displayName.trim() || creatingPartner} style={primaryBtn(!newPartner.displayName.trim() || creatingPartner)} onClick={handleCreatePartner}>
                   {creatingPartner ? 'Creating…' : 'Create Partner'}
