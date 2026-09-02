@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, Plus, X, Check } from 'lucide-react'
 import { operatorTheme as T, eyebrow } from '@/lib/operator/theme'
-import type { RelationshipStatus, PartnerDealStatus, PartnerDeal, PartnerLocation } from '@/lib/partners'
+import type { RelationshipStatus, PartnerDeal, PartnerLocation } from '@/lib/partners'
 
 type PartnerRow = { id: string; displayName: string; relationshipStatus: RelationshipStatus }
 
@@ -16,11 +16,25 @@ type PartnerRow = { id: string; displayName: string; relationshipStatus: Relatio
 // createPartner() in lib/partners.ts, unchanged) and can be set later via
 // Manage → Partner. No field is removed from the schema or domain model,
 // only from this one entry point's UI.
-const DEAL_STATUSES: { value: PartnerDealStatus; label: string }[] = [
-  { value: 'proposed', label: 'Proposed' },
-  { value: 'informal', label: 'Informal' },
-  { value: 'signed', label: 'Signed' },
-  { value: 'expired', label: 'Expired' },
+
+// Same principle for New Deal: Status is NOT collected here — every deal
+// created through this fast-setup flow is 'proposed' (the API omits the
+// field from its request and lib/partners.ts's createPartnerDeal() already
+// defaults status to 'proposed' when it's absent, so no domain/schema change
+// was needed). Status stays fully editable later via Manage → Partner.
+//
+// Known business-context values are a UI convenience only — a fixed list of
+// {value, label} pairs for the common cases, using exactly the canonical
+// strings Phase 3B established (no DB enum, no schema change: the underlying
+// column is still a plain TEXT[] with no value-list CHECK). The free-text
+// "+ Add" path stays alongside it for anything not in this list, so the set
+// of usable contexts is never artificially capped.
+const KNOWN_CONTEXTS: { value: string; label: string }[] = [
+  { value: 'best-nightlife', label: 'BEST Nightlife' },
+  { value: 'bkk-club-crawl', label: 'Bangkok Club Crawl' },
+  { value: 'your-thailand-guide', label: 'Your Thailand Guide' },
+  { value: 'flow-lab', label: 'Flow Lab' },
+  { value: 'sanctuary-nexus', label: 'Sanctuary Nexus' },
 ]
 
 const fieldStyle: React.CSSProperties = {
@@ -32,6 +46,11 @@ const tabStyle = (active: boolean): React.CSSProperties => ({
   flex: 1, padding: '9px', borderRadius: T.radiusSm, fontSize: '12.5px', fontWeight: 600, cursor: 'pointer',
   border: `1px solid ${active ? T.accent : T.border}`, background: active ? T.accentSoft : T.bgElevated,
   color: active ? T.accentText : T.textMuted, textAlign: 'center',
+})
+const contextChipStyle = (active: boolean): React.CSSProperties => ({
+  padding: '7px 12px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+  border: `1px solid ${active ? T.accent : T.border}`, background: active ? T.accentSoft : T.bgElevated,
+  color: active ? T.accentText : T.textMuted, whiteSpace: 'nowrap',
 })
 const primaryBtn = (disabled: boolean): React.CSSProperties => ({
   width: '100%', padding: '11px', borderRadius: T.radiusSm, border: 'none', fontSize: '13.5px', fontWeight: 700,
@@ -65,8 +84,8 @@ export default function ProposalSetupClient({ partners }: { partners: PartnerRow
   const [dealTab, setDealTab] = useState<'existing' | 'new'>('new')
   const [selectedDeal, setSelectedDeal] = useState<PartnerDeal | null>(null)
   const [contextInput, setContextInput] = useState('')
-  const [newDeal, setNewDeal] = useState<{ businessContexts: string[]; product: string; status: PartnerDealStatus; locationId: string }>({
-    businessContexts: [], product: '', status: 'proposed', locationId: '',
+  const [newDeal, setNewDeal] = useState<{ businessContexts: string[]; product: string; locationId: string }>({
+    businessContexts: [], product: '', locationId: '',
   })
   const [creatingDeal, setCreatingDeal] = useState(false)
 
@@ -136,6 +155,12 @@ export default function ProposalSetupClient({ partners }: { partners: PartnerRow
   function removeContext(c: string) {
     setNewDeal((d) => ({ ...d, businessContexts: d.businessContexts.filter((x) => x !== c) }))
   }
+  function toggleKnownContext(v: string) {
+    setNewDeal((d) => ({
+      ...d,
+      businessContexts: d.businessContexts.includes(v) ? d.businessContexts.filter((x) => x !== v) : [...d.businessContexts, v],
+    }))
+  }
 
   async function handleCreateDeal() {
     if (!selectedPartner || newDeal.businessContexts.length === 0 || creatingDeal) return
@@ -148,7 +173,8 @@ export default function ProposalSetupClient({ partners }: { partners: PartnerRow
         body: JSON.stringify({
           businessContexts: newDeal.businessContexts,
           product: newDeal.product || undefined,
-          status: newDeal.status,
+          // status intentionally omitted — the API route's own default
+          // applies ('proposed'), unchanged from lib/partners.ts.
           locationId: newDeal.locationId || undefined,
         }),
       })
@@ -304,41 +330,46 @@ export default function ProposalSetupClient({ partners }: { partners: PartnerRow
               {dealTab === 'new' && (
                 <div style={{ display: 'grid', gap: '10px' }}>
                   <div>
-                    <label style={labelStyle}>Business contexts *</label>
-                    <div style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
+                    <label style={labelStyle}>Which business context? *</label>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                      {KNOWN_CONTEXTS.map((kc) => (
+                        <button key={kc.value} type="button" onClick={() => toggleKnownContext(kc.value)} style={contextChipStyle(newDeal.businessContexts.includes(kc.value))}>
+                          {kc.label}
+                        </button>
+                      ))}
+                    </div>
+                    {newDeal.businessContexts.filter((c) => !KNOWN_CONTEXTS.some((kc) => kc.value === c)).length > 0 && (
+                      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                        {newDeal.businessContexts
+                          .filter((c) => !KNOWN_CONTEXTS.some((kc) => kc.value === c))
+                          .map((c) => (
+                            <span key={c} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '999px', color: T.accentText, background: T.accentSoft }}>
+                              {c}
+                              <X size={11} style={{ cursor: 'pointer' }} onClick={() => removeContext(c)} />
+                            </span>
+                          ))}
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: '6px' }}>
                       <input
-                        style={fieldStyle}
+                        style={{ ...fieldStyle, fontSize: '12.5px', padding: '8px 10px' }}
                         value={contextInput}
                         onChange={(e) => setContextInput(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addContext() } }}
-                        placeholder="e.g. best-nightlife"
+                        placeholder="+ Add custom context"
                       />
                       <button type="button" onClick={addContext} style={{ padding: '0 12px', borderRadius: T.radiusSm, border: `1px solid ${T.border}`, background: T.chipBg, color: T.text, cursor: 'pointer' }}>
                         <Plus size={15} />
                       </button>
                     </div>
-                    <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-                      {newDeal.businessContexts.map((c) => (
-                        <span key={c} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '999px', color: T.accentText, background: T.accentSoft }}>
-                          {c}
-                          <X size={11} style={{ cursor: 'pointer' }} onClick={() => removeContext(c)} />
-                        </span>
-                      ))}
-                    </div>
                   </div>
                   <div>
-                    <label style={labelStyle}>Product / opportunity</label>
-                    <input style={fieldStyle} value={newDeal.product} onChange={(e) => setNewDeal((s) => ({ ...s, product: e.target.value }))} placeholder="e.g. Bangkok Club Crawl" />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Status</label>
-                    <select style={fieldStyle} value={newDeal.status} onChange={(e) => setNewDeal((s) => ({ ...s, status: e.target.value as PartnerDealStatus }))}>
-                      {DEAL_STATUSES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
+                    <label style={labelStyle}>What are we proposing?</label>
+                    <input style={fieldStyle} value={newDeal.product} onChange={(e) => setNewDeal((s) => ({ ...s, product: e.target.value }))} placeholder="e.g. Bangkok Club Crawl partnership" />
                   </div>
                   {locations.length > 0 && (
                     <div>
-                      <label style={labelStyle}>Location</label>
+                      <label style={labelStyle}>Location — optional</label>
                       <select style={fieldStyle} value={newDeal.locationId} onChange={(e) => setNewDeal((s) => ({ ...s, locationId: e.target.value }))}>
                         <option value="">Whole relationship</option>
                         {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
