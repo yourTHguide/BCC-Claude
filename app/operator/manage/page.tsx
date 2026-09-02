@@ -12,15 +12,16 @@ export const dynamic = 'force-dynamic'
 // treat these hrefs as settled; they're what lets Manage exist in Phase 1A
 // without rebuilding a proven engine's UI from scratch.
 const TEMPORARY_LINK_OUTS = [
-  { href: '/dashboard/products', label: 'Products / Experiences', detail: 'Product admin — content, media, schedules', Icon: Package },
   { href: '/dashboard/checkin', label: 'Check-in', detail: 'QR scanner — already mobile-ready', Icon: QrCode },
 ]
 
-// Phase 2A/2B: Event Operations and Calendar/Instances graduated from
-// /dashboard link-outs to real in-shell surfaces (SNX_PHASE2A_EVENT_OPS_PLAN.md,
-// SNX_PHASE2B_CALENDAR_INSTANCES_PLAN.md). Same tables/routes the dashboard
-// already uses — no second event engine, no second scheduling system.
+// Phase 2A/2B/2C: Event Operations, Calendar/Instances, and Products /
+// Experiences graduated from /dashboard link-outs to real in-shell surfaces
+// (SNX_PHASE2A_EVENT_OPS_PLAN.md, SNX_PHASE2B_CALENDAR_INSTANCES_PLAN.md,
+// SNX_PHASE2C plan). Same tables/routes the dashboard already uses — no
+// second product/event engine, no second scheduling system.
 const IN_SHELL_OPERATIONS = [
+  { href: '/operator/manage/products', label: 'Products / Experiences', detail: 'Catalog — content, media, pricing context', Icon: Package },
   { href: '/operator/manage/calendar', label: 'Calendar / Instances', detail: 'Month view, scheduling, capacity, pricing', Icon: CalendarDays },
   { href: '/operator/manage/events', label: 'Event Operations', detail: 'Overview, guests, expenses, brief, closeout', Icon: ClipboardCheck },
 ]
