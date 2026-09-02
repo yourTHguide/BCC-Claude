@@ -116,14 +116,30 @@ export default async function OperatorHomePage() {
           <h1 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 4px' }}>{greeting()}, {name}.</h1>
           <p style={{ fontSize: '13px', color: T.textMuted, margin: 0 }}>Here's what needs your attention.</p>
         </div>
-        <div
+        {/* Global notification/attention surface (SNX_PHASE1_ALIGNMENT_AUDIT.md
+            §3 Home row): reuses the existing operational-attention feed,
+            deep-links to its real workflow. No separate notification
+            database — same getOpenOperationalItems() Home already reads. */}
+        <Link
+          href="/operator/work"
           style={{
-            width: '38px', height: '38px', borderRadius: '11px', background: T.bgElevated,
+            position: 'relative', width: '38px', height: '38px', borderRadius: '11px', background: T.bgElevated,
             border: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
           }}
         >
           <Bell size={17} color={T.textMuted} />
-        </div>
+          {queueItems.length > 0 && (
+            <span
+              style={{
+                position: 'absolute', top: '-4px', right: '-4px', minWidth: '17px', height: '17px', padding: '0 4px',
+                borderRadius: '999px', background: T.statusRed, color: '#fff', fontSize: '10px', fontWeight: 700,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
+              }}
+            >
+              {queueItems.length > 99 ? '99+' : queueItems.length}
+            </span>
+          )}
+        </Link>
       </div>
 
       {/* Start Here */}

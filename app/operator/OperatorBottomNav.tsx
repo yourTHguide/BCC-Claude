@@ -2,14 +2,20 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, ClipboardList, Sparkles, Layers, MoreHorizontal } from 'lucide-react'
+import { Home, LayoutGrid, Plus, Target, MoreHorizontal } from 'lucide-react'
 import { operatorTheme as T } from '@/lib/operator/theme'
 
+// Phase 1A shell rewire (2026-09-02): Home/Manage/Create/Quest/More per
+// SNX_PHASE1_ALIGNMENT_AUDIT.md. Work, Hermes, and Records are no longer
+// primary nav destinations — their routes still exist (app/operator/work,
+// app/operator/hermes) and are reachable by deep link (e.g. Home's
+// notification bell -> /operator/work); Records moved under
+// /operator/more/records.
 const TABS = [
   { href: '/operator', label: 'Home', Icon: Home },
-  { href: '/operator/work', label: 'Work', Icon: ClipboardList },
-  { href: '/operator/hermes', label: 'Hermes', Icon: Sparkles },
-  { href: '/operator/records', label: 'Records', Icon: Layers },
+  { href: '/operator/manage', label: 'Manage', Icon: LayoutGrid },
+  { href: '/operator/create', label: 'Create', Icon: Plus },
+  { href: '/operator/quest', label: 'Quest', Icon: Target },
   { href: '/operator/more', label: 'More', Icon: MoreHorizontal },
 ] as const
 

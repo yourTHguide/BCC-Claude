@@ -5,10 +5,10 @@ import { operatorTheme as T, eyebrow } from '@/lib/operator/theme'
 export const dynamic = 'force-dynamic'
 
 const RECORD_TYPES = [
-  { href: '/operator/records/events', label: 'Events', detail: 'event_dates', Icon: CalendarDays, color: T.statusAmber },
-  { href: '/operator/records/bookings', label: 'Bookings', detail: 'website + OTA', Icon: Ticket, color: T.statusGreen },
-  { href: '/operator/records/expenses', label: 'Expenses', detail: 'per-event costs', Icon: Receipt, color: T.statusBlue },
-  { href: '/operator/records/attendance', label: 'Attendance', detail: 'check-in status', Icon: CheckCircle2, color: T.statusPurple },
+  { href: '/operator/more/records/events', label: 'Events', detail: 'event_dates', Icon: CalendarDays, color: T.statusAmber },
+  { href: '/operator/more/records/bookings', label: 'Bookings', detail: 'website + OTA', Icon: Ticket, color: T.statusGreen },
+  { href: '/operator/more/records/expenses', label: 'Expenses', detail: 'per-event costs', Icon: Receipt, color: T.statusBlue },
+  { href: '/operator/more/records/attendance', label: 'Attendance', detail: 'check-in status', Icon: CheckCircle2, color: T.statusPurple },
 ]
 
 // Partners/Proposals don't exist yet (Phase 3/4) — shown as disabled rows
