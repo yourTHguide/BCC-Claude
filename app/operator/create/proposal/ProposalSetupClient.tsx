@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, Plus, X, Check } from 'lucide-react'
+import { Search, Check } from 'lucide-react'
 import { operatorTheme as T, eyebrow } from '@/lib/operator/theme'
 import type { RelationshipStatus, PartnerDeal, PartnerLocation } from '@/lib/partners'
 
@@ -83,7 +83,6 @@ export default function ProposalSetupClient({ partners }: { partners: PartnerRow
   const [locations, setLocations] = useState<PartnerLocation[]>([])
   const [dealTab, setDealTab] = useState<'existing' | 'new'>('new')
   const [selectedDeal, setSelectedDeal] = useState<PartnerDeal | null>(null)
-  const [contextInput, setContextInput] = useState('')
   const [newDeal, setNewDeal] = useState<{ businessContexts: string[]; product: string; locationId: string }>({
     businessContexts: [], product: '', locationId: '',
   })
@@ -146,15 +145,10 @@ export default function ProposalSetupClient({ partners }: { partners: PartnerRow
     }
   }
 
-  function addContext() {
-    const v = contextInput.trim()
-    if (!v || newDeal.businessContexts.includes(v)) return
-    setNewDeal((d) => ({ ...d, businessContexts: [...d.businessContexts, v] }))
-    setContextInput('')
-  }
-  function removeContext(c: string) {
-    setNewDeal((d) => ({ ...d, businessContexts: d.businessContexts.filter((x) => x !== c) }))
-  }
+  // V1 only offers the known-context toggle chips (below) -- no free-text
+  // custom-context control. See the "Which business context?" field's own
+  // comment for why, and for confirmation nothing about the underlying
+  // model changed.
   function toggleKnownContext(v: string) {
     setNewDeal((d) => ({
       ...d,
@@ -346,36 +340,20 @@ export default function ProposalSetupClient({ partners }: { partners: PartnerRow
                 <div style={{ display: 'grid', gap: '10px' }}>
                   <div>
                     <label style={labelStyle}>Which business context? *</label>
-                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                    {/* V1: only the known-context toggle chips. The free-text
+                        "+ Add custom context" control was removed from this
+                        operator-facing UI -- it read as too easy to confuse
+                        with Deal Terms. Nothing about the underlying model
+                        changed: business_contexts is still a plain TEXT[]
+                        with no DB enum, and the API already accepts any
+                        string array -- a custom-context control can be
+                        reintroduced here later with no backend change. */}
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                       {KNOWN_CONTEXTS.map((kc) => (
                         <button key={kc.value} type="button" onClick={() => toggleKnownContext(kc.value)} style={contextChipStyle(newDeal.businessContexts.includes(kc.value))}>
                           {kc.label}
                         </button>
                       ))}
-                    </div>
-                    {newDeal.businessContexts.filter((c) => !KNOWN_CONTEXTS.some((kc) => kc.value === c)).length > 0 && (
-                      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginBottom: '8px' }}>
-                        {newDeal.businessContexts
-                          .filter((c) => !KNOWN_CONTEXTS.some((kc) => kc.value === c))
-                          .map((c) => (
-                            <span key={c} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '999px', color: T.accentText, background: T.accentSoft }}>
-                              {c}
-                              <X size={11} style={{ cursor: 'pointer' }} onClick={() => removeContext(c)} />
-                            </span>
-                          ))}
-                      </div>
-                    )}
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <input
-                        style={{ ...fieldStyle, fontSize: '12.5px', padding: '8px 10px' }}
-                        value={contextInput}
-                        onChange={(e) => setContextInput(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addContext() } }}
-                        placeholder="+ Add custom context"
-                      />
-                      <button type="button" onClick={addContext} style={{ padding: '0 12px', borderRadius: T.radiusSm, border: `1px solid ${T.border}`, background: T.chipBg, color: T.text, cursor: 'pointer' }}>
-                        <Plus size={15} />
-                      </button>
                     </div>
                   </div>
                   <div>
