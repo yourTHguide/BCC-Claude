@@ -7,16 +7,17 @@ import { operatorTheme as T, eyebrow } from '@/lib/operator/theme'
 import type { ProductContentData } from '@/lib/operator/products'
 
 const fieldStyle: React.CSSProperties = {
-  width: '100%', padding: '10px 12px', borderRadius: T.radiusSm, border: `1px solid ${T.border}`,
-  background: T.bgElevated, color: T.text, fontSize: '13.5px', fontFamily: 'inherit', boxSizing: 'border-box',
+  width: '100%', minHeight: '44px', padding: '12px 13px', borderRadius: T.radiusSm, border: `1px solid ${T.border}`,
+  background: T.bgElevated, color: T.text, fontSize: '14px', fontFamily: 'inherit', boxSizing: 'border-box',
 }
-const textareaStyle: React.CSSProperties = { ...fieldStyle, minHeight: '80px', resize: 'vertical' }
-const cardStyle: React.CSSProperties = { background: T.bgElevated, border: `1px solid ${T.border}`, borderRadius: T.radius, padding: '16px', marginBottom: '14px' }
+const textareaStyle: React.CSSProperties = { ...fieldStyle, minHeight: '84px', resize: 'vertical' }
+const cardStyle: React.CSSProperties = { background: T.bgElevated, border: `1px solid ${T.border}`, borderRadius: T.radius, padding: '18px', marginBottom: '16px' }
+const removeBtnStyle: React.CSSProperties = { width: '40px', minHeight: '40px', flexShrink: 0, borderRadius: T.radiusSm, border: `1px solid ${T.border}`, background: 'transparent', color: T.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div style={cardStyle}>
-      <p style={{ ...eyebrow(T.textFaint), marginBottom: '12px' }}>{title}</p>
+      <p style={{ ...eyebrow(T.textFaint), marginBottom: '13px' }}>{title}</p>
       {children}
     </div>
   )
@@ -24,23 +25,23 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function ListEditor({ label, items, onChange, placeholder }: { label: string; items: string[]; onChange: (next: string[]) => void; placeholder: string }) {
   return (
-    <div style={{ marginBottom: '10px' }}>
-      <p style={{ fontSize: '12px', fontWeight: 600, color: T.textMuted, margin: '0 0 6px' }}>{label}</p>
+    <div style={{ marginBottom: '16px' }}>
+      <p style={{ fontSize: '12.5px', fontWeight: 600, color: T.textMuted, margin: '0 0 8px' }}>{label}</p>
       {items.map((item, i) => (
-        <div key={i} style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
+        <div key={i} style={{ display: 'flex', gap: '7px', marginBottom: '8px' }}>
           <input
             value={item}
             placeholder={placeholder}
             onChange={(e) => { const next = [...items]; next[i] = e.target.value; onChange(next) }}
             style={{ ...fieldStyle, flex: 1 }}
           />
-          <button type="button" onClick={() => onChange(items.filter((_, idx) => idx !== i))} style={{ width: '36px', borderRadius: T.radiusSm, border: `1px solid ${T.border}`, background: 'transparent', color: T.textMuted, cursor: 'pointer' }}>
-            <X size={14} style={{ margin: 'auto' }} />
+          <button type="button" onClick={() => onChange(items.filter((_, idx) => idx !== i))} style={removeBtnStyle}>
+            <X size={15} />
           </button>
         </div>
       ))}
-      <button type="button" onClick={() => onChange([...items, ''])} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', fontWeight: 600, color: T.accentText, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0' }}>
-        <Plus size={13} /> Add
+      <button type="button" onClick={() => onChange([...items, ''])} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: T.accentText, background: 'none', border: 'none', cursor: 'pointer', padding: '8px 0', minHeight: '32px' }}>
+        <Plus size={14} /> Add
       </button>
     </div>
   )
@@ -97,26 +98,26 @@ export default function ProductDetailsForm({ productId, initial }: { productId: 
       )}
 
       <Section title="Overview">
-        <div style={{ marginBottom: '10px' }}>
-          <p style={{ fontSize: '12px', fontWeight: 600, color: T.textMuted, margin: '0 0 5px' }}>Tagline</p>
+        <div style={{ marginBottom: '14px' }}>
+          <p style={{ fontSize: '12.5px', fontWeight: 600, color: T.textMuted, margin: '0 0 6px' }}>Tagline</p>
           <input value={tagline} onChange={(e) => setTagline(e.target.value)} style={fieldStyle} />
         </div>
-        <div style={{ marginBottom: '10px' }}>
-          <p style={{ fontSize: '12px', fontWeight: 600, color: T.textMuted, margin: '0 0 5px' }}>Short description</p>
+        <div style={{ marginBottom: '14px' }}>
+          <p style={{ fontSize: '12.5px', fontWeight: 600, color: T.textMuted, margin: '0 0 6px' }}>Short description</p>
           <textarea value={shortDescription} onChange={(e) => setShortDescription(e.target.value)} style={textareaStyle} />
         </div>
-        <div style={{ marginBottom: '10px' }}>
-          <p style={{ fontSize: '12px', fontWeight: 600, color: T.textMuted, margin: '0 0 5px' }}>Full description</p>
+        <div style={{ marginBottom: '14px' }}>
+          <p style={{ fontSize: '12.5px', fontWeight: 600, color: T.textMuted, margin: '0 0 6px' }}>Full description</p>
           <textarea value={fullDescription} onChange={(e) => setFullDescription(e.target.value)} style={{ ...textareaStyle, minHeight: '120px' }} />
         </div>
         <div>
-          <p style={{ fontSize: '12px', fontWeight: 600, color: T.textMuted, margin: '0 0 5px' }}>Duration (minutes)</p>
+          <p style={{ fontSize: '12.5px', fontWeight: 600, color: T.textMuted, margin: '0 0 6px' }}>Duration (minutes)</p>
           <input type="number" inputMode="numeric" value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} style={fieldStyle} />
         </div>
       </Section>
 
       <Section title="Meeting point">
-        <div style={{ display: 'grid', gap: '10px' }}>
+        <div style={{ display: 'grid', gap: '12px' }}>
           <input placeholder="Display name" value={meetingPoint.display_name ?? ''} onChange={(e) => setMeetingPoint((m) => ({ ...m, display_name: e.target.value }))} style={fieldStyle} />
           <input placeholder="Address" value={meetingPoint.address ?? ''} onChange={(e) => setMeetingPoint((m) => ({ ...m, address: e.target.value }))} style={fieldStyle} />
           <input placeholder="Maps URL" value={meetingPoint.maps_url ?? ''} onChange={(e) => setMeetingPoint((m) => ({ ...m, maps_url: e.target.value }))} style={fieldStyle} />
@@ -130,7 +131,7 @@ export default function ProductDetailsForm({ productId, initial }: { productId: 
         </div>
       </Section>
 
-      <Section title="Highlights &amp; inclusions">
+      <Section title="Highlights & inclusions">
         <ListEditor label="Highlights" items={highlights} onChange={setHighlights} placeholder="e.g. 4 curated venues" />
         <ListEditor label="What's included" items={whatsIncluded} onChange={setWhatsIncluded} placeholder="e.g. Welcome shot at each venue" />
         <ListEditor label="What's not included" items={whatsNotIncluded} onChange={setWhatsNotIncluded} placeholder="e.g. Hotel pickup" />
@@ -139,8 +140,8 @@ export default function ProductDetailsForm({ productId, initial }: { productId: 
 
       <Section title="Itinerary">
         {itinerary.map((step, i) => (
-          <div key={i} style={{ display: 'flex', gap: '6px', marginBottom: '8px', alignItems: 'flex-start' }}>
-            <div style={{ flex: 1, display: 'grid', gap: '6px' }}>
+          <div key={i} style={{ display: 'flex', gap: '7px', marginBottom: '10px', alignItems: 'flex-start' }}>
+            <div style={{ flex: 1, display: 'grid', gap: '8px' }}>
               <input
                 placeholder="Step title"
                 value={step.title}
@@ -154,13 +155,13 @@ export default function ProductDetailsForm({ productId, initial }: { productId: 
                 style={fieldStyle}
               />
             </div>
-            <button type="button" onClick={() => setItinerary(itinerary.filter((_, idx) => idx !== i))} style={{ width: '36px', height: '36px', borderRadius: T.radiusSm, border: `1px solid ${T.border}`, background: 'transparent', color: T.textMuted, cursor: 'pointer', flexShrink: 0 }}>
-              <X size={14} style={{ margin: 'auto' }} />
+            <button type="button" onClick={() => setItinerary(itinerary.filter((_, idx) => idx !== i))} style={removeBtnStyle}>
+              <X size={15} />
             </button>
           </div>
         ))}
-        <button type="button" onClick={() => setItinerary([...itinerary, { title: '', description: '' }])} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', fontWeight: 600, color: T.accentText, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0' }}>
-          <Plus size={13} /> Add step
+        <button type="button" onClick={() => setItinerary([...itinerary, { title: '', description: '' }])} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: T.accentText, background: 'none', border: 'none', cursor: 'pointer', padding: '8px 0', minHeight: '32px' }}>
+          <Plus size={14} /> Add step
         </button>
       </Section>
 
@@ -168,7 +169,7 @@ export default function ProductDetailsForm({ productId, initial }: { productId: 
         type="button"
         disabled={saving}
         onClick={save}
-        style={{ width: '100%', padding: '13px', borderRadius: T.radiusSm, border: 'none', background: T.accent, color: '#fff', fontWeight: 600, fontSize: '14px', cursor: saving ? 'not-allowed' : 'pointer', marginBottom: '20px' }}
+        style={{ width: '100%', minHeight: '48px', padding: '14px', borderRadius: T.radiusSm, border: 'none', background: T.accent, color: '#fff', fontWeight: 600, fontSize: '14.5px', cursor: saving ? 'not-allowed' : 'pointer', marginBottom: '36px' }}
       >
         {saving ? 'Saving…' : 'Save content'}
       </button>

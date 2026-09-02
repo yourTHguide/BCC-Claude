@@ -15,7 +15,7 @@ export default async function ProductDetailsPage({ params }: { params: { id: str
   if (!product) notFound()
 
   return (
-    <div style={{ padding: '20px 18px 8px' }}>
+    <div style={{ padding: '20px 18px 56px' }}>
       <Link href={`/operator/manage/products/${params.id}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: T.textMuted, textDecoration: 'none', marginBottom: '10px' }}>
         <ChevronLeft size={14} /> {product.name}
       </Link>

@@ -6,7 +6,12 @@ import { Search, List, LayoutGrid, Package, ChevronRight } from 'lucide-react'
 import { operatorTheme as T, eyebrow } from '@/lib/operator/theme'
 import type { ProductListRow } from '@/lib/operator/products'
 
-type StatusFilter = 'all' | 'active' | 'draft' | 'archived'
+// Production lifecycle only ever reaches 'active' or 'draft' (see
+// lib/operator/products.ts — no route anywhere sets 'archived'), so that's
+// the only filter offered. STATUS_COLOR/STATUS_SOFT below still cover
+// 'archived' defensively for display, in case the enum value is ever set
+// directly — this just isn't a real, reachable filter state.
+type StatusFilter = 'all' | 'active' | 'draft'
 type StorefrontFilter = 'all' | 'bcc' | 'bnt'
 type ViewMode = 'list' | 'grid'
 
@@ -70,7 +75,7 @@ export default function ProductsListClient({ products }: { products: ProductList
       </div>
 
       <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', marginBottom: '8px', paddingBottom: '2px' }}>
-        {(['all', 'active', 'draft', 'archived'] as StatusFilter[]).map((s) => (
+        {(['all', 'active', 'draft'] as StatusFilter[]).map((s) => (
           <button key={s} type="button" style={chipStyle(status === s)} onClick={() => setStatus(s)}>
             {s === 'all' ? 'All statuses' : s[0].toUpperCase() + s.slice(1)}
           </button>

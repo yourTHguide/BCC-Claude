@@ -93,10 +93,12 @@ export interface ProductDetail {
 // Display-only schedule-mode label, derived purely from the real
 // product_schedules.freq values that already exist — never a stored/
 // canonical field (SNX_PHASE2C plan, Refinement 3). Zero schedules reads as
-// "No schedule", not "On Request" (Refinement 2 — absence of a schedule is
-// ambiguous, not a real product mode).
+// "Not configured" — a configuration-state description, not "On Request"
+// (Refinement 2 — absence of a schedule is ambiguous, not a real product
+// mode; a product can have real event_dates with zero product_schedules
+// rows, e.g. older instances created before schedules existed).
 export function deriveScheduleLabel(freqs: string[]): string {
-  if (freqs.length === 0) return 'No schedule'
+  if (freqs.length === 0) return 'Not configured'
   const hasWeekly = freqs.includes('weekly')
   const hasOnce = freqs.includes('once')
   if (hasWeekly && hasOnce) return 'Mixed schedules'
