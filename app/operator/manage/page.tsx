@@ -14,8 +14,14 @@ export const dynamic = 'force-dynamic'
 const TEMPORARY_LINK_OUTS = [
   { href: '/dashboard', label: 'Calendar / Instances', detail: 'Owner calendar — event dates & scheduling', Icon: CalendarDays },
   { href: '/dashboard/products', label: 'Products / Experiences', detail: 'Product admin — content, media, schedules', Icon: Package },
-  { href: '/dashboard', label: 'Event Operations', detail: 'Host brief, logistics, closeout — via the day panel', Icon: ClipboardCheck },
   { href: '/dashboard/checkin', label: 'Check-in', detail: 'QR scanner — already mobile-ready', Icon: QrCode },
+]
+
+// Phase 2A: Event Operations graduated from a /dashboard link-out to a real
+// in-shell surface (SNX_PHASE2A_EVENT_OPS_PLAN.md). Same tables/routes the
+// dashboard day panel already uses — no second event engine.
+const IN_SHELL_OPERATIONS = [
+  { href: '/operator/manage/events', label: 'Event Operations', detail: 'Overview, guests, expenses, brief, closeout', Icon: ClipboardCheck },
 ]
 
 // Already built and in-shell — no link-out needed, these stay on /operator.
@@ -49,6 +55,24 @@ export default function OperatorManagePage() {
             <p style={{ fontSize: '11.5px', color: T.textMuted, margin: 0 }}>{detail}</p>
           </div>
           <ArrowUpRight size={15} color={T.textFaint} style={{ flexShrink: 0 }} />
+        </Link>
+      ))}
+
+      {IN_SHELL_OPERATIONS.map(({ href, label, detail, Icon }) => (
+        <Link
+          key={href}
+          href={href}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', marginBottom: '10px',
+            background: T.bgElevated, border: `1px solid ${T.border}`, borderRadius: T.radiusSm, textDecoration: 'none', color: T.text,
+          }}
+        >
+          <Icon size={17} color={T.textMuted} />
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 1px' }}>{label}</p>
+            <p style={{ fontSize: '11.5px', color: T.textMuted, margin: 0 }}>{detail}</p>
+          </div>
+          <ChevronRight size={16} color={T.textFaint} />
         </Link>
       ))}
 
