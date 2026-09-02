@@ -200,7 +200,9 @@ export function parseBlocks(markdown: string): DocBlock[] {
 function formatDate(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso.slice(0, 10)
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+  // proposal_date/approved_at are business dates the partner sees — always
+  // rendered in Bangkok local time regardless of the server's own timezone.
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Bangkok' })
 }
 
 export function buildProposalDocument(proposal: Proposal, partnerName: string): ProposalClientDocument {

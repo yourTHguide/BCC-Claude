@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, Check } from 'lucide-react'
 import { operatorTheme as T, eyebrow } from '@/lib/operator/theme'
+import { KNOWN_BUSINESS_CONTEXTS } from '@/lib/operator/businessContexts'
 import type { RelationshipStatus, PartnerDeal, PartnerLocation } from '@/lib/partners'
 
 type PartnerRow = { id: string; displayName: string; relationshipStatus: RelationshipStatus }
@@ -26,16 +27,10 @@ type PartnerRow = { id: string; displayName: string; relationshipStatus: Relatio
 // Known business-context values are a UI convenience only — a fixed list of
 // {value, label} pairs for the common cases, using exactly the canonical
 // strings Phase 3B established (no DB enum, no schema change: the underlying
-// column is still a plain TEXT[] with no value-list CHECK). The free-text
-// "+ Add" path stays alongside it for anything not in this list, so the set
-// of usable contexts is never artificially capped.
-const KNOWN_CONTEXTS: { value: string; label: string }[] = [
-  { value: 'best-nightlife', label: 'BEST Nightlife' },
-  { value: 'bkk-club-crawl', label: 'Bangkok Club Crawl' },
-  { value: 'your-thailand-guide', label: 'Your Thailand Guide' },
-  { value: 'flow-lab', label: 'Flow Lab' },
-  { value: 'sanctuary-nexus', label: 'Sanctuary Nexus' },
-]
+// column is still a plain TEXT[] with no value-list CHECK). Shared with the
+// Proposal Preview screen (lib/operator/businessContexts.ts) so a slug reads
+// the same label everywhere it's shown to an operator.
+const KNOWN_CONTEXTS = KNOWN_BUSINESS_CONTEXTS
 
 const fieldStyle: React.CSSProperties = {
   width: '100%', padding: '10px 12px', borderRadius: T.radiusSm, border: `1px solid ${T.border}`,

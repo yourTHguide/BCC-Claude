@@ -22,7 +22,10 @@ import { getPartnershipFramework } from '@/lib/partnershipFramework'
 import { getProposalWritingStandard } from '@/lib/proposalWritingStandard'
 import { generateProposalDraft, reviseProposalDraft } from '@/lib/proposalGeneration'
 import type { ProposalWriterInputs } from '@/lib/proposalWriter'
-import { getPartner } from '@/lib/partners'
+import { getPartner, getPartnerDeal } from '@/lib/partners'
+import { buildProposalDocument } from '@/lib/proposalDocument'
+import { renderProposalPdf } from '@/lib/proposalPdf'
+import { proposalPdfStoragePath, uploadProposalPdf, getSignedProposalPdfUrl } from '@/lib/proposalPdfStorage'
 
 export type ProposalStatus = 'draft' | 'review' | 'approved' | 'exported' | 'sent' | 'archived'
 export type ProposalWriterMode = 'ai' | 'deterministic'
@@ -324,6 +327,27 @@ export async function createDraftFromFinalizedVersion(sourceProposalId: string):
     throw new Error('createDraftFromFinalizedVersion: source proposal is still a Working Draft, not a Finalized Version')
   }
 
+  // Friendly pre-check for the DB's own at-most-one-open-draft-per-series
+  // partial unique index (idx_proposals_one_draft_per_series) — the index is
+  // the real guarantee; this just gives a clear error instead of a raw
+  // Postgres unique-violation.
+  const seriesRows = await proposalsForSeries(source.seriesId)
+  const openDraft = seriesRows.find((p) => p.version === null)
+  if (openDraft) {
+    throw new Error(`createDraftFromFinalizedVersion: series ${source.seriesId} already has an open Working Draft (${openDraft.id}) — finalize or continue that one first`)
+  }
+
+  // Re-merge the partner's CURRENT deal terms (if this line has a linked
+  // Deal) onto the frozen version's snapshot as the template, so a new round
+  // starts from any commercial changes made since the prior version rather
+  // than silently reusing stale figures. Labels/required flags come from the
+  // frozen snapshot; values come from the live deal.
+  let dealTermsSnapshot = source.dealTermsSnapshot
+  if (source.dealId) {
+    const deal = await getPartnerDeal(source.dealId)
+    if (deal) dealTermsSnapshot = mergeDealVariables(source.dealTermsSnapshot, deal.terms)
+  }
+
   const supabase = getServiceSupabase()
   const { data, error } = await supabase
     .from('proposals')
@@ -340,7 +364,7 @@ export async function createDraftFromFinalizedVersion(sourceProposalId: string):
       writing_standard_version: source.writingStandardVersion,
       product_profile_version: source.productProfileVersion,
       proposal_date: new Date().toISOString().slice(0, 10),
-      deal_terms_snapshot: source.dealTermsSnapshot,
+      deal_terms_snapshot: dealTermsSnapshot,
       context_for_proposal: source.contextForProposal,
       writing_direction: source.writingDirection,
       writer_mode: source.writerMode,
@@ -460,38 +484,107 @@ export async function requestProposalChanges(id: string, instruction: string): P
   return updateProposalDraft(id, revised.content)
 }
 
-// ── Finalization boundary — NOT implemented in Phase 3C-2 ────────────────
-//
-// This phase deliberately does NOT wire an operator-facing Finalize flow
-// (that's 3F/3G). What follows is the documented function boundary later
-// phases implement against, so the shape is settled now:
-//
-//   async function finalizeProposal(id: string, actorUserId: string): Promise<Proposal>
-//
-// Required algorithm (see the Phase 3C session's finalization-correction
-// thread for the full reasoning; summarized here as the contract future
-// code must honor):
-//   1. Read the Working Draft row; capture id, draft_revision, and every
-//      substantive field needed to render the PDF (draft_content,
-//      deal_terms_snapshot, business_contexts, product, title,
-//      context_for_proposal, writing_direction) as one snapshot.
-//   2. Render + upload the PDF from EXACTLY that captured snapshot only —
-//      never re-read live partner_deals.terms or any other mutable source
-//      mid-finalization, even if rendering takes a moment.
-//   3. Upload target: `{partnerId}/{seriesId}/{proposalId}/r{capturedRevision}.pdf`
-//      in the `proposal-pdfs` bucket (upload only if that exact path doesn't
-//      already hold an object — a retry against an unchanged revision
-//      reuses what's already there instead of re-uploading).
-//   4. The ONE Postgres write: `UPDATE proposals SET version = <next>,
-//      approved_content = <captured draft_content>, approved_at = now(),
-//      approved_by = actorUserId, pdf_storage_path = <path>,
-//      pdf_generated_at = now(), status = 'exported'
-//      WHERE id = <id> AND version IS NULL AND draft_revision = <capturedRevision>`.
-//      If this affects zero rows, re-read the row: version no longer null
-//      means a concurrent finalize already won (idempotent success); version
-//      still null means the draft changed mid-render (tell the caller to
-//      retry — no version was assigned, nothing was frozen).
+// ── Finalize & Generate PDF (Phase 3F/3G) ─────────────────────────────────
+// The ONLY function in this file that ever assigns `version`. Implements the
+// algorithm settled in the Phase 3C-2 boundary comment (see git history for
+// the original text) exactly: capture a snapshot, render + upload the PDF
+// from that snapshot only, then one atomic conditional Postgres write.
 // `proposals_lifecycle_invariant` (Phase 3C-1) rejects any attempt to set
 // `version` without approved_content/approved_at/approved_by/
 // pdf_storage_path/pdf_generated_at all present in the same statement, so
-// step 4 cannot partially succeed at the database level.
+// the final UPDATE below cannot partially succeed at the database level.
+
+export interface FinalizeProposalResult {
+  proposal: Proposal
+  /** True when this call did not itself perform the finalize — the proposal was already a Finalized Version (either a genuine retry, or a concurrent request won the race). Never a failure. */
+  alreadyFinalized: boolean
+}
+
+/**
+ * Finalize & Generate PDF: turns the current Working Draft into a
+ * permanently frozen, numbered Finalized Version with a durable PDF.
+ * Idempotent — calling this again on an already-finalized proposal returns
+ * that same finalized row rather than erroring.
+ */
+export async function finalizeProposal(id: string, actorUserId: string): Promise<FinalizeProposalResult> {
+  const existing = await getProposal(id)
+  if (!existing) throw new Error(`finalizeProposal: proposal ${id} not found`)
+
+  // Idempotent short-circuit: already a Finalized Version (a genuine retry
+  // from the UI, or this exact call racing a concurrent one that already won).
+  if (existing.version !== null) {
+    return { proposal: existing, alreadyFinalized: true }
+  }
+
+  const partner = await getPartner(existing.partnerId)
+  if (!partner) throw new Error(`finalizeProposal: partner ${existing.partnerId} not found`)
+
+  // 1. Capture the exact snapshot to freeze. Nothing below this line ever
+  // re-reads draft_content, deal_terms_snapshot, or any other mutable source
+  // — the PDF and the frozen row must reflect this moment, not whatever the
+  // draft has become by the time rendering/upload finishes.
+  const capturedRevision = existing.draftRevision
+  const capturedContent = existing.draftContent ?? ''
+
+  const latest = await latestVersionForSeries(existing.seriesId)
+  const nextVersion = (latest?.version ?? 0) + 1
+
+  // 2. Render the PDF from exactly that snapshot.
+  const document = buildProposalDocument({ ...existing, approvedContent: capturedContent }, partner.displayName)
+  const pdfBuffer = await renderProposalPdf(document)
+
+  // 3. Upload first (write-once, revision-keyed path — a retry at the same
+  // captured revision safely reuses whatever is already there).
+  const path = proposalPdfStoragePath(existing.partnerId, existing.seriesId, existing.id, capturedRevision)
+  await uploadProposalPdf(path, pdfBuffer)
+
+  // 4. The one atomic Postgres write, conditioned on nothing having changed
+  // since the snapshot was captured.
+  const supabase = getServiceSupabase()
+  const nowIso = new Date().toISOString()
+  const { data, error } = await supabase
+    .from('proposals')
+    .update({
+      version: nextVersion,
+      approved_content: capturedContent,
+      approved_at: nowIso,
+      approved_by: actorUserId,
+      pdf_storage_path: path,
+      pdf_generated_at: nowIso,
+      status: 'exported',
+    })
+    .eq('id', id)
+    .is('version', null)
+    .eq('draft_revision', capturedRevision)
+    .select(PROPOSAL_FIELDS)
+    .maybeSingle()
+
+  if (error) {
+    console.error('lib/proposals finalizeProposal: update error:', error)
+    throw new Error('Failed to finalize proposal')
+  }
+
+  if (data) {
+    return { proposal: rowToProposal(data), alreadyFinalized: false }
+  }
+
+  // Zero rows matched the WHERE clause — re-read to tell apart the two
+  // possible causes rather than guessing.
+  const reread = await getProposal(id)
+  if (reread && reread.version !== null) {
+    // A concurrent finalize already won this exact race — idempotent success.
+    return { proposal: reread, alreadyFinalized: true }
+  }
+  // The draft changed mid-render (a new edit bumped draft_revision past what
+  // was captured). No version was assigned; nothing was frozen; the orphaned
+  // PDF upload at the old revision's path is harmless and unreferenced.
+  throw new Error('The draft changed since it was last previewed. Preview it again before finalizing.')
+}
+
+/** Signed URL to view or download a Finalized Version's durable PDF. Throws if this proposal has no PDF yet (still a Working Draft). */
+export async function getProposalPdfUrl(id: string, opts?: { download?: boolean | string }): Promise<string> {
+  const proposal = await getProposal(id)
+  if (!proposal) throw new Error(`getProposalPdfUrl: proposal ${id} not found`)
+  if (!proposal.pdfStoragePath) throw new Error('getProposalPdfUrl: this proposal has not been finalized yet')
+  return getSignedProposalPdfUrl(proposal.pdfStoragePath, opts)
+}
