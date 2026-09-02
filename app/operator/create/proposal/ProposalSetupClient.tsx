@@ -301,7 +301,10 @@ export default function ProposalSetupClient({ partners }: { partners: PartnerRow
           ) : (
             <>
               <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
-                <button type="button" style={tabStyle(dealTab === 'existing')} onClick={() => setDealTab('existing')} disabled={existingDeals.length === 0}>
+                {/* Always clickable — zero existing deals is a real, valid state
+                    with its own empty-state UI below, not a reason to disable
+                    the tab itself. */}
+                <button type="button" style={tabStyle(dealTab === 'existing')} onClick={() => setDealTab('existing')}>
                   Existing Deal {existingDeals.length > 0 ? `(${existingDeals.length})` : ''}
                 </button>
                 <button type="button" style={tabStyle(dealTab === 'new')} onClick={() => setDealTab('new')}>New Deal</button>
@@ -309,7 +312,14 @@ export default function ProposalSetupClient({ partners }: { partners: PartnerRow
 
               {dealTab === 'existing' && (
                 <div>
-                  {existingDeals.length === 0 && <p style={{ fontSize: '12.5px', color: T.textFaint, margin: 0 }}>No deals yet for this partner.</p>}
+                  {existingDeals.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: '18px 0' }}>
+                      <p style={{ fontSize: '12.5px', color: T.textFaint, margin: '0 0 10px' }}>No existing deals yet</p>
+                      <button type="button" onClick={() => setDealTab('new')} style={{ fontSize: '12px', fontWeight: 600, color: T.accentText, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                        Create a new deal
+                      </button>
+                    </div>
+                  )}
                   {existingDeals.map((d) => (
                     <button
                       key={d.id}
@@ -322,6 +332,11 @@ export default function ProposalSetupClient({ partners }: { partners: PartnerRow
                         {d.businessContexts.map((c) => <span key={c} style={{ fontSize: '10px', color: T.textFaint }}>{c}</span>)}
                       </div>
                       {d.product && <p style={{ fontSize: '12px', margin: 0, color: T.textMuted }}>{d.product}</p>}
+                      {d.locationId && (
+                        <p style={{ fontSize: '11px', margin: '2px 0 0', color: T.textFaint }}>
+                          {locations.find((l) => l.id === d.locationId)?.name ?? 'Location'}
+                        </p>
+                      )}
                     </button>
                   ))}
                 </div>
