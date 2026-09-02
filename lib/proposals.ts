@@ -23,7 +23,7 @@ import { getProposalWritingStandard } from '@/lib/proposalWritingStandard'
 import { generateProposalDraft, reviseProposalDraft } from '@/lib/proposalGeneration'
 import type { ProposalWriterInputs } from '@/lib/proposalWriter'
 import { getPartner, getPartnerDeal } from '@/lib/partners'
-import { buildProposalDocument } from '@/lib/proposalDocument'
+import { buildProposalDocument, bangkokDateStamp } from '@/lib/proposalDocument'
 import { renderProposalPdf } from '@/lib/proposalPdf'
 import { proposalPdfStoragePath, uploadProposalPdf, getSignedProposalPdfUrl } from '@/lib/proposalPdfStorage'
 
@@ -259,7 +259,7 @@ export async function createProposal(input: CreateProposalInput): Promise<Propos
   const framework = getPartnershipFramework()
   const writingStandard = getProposalWritingStandard()
   const dealVariables = input.dealVariables ?? defaultDealVariables()
-  const proposalDate = new Date().toISOString().slice(0, 10)
+  const proposalDate = bangkokDateStamp()
 
   const writerInputs: ProposalWriterInputs = {
     framework,
@@ -363,7 +363,7 @@ export async function createDraftFromFinalizedVersion(sourceProposalId: string):
       framework_version: source.frameworkVersion,
       writing_standard_version: source.writingStandardVersion,
       product_profile_version: source.productProfileVersion,
-      proposal_date: new Date().toISOString().slice(0, 10),
+      proposal_date: bangkokDateStamp(),
       deal_terms_snapshot: dealTermsSnapshot,
       context_for_proposal: source.contextForProposal,
       writing_direction: source.writingDirection,
@@ -505,8 +505,19 @@ export interface FinalizeProposalResult {
  * permanently frozen, numbered Finalized Version with a durable PDF.
  * Idempotent — calling this again on an already-finalized proposal returns
  * that same finalized row rather than erroring.
+ *
+ * `expectedDraftRevision`, when supplied, is a precondition: the caller
+ * asserts "this is the revision I actually showed the operator on Preview."
+ * If the live row has already moved past it, this fails immediately with
+ * the same message the CAS write's own race-loss path produces — Preview
+ * and the generated PDF must always be the same snapshot (Phase 3F
+ * correction), never "whatever happened to be current when Finalize was
+ * clicked." The CAS UPDATE below is still the final, authoritative guard
+ * (it also catches an edit landing in the gap between this check and the
+ * write); this check just fails fast, before spending a PDF render on
+ * content the operator never actually previewed.
  */
-export async function finalizeProposal(id: string, actorUserId: string): Promise<FinalizeProposalResult> {
+export async function finalizeProposal(id: string, actorUserId: string, expectedDraftRevision?: number): Promise<FinalizeProposalResult> {
   const existing = await getProposal(id)
   if (!existing) throw new Error(`finalizeProposal: proposal ${id} not found`)
 
@@ -514,6 +525,10 @@ export async function finalizeProposal(id: string, actorUserId: string): Promise
   // from the UI, or this exact call racing a concurrent one that already won).
   if (existing.version !== null) {
     return { proposal: existing, alreadyFinalized: true }
+  }
+
+  if (expectedDraftRevision !== undefined && existing.draftRevision !== expectedDraftRevision) {
+    throw new Error('The draft changed since it was last previewed. Preview it again before finalizing.')
   }
 
   const partner = await getPartner(existing.partnerId)

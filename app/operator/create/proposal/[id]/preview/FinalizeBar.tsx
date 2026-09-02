@@ -16,7 +16,18 @@ const primaryBtn = (disabled: boolean): React.CSSProperties => ({
 })
 
 /** Sticky-ish action bar above the read-only document: Back to Edit + (draft only) Finalize & Generate PDF. Preview never assigns version by itself — only a successful Finalize call does. */
-export default function FinalizeBar({ proposalId, canFinalize, version }: { proposalId: string; canFinalize: boolean; version: number | null }) {
+export default function FinalizeBar({
+  proposalId,
+  canFinalize,
+  version,
+  draftRevision,
+}: {
+  proposalId: string
+  canFinalize: boolean
+  version: number | null
+  /** The draft_revision this exact Preview render shows — sent to Finalize as a precondition so the generated PDF can never diverge from what was actually previewed. */
+  draftRevision: number
+}) {
   const router = useRouter()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -26,7 +37,11 @@ export default function FinalizeBar({ proposalId, canFinalize, version }: { prop
     setBusy(true)
     setError(null)
     try {
-      const res = await fetch(`/api/admin/proposals/${proposalId}/finalize`, { method: 'POST' })
+      const res = await fetch(`/api/admin/proposals/${proposalId}/finalize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expectedDraftRevision: draftRevision }),
+      })
       const data = await res.json().catch(() => ({}))
       if (!res.ok || !data.proposal) {
         setError(data.error || 'Could not finalize this proposal.')

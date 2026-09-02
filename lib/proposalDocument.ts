@@ -205,6 +205,22 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Bangkok' })
 }
 
+/**
+ * Today's calendar date in Bangkok (Asia/Bangkok), as YYYY-MM-DD. Phase 3F
+ * correction: `proposal_date` was previously stamped with
+ * `new Date().toISOString().slice(0, 10)` — the server's UTC calendar date,
+ * which runs a day behind Bangkok for roughly the first 7 hours of every
+ * Bangkok day (e.g. 2026-09-03 01:00 Bangkok is still 2026-09-02 18:00 UTC).
+ * formatDate() above only controls DISPLAY of an already-stored date and
+ * cannot fix a value that was wrong the moment it was written — this is the
+ * actual write-time source every proposal-date stamp must use instead.
+ * 'en-CA' is a locale trick, not a regional choice: it's the built-in
+ * Intl locale that happens to format as YYYY-MM-DD.
+ */
+export function bangkokDateStamp(date: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date)
+}
+
 export function buildProposalDocument(proposal: Proposal, partnerName: string): ProposalClientDocument {
   return {
     meta: {

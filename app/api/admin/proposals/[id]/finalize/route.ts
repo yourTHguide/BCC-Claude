@@ -8,12 +8,23 @@ export const dynamic = 'force-dynamic'
 // `version` — everything under PATCH /api/admin/proposals/[id] stays
 // Working-Draft-only. actorUserId is always the server-resolved admin from
 // the session, never anything the client could supply.
-export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const auth = await requireRole(['owner', 'admin'])
   if ('response' in auth) return auth.response
 
+  // expectedDraftRevision is optional (the finalize call still works without
+  // it) but the Preview screen always sends the revision it actually
+  // rendered — see finalizeProposal()'s own doc comment for why this matters.
+  let expectedDraftRevision: number | undefined
   try {
-    const { proposal, alreadyFinalized } = await finalizeProposal(params.id, auth.admin.userId)
+    const body = await req.json()
+    if (typeof body?.expectedDraftRevision === 'number') expectedDraftRevision = body.expectedDraftRevision
+  } catch {
+    // No/invalid JSON body — proceed without the precondition; the CAS write itself still protects correctness.
+  }
+
+  try {
+    const { proposal, alreadyFinalized } = await finalizeProposal(params.id, auth.admin.userId, expectedDraftRevision)
     return NextResponse.json({ proposal, alreadyFinalized })
   } catch (error) {
     console.error('POST /api/admin/proposals/[id]/finalize:', error)

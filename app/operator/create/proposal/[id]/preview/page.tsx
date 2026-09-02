@@ -121,7 +121,7 @@ export default async function ProposalPreviewPage({ params }: { params: { id: st
       <p style={eyebrow(T.textFaint)}>Create · Partner + Proposal · Preview</p>
       <h1 style={{ fontSize: '18px', fontWeight: 700, margin: '4px 0 14px' }}>Proposal Preview</h1>
 
-      <FinalizeBar proposalId={proposal.id} canFinalize={proposal.version === null} version={proposal.version} />
+      <FinalizeBar proposalId={proposal.id} canFinalize={proposal.version === null} version={proposal.version} draftRevision={proposal.draftRevision} />
 
       {/* The document itself — styled to read like the external artifact, not the operator shell. */}
       <div style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '28px 24px', color: '#1f2937' }}>
