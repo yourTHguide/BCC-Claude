@@ -1,43 +1,39 @@
-import Link from 'next/link'
+const NAV = [
+  { label: 'How It Works', href: '#how-it-works' },
+  { label: 'The Crawl', href: '#stops' },
+  { label: 'Reviews', href: '#reviews' },
+  { label: 'Hosts', href: '#hosts' },
+  { label: 'FAQ', href: '#faq' },
+]
 
 export default function Footer() {
   return (
     <footer
       style={{
-        background: '#1A0015',
+        background: '#120009',
         borderTop: '1px solid rgba(255,255,255,0.08)',
         padding: '40px 24px',
       }}
     >
-      <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-
-        <div
-          style={{
-            background: 'rgba(234,0,58,0.08)',
-            border: '1px solid rgba(234,0,58,0.18)',
-            borderRadius: '10px',
-            padding: '16px 20px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '12px',
-            marginBottom: '32px',
-          }}
-        >
-          <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', color: 'rgba(255,255,255,0.70)' }}>
-            Planning something big?
-          </p>
-          <a href="https://bestnightlifethailand.com" target="_blank" rel="noopener noreferrer"
-            style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '13px', color: '#EA003A', textDecoration: 'none' }}>
-            BEST Nightlife Thailand →
-          </a>
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px', marginBottom: '24px' }}>
-          <div style={{ height: '32px', display: 'flex', alignItems: 'center' }}>
-            <img src="/images/bcc-logo.png" alt="Bangkok Club Crawl" style={{ height: '32px', width: 'auto', objectFit: 'contain' }} />
+      <div className="footer-inner" style={{ maxWidth: '900px', margin: '0 auto' }}>
+        <div className="footer-top">
+          <div>
+            <div style={{ height: '32px', display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+              <img src="/images/bcc-logo.png" alt="Bangkok Club Crawl" style={{ height: '32px', width: 'auto', objectFit: 'contain' }} />
+            </div>
+            <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>
+              Bangkok Club Crawl · BEST Nightlife Thailand
+            </p>
           </div>
+
+          <nav className="footer-nav">
+            {NAV.map((n) => (
+              <a key={n.label} href={n.href} style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', color: 'rgba(255,255,255,0.60)', textDecoration: 'none' }}>
+                {n.label}
+              </a>
+            ))}
+          </nav>
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
             <a href="https://instagram.com/bkkclubcrawl" target="_blank" rel="noopener noreferrer"
               style={{ display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}>
@@ -67,10 +63,18 @@ export default function Footer() {
           </div>
         </div>
 
-        <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '11px', color: 'rgba(255,255,255,0.20)', textAlign: 'center' }}>
+        <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '11px', color: 'rgba(255,255,255,0.20)', textAlign: 'center', marginTop: '32px' }}>
           © 2026 BEST Nightlife Thailand · Sanctuary Nexus Co., Ltd. · Bangkok
         </p>
       </div>
+
+      <style>{`
+        .footer-top { display: flex; flex-direction: column; align-items: flex-start; gap: 24px; }
+        .footer-nav { display: flex; flex-wrap: wrap; gap: 16px 20px; }
+        @media (min-width: 1024px) {
+          .footer-top { flex-direction: row; align-items: center; justify-content: space-between; }
+        }
+      `}</style>
     </footer>
   )
 }
