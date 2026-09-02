@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic'
 // implementation evidence in either BCC-website or Living OS and is hidden
 // entirely — not even a placeholder — per explicit instruction.
 const ACTIVE = [
-  { href: '/dashboard/products/new', label: 'New Product / Experience', detail: 'Existing production flow', Icon: Package },
+  { href: '/dashboard/products/new', label: 'New Nightlife Product / Experience', detail: 'BCC / BNT scheduled product flow', Icon: Package },
 ]
 
 const COMING_NEXT = [
