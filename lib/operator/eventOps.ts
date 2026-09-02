@@ -6,7 +6,7 @@
 // functions (suggestedHostFee, revenue/profit) out of app/dashboard/page.tsx
 // so the mobile surface computes them identically, not independently.
 import { getServiceSupabase } from '@/lib/supabase'
-import { bangkokToday, addDaysISO, formatStartTime12h } from '@/lib/dates'
+import { bangkokToday, addDaysISO, formatStartTime12h, formatStartTime } from '@/lib/dates'
 
 // Matches app/dashboard/page.tsx:8 exactly. Duplicated, not imported —
 // page.tsx isn't meant to be imported as a module, and the Phase 0 audit
@@ -48,17 +48,26 @@ export interface EventInstance {
   hostFeeFinal: number | null
   startTime: string | null
   productName: string | null
+  // Added for Phase 2B (Calendar/Instances) — scheduling fields Phase 2A
+  // never needed. Same row, same function, no second query type.
+  capacity: number | null
+  priceOverride: number | null
+  defaultPrice: number | null
+  // 24h HH:MM for <input type="time"> editing — same resolved value as
+  // `startTime` (override falls back to product default), just unformatted.
+  startTime24: string | null
 }
 
 // Single-instance read — same columns app/dashboard/page.tsx's DayPanel
-// uses (see SNX_PHASE2A_EVENT_OPS_PLAN.md §1). No API route needed: this
-// runs server-side only, same as every other /operator read.
+// uses (see SNX_PHASE2A_EVENT_OPS_PLAN.md §1), plus capacity/price_override
+// for Phase 2B. No API route needed: this runs server-side only, same as
+// every other /operator read.
 export async function getEventInstance(id: string): Promise<EventInstance | null> {
   const supabase = getServiceSupabase()
   const { data, error } = await supabase
     .from('event_dates')
     .select(
-      'id, event_date, night_slug, night_name, is_open, host_assigned, operation_verdict, meet_up_location, whatsapp_group_link, venue_route, van_or_taxi_contact, special_notes, host_payment_status, host_fee_final, start_time_override, products(default_start_time, name)'
+      'id, event_date, night_slug, night_name, is_open, host_assigned, operation_verdict, meet_up_location, whatsapp_group_link, venue_route, van_or_taxi_contact, special_notes, host_payment_status, host_fee_final, start_time_override, capacity, price_override, products(default_start_time, name, default_price)'
     )
     .eq('id', id)
     .maybeSingle()
@@ -85,6 +94,10 @@ export async function getEventInstance(id: string): Promise<EventInstance | null
     hostFeeFinal: e.host_fee_final ?? null,
     startTime: formatStartTime12h(e.start_time_override ?? e.products?.default_start_time ?? null),
     productName: e.products?.name ?? null,
+    capacity: e.capacity ?? null,
+    priceOverride: e.price_override ?? null,
+    defaultPrice: e.products?.default_price ?? null,
+    startTime24: formatStartTime(e.start_time_override ?? e.products?.default_start_time ?? null),
   }
 }
 
