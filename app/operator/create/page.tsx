@@ -6,20 +6,25 @@ export const dynamic = 'force-dynamic'
 
 // Phase 1A (SNX_PHASE1_ALIGNMENT_AUDIT.md §7a / Refinement 2): only what's
 // genuinely proven gets a visible entry point. New Product uses BCC's real
-// production flow (a TEMPORARY LINK-OUT, same caveat as Manage). Partner +
-// Proposal and Caption Set are proven engines (per the Codex audit) but not
-// migrated to SNX's production stack yet — shown, clearly inert, as
-// "Coming next," not pretending to be functional. Everything else from the
-// Create mockup (Blog/SEO Article, Recommendation, Reel Ideas/Scripts,
-// Carousel, Repurpose Content, the asset-remix "Turn into" pattern) has no
-// implementation evidence in either BCC-website or Living OS and is hidden
-// entirely — not even a placeholder — per explicit instruction.
+// production flow (a TEMPORARY LINK-OUT, same caveat as Manage). Caption Set
+// is a proven engine (per the Codex audit) but not migrated to SNX's
+// production stack yet — shown, clearly inert, as "Coming next," not
+// pretending to be functional. Everything else from the Create mockup
+// (Blog/SEO Article, Recommendation, Reel Ideas/Scripts, Carousel, Repurpose
+// Content, the asset-remix "Turn into" pattern) has no implementation
+// evidence in either BCC-website or Living OS and is hidden entirely — not
+// even a placeholder — per explicit instruction.
+//
+// Phase 3E: Partner + Proposal graduates from "Coming next" to a real
+// in-shell flow — Setup (pick/create Partner, pick/create Deal context) ->
+// Working Draft (edit/regenerate/request changes). It does NOT yet reach
+// Finalize & Generate PDF; that's a later phase.
 const ACTIVE = [
   { href: '/dashboard/products/new', label: 'New Nightlife Product / Experience', detail: 'BCC / BNT scheduled product flow', Icon: Package },
+  { href: '/operator/create/proposal', label: 'Partner + Proposal', detail: 'Set up a partner, deal context, and draft', Icon: Users2 },
 ]
 
 const COMING_NEXT = [
-  { label: 'Partner + Proposal', detail: 'Coming soon', Icon: Users2 },
   { label: 'Caption Set', detail: 'Coming soon', Icon: Sparkles },
 ]
 
