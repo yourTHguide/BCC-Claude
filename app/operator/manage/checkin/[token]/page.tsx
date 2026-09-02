@@ -128,7 +128,26 @@ export default function OperatorCheckinTokenPage({ params }: { params: { token: 
 
         return (
           <div style={cardStyle}>
-            {isCheckedIn && (
+            {/* Presentation priority only — isBlocked/isCheckedIn themselves
+                are unchanged above; this only decides which banner renders
+                on top when both are true. A cancelled/refunded booking is
+                never checkable regardless of attendance_status, so that
+                fact leads — "Already checked in" becomes a smaller
+                secondary note underneath instead of the primary banner. */}
+            {isBlocked ? (
+              <div
+                style={{
+                  background: T.statusRedSoft, border: `2px solid ${T.statusRed}`,
+                  borderRadius: T.radiusSm, padding: '18px', marginBottom: isCheckedIn ? '8px' : '18px', textAlign: 'center',
+                }}
+              >
+                <div style={{ fontSize: '30px', lineHeight: 1, marginBottom: '8px' }}>✕</div>
+                <p style={{ color: T.statusRed, fontSize: '17px', fontWeight: 700, margin: 0 }}>
+                  {data.booking.status === 'refunded' ? 'Booking Refunded' : 'Booking Cancelled'}
+                </p>
+                <p style={{ color: T.textMuted, fontSize: '12.5px', marginTop: '6px' }}>Do not check in</p>
+              </div>
+            ) : isCheckedIn ? (
               <div
                 style={{
                   background: justConfirmed ? T.statusGreenSoft : T.statusAmberSoft,
@@ -148,6 +167,12 @@ export default function OperatorCheckinTokenPage({ params }: { params: { token: 
                     : 'This ticket has already been used'}
                 </p>
               </div>
+            ) : null}
+
+            {isBlocked && isCheckedIn && (
+              <p style={{ color: T.textFaint, fontSize: '11.5px', marginBottom: '18px' }}>
+                Attendance status: Already checked in
+              </p>
             )}
 
             <p style={eyebrow(T.textFaint)}>{data.product.name}</p>
@@ -179,15 +204,12 @@ export default function OperatorCheckinTokenPage({ params }: { params: { token: 
               </div>
             </div>
 
-            {/* Exactly one of these three renders — an active check-in
-                action is never shown once the booking is already checked
-                in or blocked. No undo control here by design — that stays
-                Event Operations → Guests' job. */}
-            {isBlocked ? (
-              <p style={{ color: T.statusRed, fontSize: '13px', marginBottom: '4px' }}>
-                This booking was {data.booking.status} — do not check in.
-              </p>
-            ) : isCheckedIn ? null : (
+            {/* The active check-in action is never shown once the booking
+                is blocked or already checked in — the "do not check in" /
+                "already checked in" messaging now lives entirely in the
+                banner above, not duplicated here. No undo control here by
+                design — that stays Event Operations → Guests' job. */}
+            {isBlocked || isCheckedIn ? null : (
               <button
                 type="button"
                 onClick={confirmCheckin}
