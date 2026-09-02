@@ -73,14 +73,18 @@ export default function BntLandingPage() {
             </div>
           </a>
 
-          <div className="event-card" style={{ backgroundImage: "url('/bnt/images/bangkok-mob.png')" }}>
+          <a
+            href="/new-in-bangkok"
+            className="event-card"
+            style={{ backgroundImage: "url('/bnt/images/new-in-bangkok-card.jpg')" }}
+          >
             <div className="event-info">
-              <h3>Bangkok Mob</h3>
+              <h3>New in Bangkok</h3>
               <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
-                Immersive theme parties.
+                A hosted night for anyone new to Bangkok.
               </p>
             </div>
-          </div>
+          </a>
 
           <div className="event-card" style={{ backgroundImage: "url('/bnt/images/bangkok-masquerade-218.jpg')" }}>
             <div className="event-info">
