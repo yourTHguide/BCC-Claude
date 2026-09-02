@@ -1,29 +1,22 @@
 import Link from 'next/link'
-import { CalendarDays, Package, ClipboardCheck, QrCode, Ticket, ChevronRight, ArrowUpRight } from 'lucide-react'
+import { CalendarDays, Package, ClipboardCheck, QrCode, Ticket, ChevronRight } from 'lucide-react'
 import { operatorTheme as T, eyebrow } from '@/lib/operator/theme'
 
 export const dynamic = 'force-dynamic'
 
-// Phase 1A (SNX_PHASE1_ALIGNMENT_AUDIT.md §7a): every one of these is a
-// TEMPORARY LINK-OUT to a proven, production BCC engine that already has a
-// working (if desktop-biased) UI at /dashboard. This is explicitly not
-// final architecture — each row is a named candidate for an in-shell
-// mobile ADAPT pass later (see the audit's §4 engine-vs-UI table). Do not
-// treat these hrefs as settled; they're what lets Manage exist in Phase 1A
-// without rebuilding a proven engine's UI from scratch.
-const TEMPORARY_LINK_OUTS = [
-  { href: '/dashboard/checkin', label: 'Check-in', detail: 'QR scanner — already mobile-ready', Icon: QrCode },
-]
-
-// Phase 2A/2B/2C: Event Operations, Calendar/Instances, and Products /
-// Experiences graduated from /dashboard link-outs to real in-shell surfaces
-// (SNX_PHASE2A_EVENT_OPS_PLAN.md, SNX_PHASE2B_CALENDAR_INSTANCES_PLAN.md,
-// SNX_PHASE2C plan). Same tables/routes the dashboard already uses — no
-// second product/event engine, no second scheduling system.
+// Phase 2A/2B/2C/2D: Event Operations, Calendar/Instances, Products /
+// Experiences, and Check-in all graduated from /dashboard link-outs to real
+// in-shell surfaces (SNX_PHASE2A_EVENT_OPS_PLAN.md,
+// SNX_PHASE2B_CALENDAR_INSTANCES_PLAN.md, SNX_PHASE2C plan, SNX_PHASE2D
+// plan). Same tables/routes the dashboard already uses — no second
+// product/event engine, no second scheduling system, no new attendance
+// mutation path. Manage now has zero remaining temporary link-outs — the
+// only /dashboard link-out left is Create's New Product flow.
 const IN_SHELL_OPERATIONS = [
   { href: '/operator/manage/products', label: 'Products / Experiences', detail: 'Catalog — content, media, pricing context', Icon: Package },
   { href: '/operator/manage/calendar', label: 'Calendar / Instances', detail: 'Month view, scheduling, capacity, pricing', Icon: CalendarDays },
   { href: '/operator/manage/events', label: 'Event Operations', detail: 'Overview, guests, expenses, brief, closeout', Icon: ClipboardCheck },
+  { href: '/operator/manage/checkin', label: 'Check-in', detail: 'QR scanner + confirmation', Icon: QrCode },
 ]
 
 // Already built and in-shell — no link-out needed, these stay on /operator.
@@ -42,24 +35,6 @@ export default function OperatorManagePage() {
       </p>
 
       <p style={{ ...eyebrow(T.textFaint), marginBottom: '10px' }}>Operations</p>
-      {TEMPORARY_LINK_OUTS.map(({ href, label, detail, Icon }, i) => (
-        <Link
-          key={`${href}-${i}`}
-          href={href}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', marginBottom: '10px',
-            background: T.bgElevated, border: `1px solid ${T.border}`, borderRadius: T.radiusSm, textDecoration: 'none', color: T.text,
-          }}
-        >
-          <Icon size={17} color={T.textMuted} />
-          <div style={{ flex: 1 }}>
-            <p style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 1px' }}>{label}</p>
-            <p style={{ fontSize: '11.5px', color: T.textMuted, margin: 0 }}>{detail}</p>
-          </div>
-          <ArrowUpRight size={15} color={T.textFaint} style={{ flexShrink: 0 }} />
-        </Link>
-      ))}
-
       {IN_SHELL_OPERATIONS.map(({ href, label, detail, Icon }) => (
         <Link
           key={href}

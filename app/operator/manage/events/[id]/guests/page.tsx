@@ -13,9 +13,11 @@ const SOURCE_LABEL: Record<string, string> = {
 
 // Reuses bookings/ota_bookings guest data exactly as-is — no VIP flag, no
 // table number, no checked-in timestamp (none of those exist, see
-// SNX_PHASE2A_EVENT_OPS_PLAN.md §4). QR scanning stays a link-out to the
-// existing, already mobile-ready /dashboard/checkin flow rather than
-// rebuilding the camera integration.
+// SNX_PHASE2A_EVENT_OPS_PLAN.md §4). QR scanning links to the in-shell
+// scanner (/operator/manage/checkin, Phase 2D) — same html5-qrcode
+// integration, same /api/admin/checkin/[token] routes, just re-hosted.
+// Manual/undo attendance changes stay here (AttendanceControl below), never
+// duplicated into the check-in flow itself.
 export default async function EventGuestsPage({ params }: { params: { id: string } }) {
   const instance = await getEventInstance(params.id)
   if (!instance) notFound()
@@ -29,7 +31,7 @@ export default async function EventGuestsPage({ params }: { params: { id: string
       </p>
 
       <a
-        href="/dashboard/checkin"
+        href="/operator/manage/checkin"
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '13px',
           borderRadius: T.radiusSm, marginBottom: '18px', background: T.accent, color: '#fff',
