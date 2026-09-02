@@ -76,7 +76,7 @@ export default function BntLandingPage() {
           <a
             href="/new-in-bangkok"
             className="event-card"
-            style={{ backgroundImage: "url('/bnt/images/new-in-bangkok-card.jpg')" }}
+            style={{ backgroundImage: "url('/images/nomad-nights.jpg')" }}
           >
             <div className="event-info">
               <h3>New in Bangkok</h3>
