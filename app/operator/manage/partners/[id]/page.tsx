@@ -5,16 +5,18 @@ import {
 } from 'lucide-react'
 import { getPartnerProfileForOperator } from '@/lib/operator/partners'
 import { operatorTheme as T, eyebrow } from '@/lib/operator/theme'
-import type { RelationshipStatus, PartnerDealStatus } from '@/lib/partners'
-import type { ProposalStatus } from '@/lib/proposals'
+import type { RelationshipStatus, PartnerDealStatus, PartnerDeal } from '@/lib/partners'
+import type { Proposal, ProposalStatus } from '@/lib/proposals'
+import DealActions from './DealActions'
+import ProposalActions from './ProposalActions'
 
 export const dynamic = 'force-dynamic'
 
-// Phase 3D: Partner Profile — fully read-only. No edit/create controls for
-// contacts, locations, deals, or proposals — that's 3E (writes) and 3F
-// (proposal workflow). This page reads the Phase 3C-2 domain layer only
-// (getPartnerProfileForOperator); it introduces no new query shape of its
-// own beyond that one call, and no write route.
+// Phase 3D read-only base, Phase 3H added Deal/Proposal lifecycle actions.
+// Deal and Proposal are two separate lifecycles that happen to be shown
+// together per Deal (a Deal owns its own status independent of any linked
+// Proposal's status — Phase 3G's whole point) — DealActions/ProposalActions
+// are the only client components on this otherwise-Server-Component page.
 
 const RELATIONSHIP_STATUS_LABEL: Record<RelationshipStatus, string> = {
   prospect: 'Prospect',
@@ -76,12 +78,111 @@ function StatusPill({ label, color, soft }: { label: string; color: string; soft
   return <span style={{ fontSize: '10.5px', fontWeight: 600, padding: '3px 8px', borderRadius: '999px', color, background: soft, flexShrink: 0 }}>{label}</span>
 }
 
+function ProposalBlock({ proposal: p }: { proposal: Proposal }) {
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '4px' }}>
+        <p style={{ fontSize: '13.5px', fontWeight: 600, margin: 0, display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, overflow: 'hidden' }}>
+          <FileText size={13} color={T.textFaint} style={{ flexShrink: 0 }} />
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</span>
+        </p>
+        <StatusPill label={PROPOSAL_STATUS_LABEL[p.status]} color={PROPOSAL_STATUS_COLOR[p.status]} soft={PROPOSAL_STATUS_SOFT[p.status]} />
+      </div>
+      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '4px' }}>
+        <span style={{ fontSize: '10.5px', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', color: p.version === null ? T.statusAmber : T.statusPurple, background: p.version === null ? T.statusAmberSoft : T.statusPurpleSoft }}>
+          {p.version === null ? 'Working Draft' : `Version ${p.version}`}
+        </span>
+        {p.businessContexts.map((c) => (
+          <span key={c} style={{ fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '999px', color: T.textMuted, background: T.chipBg }}>{c}</span>
+        ))}
+      </div>
+      <p style={{ fontSize: '11px', color: T.textFaint, margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <span>{fmtDate(p.proposalDate)}</span>
+        {p.pdfStoragePath && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: T.statusGreen }}>
+            <BadgeCheck size={12} /> PDF available
+          </span>
+        )}
+      </p>
+      {p.acceptedAt && <p style={{ fontSize: '11px', color: T.statusGreen, margin: '4px 0 0' }}>Accepted {fmtDate(p.acceptedAt)}</p>}
+      <ProposalActions proposalId={p.id} status={p.status} version={p.version} hasPdf={Boolean(p.pdfStoragePath)} />
+    </div>
+  )
+}
+
+function DealProposalCard({ deal, proposals, locationName }: { deal: PartnerDeal; proposals: Proposal[]; locationName: Map<string, string> }) {
+  return (
+    <Card>
+      <p style={{ ...eyebrow(T.textFaint), marginBottom: '6px' }}>Deal</p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
+        <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <StatusPill label={DEAL_STATUS_LABEL[deal.status]} color={DEAL_STATUS_COLOR[deal.status]} soft={DEAL_STATUS_SOFT[deal.status]} />
+          {deal.businessContexts.map((c) => (
+            <span key={c} style={{ fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '999px', color: T.textMuted, background: T.chipBg }}>{c}</span>
+          ))}
+        </div>
+      </div>
+      <p style={{ fontSize: '12.5px', color: T.textMuted, margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <Briefcase size={12} color={T.textFaint} />
+        {deal.locationId ? (locationName.get(deal.locationId) ?? 'Location') : 'Whole relationship'}
+        {deal.product ? ` · ${deal.product}` : ''}
+      </p>
+      {deal.terms.length > 0 && (
+        <div style={{ marginBottom: '6px' }}>
+          {deal.terms.map((t) => (
+            <div key={t.key} style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', padding: '4px 0', borderTop: `1px solid ${T.border}` }}>
+              <span style={{ fontSize: '11.5px', color: T.textMuted }}>{t.label}</span>
+              <span style={{ fontSize: '11.5px', fontWeight: 600, color: t.value ? T.text : T.textFaint, textAlign: 'right' }}>{t.value ?? 'TBD'}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {(deal.effectiveFrom || deal.effectiveUntil) && (
+        <p style={{ fontSize: '11px', color: T.textFaint, margin: '0 0 4px' }}>
+          {fmtDate(deal.effectiveFrom)} – {deal.effectiveUntil ? fmtDate(deal.effectiveUntil) : 'ongoing'}
+        </p>
+      )}
+      {deal.notes && <p style={{ fontSize: '11.5px', color: T.textMuted, margin: '4px 0 0', lineHeight: 1.5 }}>{deal.notes}</p>}
+      <DealActions dealId={deal.id} status={deal.status} />
+
+      {proposals.length > 0 && (
+        <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: `1px solid ${T.border}` }}>
+          <p style={{ ...eyebrow(T.textFaint), marginBottom: '6px' }}>Proposal{proposals.length > 1 ? 's' : ''}</p>
+          <div style={{ display: 'grid', gap: '12px' }}>
+            {proposals.map((p) => (
+              <ProposalBlock key={p.id} proposal={p} />
+            ))}
+          </div>
+        </div>
+      )}
+    </Card>
+  )
+}
+
 export default async function PartnerProfilePage({ params }: { params: { id: string } }) {
   const profile = await getPartnerProfileForOperator(params.id)
   if (!profile) notFound()
   const { partner, relationshipOwnerName, deals, proposals } = profile
 
   const locationName = new Map(partner.locations.map((l) => [l.id, l.name]))
+
+  // Phase 3H: pair each Deal with its own linked Proposals (newest first,
+  // proposals.ts already orders that way) — DEAL and PROPOSAL are shown
+  // together per thread but never conflated (Proposal is optional; a Deal
+  // with zero Proposals is a fully valid, common state). A Proposal with no
+  // dealId (a pre-existing edge case the schema still allows) falls back to
+  // its own list below rather than being silently dropped.
+  const proposalsByDeal = new Map<string, Proposal[]>()
+  const unlinkedProposals: Proposal[] = []
+  for (const p of proposals) {
+    if (p.dealId) {
+      const list = proposalsByDeal.get(p.dealId) ?? []
+      list.push(p)
+      proposalsByDeal.set(p.dealId, list)
+    } else {
+      unlinkedProposals.push(p)
+    }
+  }
 
   return (
     <div style={{ padding: '20px 18px 40px' }}>
@@ -164,73 +265,25 @@ export default async function PartnerProfilePage({ params }: { params: { id: str
         </Card>
       ))}
 
-      {/* Deals */}
+      {/* Deals & Proposals — paired per thread, never conflated: DEAL is
+          this Deal's own lifecycle; PROPOSAL (when one exists) is shown
+          underneath but has its own independent status. */}
       <SectionLabel>Deals ({deals.length})</SectionLabel>
       {deals.length === 0 && <Empty text="No deals recorded." />}
       {deals.map((deal) => (
-        <Card key={deal.id}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
-            <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', alignItems: 'center' }}>
-              <StatusPill label={DEAL_STATUS_LABEL[deal.status]} color={DEAL_STATUS_COLOR[deal.status]} soft={DEAL_STATUS_SOFT[deal.status]} />
-              {deal.businessContexts.map((c) => (
-                <span key={c} style={{ fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '999px', color: T.textMuted, background: T.chipBg }}>{c}</span>
-              ))}
-            </div>
-          </div>
-          <p style={{ fontSize: '12.5px', color: T.textMuted, margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Briefcase size={12} color={T.textFaint} />
-            {deal.locationId ? (locationName.get(deal.locationId) ?? 'Location') : 'Whole relationship'}
-            {deal.product ? ` · ${deal.product}` : ''}
-          </p>
-          {deal.terms.length > 0 && (
-            <div style={{ marginBottom: '6px' }}>
-              {deal.terms.map((t) => (
-                <div key={t.key} style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', padding: '4px 0', borderTop: `1px solid ${T.border}` }}>
-                  <span style={{ fontSize: '11.5px', color: T.textMuted }}>{t.label}</span>
-                  <span style={{ fontSize: '11.5px', fontWeight: 600, color: t.value ? T.text : T.textFaint, textAlign: 'right' }}>{t.value ?? 'TBD'}</span>
-                </div>
-              ))}
-            </div>
-          )}
-          {(deal.effectiveFrom || deal.effectiveUntil) && (
-            <p style={{ fontSize: '11px', color: T.textFaint, margin: '0 0 4px' }}>
-              {fmtDate(deal.effectiveFrom)} – {deal.effectiveUntil ? fmtDate(deal.effectiveUntil) : 'ongoing'}
-            </p>
-          )}
-          {deal.notes && <p style={{ fontSize: '11.5px', color: T.textMuted, margin: '4px 0 0', lineHeight: 1.5 }}>{deal.notes}</p>}
-        </Card>
+        <DealProposalCard key={deal.id} deal={deal} proposals={proposalsByDeal.get(deal.id) ?? []} locationName={locationName} />
       ))}
 
-      {/* Proposals */}
-      <SectionLabel>Proposals ({proposals.length})</SectionLabel>
-      {proposals.length === 0 && <Empty text="No proposals yet." />}
-      {proposals.map((p) => (
-        <Card key={p.id}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '4px' }}>
-            <p style={{ fontSize: '13.5px', fontWeight: 600, margin: 0, display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, overflow: 'hidden' }}>
-              <FileText size={13} color={T.textFaint} style={{ flexShrink: 0 }} />
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</span>
-            </p>
-            <StatusPill label={PROPOSAL_STATUS_LABEL[p.status]} color={PROPOSAL_STATUS_COLOR[p.status]} soft={PROPOSAL_STATUS_SOFT[p.status]} />
-          </div>
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '4px' }}>
-            <span style={{ fontSize: '10.5px', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', color: p.version === null ? T.statusAmber : T.statusPurple, background: p.version === null ? T.statusAmberSoft : T.statusPurpleSoft }}>
-              {p.version === null ? 'Working Draft' : `Version ${p.version}`}
-            </span>
-            {p.businessContexts.map((c) => (
-              <span key={c} style={{ fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '999px', color: T.textMuted, background: T.chipBg }}>{c}</span>
-            ))}
-          </div>
-          <p style={{ fontSize: '11px', color: T.textFaint, margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span>{fmtDate(p.proposalDate)}</span>
-            {p.pdfStoragePath && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: T.statusGreen }}>
-                <BadgeCheck size={12} /> PDF available
-              </span>
-            )}
-          </p>
-        </Card>
-      ))}
+      {unlinkedProposals.length > 0 && (
+        <>
+          <SectionLabel>Other Proposals ({unlinkedProposals.length})</SectionLabel>
+          {unlinkedProposals.map((p) => (
+            <Card key={p.id}>
+              <ProposalBlock proposal={p} />
+            </Card>
+          ))}
+        </>
+      )}
 
       {/* Relationship notes */}
       <SectionLabel>Relationship Notes ({partner.relationshipNotes.length})</SectionLabel>

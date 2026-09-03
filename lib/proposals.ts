@@ -22,7 +22,7 @@ import { getPartnershipFramework } from '@/lib/partnershipFramework'
 import { getProposalWritingStandard } from '@/lib/proposalWritingStandard'
 import { generateProposalDraft, reviseProposalDraft } from '@/lib/proposalGeneration'
 import type { ProposalWriterInputs } from '@/lib/proposalWriter'
-import { getPartner, getPartnerDeal, updatePartnerDealTerms } from '@/lib/partners'
+import { getPartner, getPartnerDeal, updatePartnerDealTerms, updatePartnerDealStatus } from '@/lib/partners'
 import { buildProposalDocument, bangkokDateStamp } from '@/lib/proposalDocument'
 import { renderProposalPdf } from '@/lib/proposalPdf'
 import { proposalPdfStoragePath, uploadProposalPdf, getSignedProposalPdfUrl } from '@/lib/proposalPdfStorage'
@@ -588,4 +588,76 @@ export async function getProposalPdfUrl(id: string, opts?: { download?: boolean 
   if (!proposal) throw new Error(`getProposalPdfUrl: proposal ${id} not found`)
   if (!proposal.pdfStoragePath) throw new Error('getProposalPdfUrl: this proposal has not been finalized yet')
   return getSignedProposalPdfUrl(proposal.pdfStoragePath, opts)
+}
+
+// ── Phase 3H — Proposal delivery/acceptance actions ───────────────────────
+// Manual operator confirmations only -- no email, no WhatsApp, no
+// e-signature, no acceptance link. "Mark as Sent" records that the operator
+// delivered the PDF themselves through whatever channel; "Mark as Accepted"
+// records that the partner said yes. Both are plain forward status moves
+// already permitted by enforce_proposal_freeze's transition table
+// (finalized -> sent -> accepted); PDF content, approved_content, and
+// version are never touched by either.
+
+/** Record that the operator delivered this Finalized Version's PDF to the partner (WhatsApp/email/etc., not sent by this app). finalized -> sent only. */
+export async function markProposalSent(id: string): Promise<Proposal> {
+  const existing = await getProposal(id)
+  if (!existing) throw new Error(`markProposalSent: proposal ${id} not found`)
+  if (existing.status !== 'finalized') {
+    throw new Error(`markProposalSent: proposal is '${existing.status}', not 'finalized' -- cannot mark as sent`)
+  }
+
+  const supabase = getServiceSupabase()
+  const { data, error } = await supabase.from('proposals').update({ status: 'sent' }).eq('id', id).select(PROPOSAL_FIELDS).single()
+  if (error || !data) {
+    console.error('lib/proposals markProposalSent: update error:', error)
+    throw new Error('Failed to mark proposal as sent')
+  }
+  return rowToProposal(data)
+}
+
+/**
+ * Record that the partner accepted this Finalized Version. sent -> accepted,
+ * stamping accepted_at in the same write (enforce_proposal_freeze enforces
+ * this is a write-once, NULL -> timestamp change and nothing else).
+ *
+ * In the same server operation, per the approved Deal-activation boundary:
+ * if the linked Deal is exactly 'terms_agreed', it moves to 'active'; if
+ * already 'active', left unchanged; a 'paused' or 'ended' Deal is never
+ * auto-resurrected (updatePartnerDealStatus's own transition table would
+ * reject those moves anyway, but the check here means a paused/ended Deal
+ * is left untouched rather than surfacing an unrelated error to the
+ * operator during what should be a simple acceptance action).
+ */
+export async function markProposalAccepted(id: string, actorUserId: string): Promise<Proposal> {
+  const existing = await getProposal(id)
+  if (!existing) throw new Error(`markProposalAccepted: proposal ${id} not found`)
+  if (existing.status !== 'sent') {
+    throw new Error(`markProposalAccepted: proposal is '${existing.status}', not 'sent' -- cannot mark as accepted`)
+  }
+
+  const supabase = getServiceSupabase()
+  const { data, error } = await supabase
+    .from('proposals')
+    .update({ status: 'accepted', accepted_at: new Date().toISOString() })
+    .eq('id', id)
+    .select(PROPOSAL_FIELDS)
+    .single()
+  if (error || !data) {
+    console.error('lib/proposals markProposalAccepted: update error:', error)
+    throw new Error('Failed to mark proposal as accepted')
+  }
+  const accepted = rowToProposal(data)
+
+  if (accepted.dealId) {
+    const deal = await getPartnerDeal(accepted.dealId)
+    if (deal?.status === 'terms_agreed') {
+      await updatePartnerDealStatus(accepted.dealId, 'active', actorUserId)
+    }
+    // Already 'active': nothing to do. 'discussing'/'paused'/'ended': left
+    // alone -- acceptance never resurrects or fast-forwards a Deal on its
+    // own beyond this one documented case.
+  }
+
+  return accepted
 }

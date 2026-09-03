@@ -588,8 +588,31 @@ export async function updatePartnerDealTerms(id: string, terms: ProposalDealVari
   return rowToDeal(data)
 }
 
-/** Move a Deal through discussing/terms_agreed/active/paused/ended. actorUserId is recorded for parity with createPartnerDeal even though partner_deals has no per-status-change attribution column today — kept so a future audit column costs no signature change. */
+// Phase 3H — Deal lifecycle transitions. Application-level validation only
+// (no DB transition trigger, per the approved scope — partner_deals.status
+// has no such trigger the way proposals.status does, and this stays that
+// way): the practical moves are Discussing -> Terms Agreed or Ended,
+// Terms Agreed -> Active or Ended, Active -> Paused or Ended, Paused ->
+// Active or Ended. Ended is terminal. This is the one source of truth for
+// "is this move allowed" — both the direct operator action
+// (updatePartnerDealStatus, below) and the Proposal-acceptance auto-
+// transition (lib/proposals.ts markProposalAccepted) go through it.
+export const DEAL_STATUS_TRANSITIONS: Record<PartnerDealStatus, PartnerDealStatus[]> = {
+  discussing: ['terms_agreed', 'ended'],
+  terms_agreed: ['active', 'ended'],
+  active: ['paused', 'ended'],
+  paused: ['active', 'ended'],
+  ended: [],
+}
+
+/** Move a Deal through discussing/terms_agreed/active/paused/ended, validating the transition against DEAL_STATUS_TRANSITIONS. actorUserId is recorded for parity with createPartnerDeal even though partner_deals has no per-status-change attribution column today — kept so a future audit column costs no signature change. */
 export async function updatePartnerDealStatus(id: string, status: PartnerDealStatus, _actorUserId: string): Promise<PartnerDeal> {
+  const existing = await getPartnerDeal(id)
+  if (!existing) throw new Error(`updatePartnerDealStatus: deal ${id} not found`)
+  if (existing.status !== status && !DEAL_STATUS_TRANSITIONS[existing.status].includes(status)) {
+    throw new Error(`updatePartnerDealStatus: cannot move a Deal from '${existing.status}' to '${status}'`)
+  }
+
   const supabase = getServiceSupabase()
   const { data, error } = await supabase.from('partner_deals').update({ status }).eq('id', id).select('*').single()
   if (error || !data) {
