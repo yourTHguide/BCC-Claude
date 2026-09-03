@@ -27,7 +27,7 @@
 // client.
 
 import { fromMarkdown } from 'mdast-util-from-markdown'
-import type { Proposal } from '@/lib/proposals'
+import type { Proposal, ProposalLanguage } from '@/lib/proposals'
 import { proposalFinalContent } from '@/lib/proposals'
 
 export interface DocRun {
@@ -59,6 +59,8 @@ export interface ProposalDocumentMeta {
   identity?: ProposalDocumentIdentity
   preparedBy: string
   dateLabel: string
+  /** SNX Phase 4 — explicit, from the Proposal's own stored language column. Never inferred from draft_content. Drives both the PDF's font selection (proposalPdf.ts) and its "Prepared by"/footer labels. */
+  language: ProposalLanguage
 }
 
 export interface ProposalClientDocument {
@@ -70,6 +72,16 @@ export interface ProposalClientDocument {
 const META_LINE = /^\s*(\*\*|_)?\s*(for|prepared by|date|version|framework version|writing standard version|writing-standard version|product profile version|product-profile version|status|exported|approved|artifact)\b/i
 const REDUNDANT_TITLE = /^#\s+partnership proposal\b/i
 
+// SNX Phase 4 — Thai counterparts of the two patterns above, for the Thai
+// composer's own cover metadata block (see venueNightlifePartnership.th.ts's
+// header comment). Deliberately NOT folded into a single regex with `\b`:
+// Thai characters are not `\w` in JS regex, so `\b` never matches adjacent
+// to them (no \w/non-\w transition) — a combined `(...|สำหรับ|...)\b`
+// pattern would silently fail to match the Thai alternatives at all. These
+// use an explicit terminator (`:`/`：`) instead of `\b`.
+const META_LINE_TH = /^\s*(\*\*|_)?\s*(สำหรับ|จัดทำโดย|วันที่|เวอร์ชัน)\s*[:：]/
+const REDUNDANT_TITLE_TH = /^#\s+ข้อเสนอความร่วมมือ/
+
 /** Remove the composer's metadata header + any stray version/status lines. */
 function stripInternalMetadata(markdown: string): string {
   const lines = markdown.replace(/\r\n/g, '\n').split('\n')
@@ -79,11 +91,11 @@ function stripInternalMetadata(markdown: string): string {
     const t = line.trim()
     if (!started) {
       if (t === '' || t === '---' || t === '***') continue
-      if (REDUNDANT_TITLE.test(t)) continue
-      if (META_LINE.test(t)) continue
+      if (REDUNDANT_TITLE.test(t) || REDUNDANT_TITLE_TH.test(t)) continue
+      if (META_LINE.test(t) || META_LINE_TH.test(t)) continue
       started = true
     }
-    if (META_LINE.test(t)) continue
+    if (META_LINE.test(t) || META_LINE_TH.test(t)) continue
     out.push(line)
   }
   return out.join('\n').trim()
@@ -224,7 +236,10 @@ export function bangkokDateStamp(date: Date = new Date()): string {
 export function buildProposalDocument(proposal: Proposal, partnerName: string): ProposalClientDocument {
   return {
     meta: {
-      title: 'PARTNERSHIP PROPOSAL',
+      // SNX Phase 4 — explicit per proposal.language, never inferred from
+      // draft_content. "ข้อเสนอความร่วมมือ" is the approved Thai document
+      // title (see venueNightlifePartnership.th.ts's header comment).
+      title: proposal.language === 'th' ? 'ข้อเสนอความร่วมมือ' : 'PARTNERSHIP PROPOSAL',
       partnerName,
       businessLabel: proposal.businessContexts.join(' / '),
       product: proposal.product ?? undefined,
@@ -233,6 +248,7 @@ export function buildProposalDocument(proposal: Proposal, partnerName: string): 
       preparedBy: 'Sanctuary Nexus Co., Ltd.',
       // The proposal date the client sees — a business date, not a system timestamp.
       dateLabel: formatDate(proposal.approvedAt ?? proposal.proposalDate),
+      language: proposal.language,
     },
     blocks: parseBlocks(proposalFinalContent(proposal)),
   }

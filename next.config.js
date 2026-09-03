@@ -27,6 +27,24 @@ const nextConfig = {
     // instead (lib/proposalPdf.ts), which needs no external-package bundling
     // workaround at all. This config entry is intentionally gone, not
     // forgotten.
+
+    // Phase 4 — Thai PDF fonts (lib/proposalPdf.ts) are read at request time
+    // via fs.readFile(path.join(process.cwd(), 'assets', 'fonts', 'sarabun',
+    // ...)), not imported/required, so Vercel's build-time output file
+    // tracing can't discover them purely by following require()/import
+    // graphs the way it does for node_modules code — this repo already has
+    // one prior real incident (the pdfkit failure noted above) from a
+    // font-loading mechanism that worked locally but silently wasn't
+    // included in the deployed function. Explicit belt-and-braces:
+    // guarantees assets/fonts/sarabun/** ships in every serverless function
+    // that can reach renderProposalPdf() (currently only the Finalize
+    // route), regardless of NFT's own static analysis of the dynamic
+    // path.join() call. (outputFileTracingIncludes is still an
+    // `experimental` key on Next.js 14.2 — it only moved to a stable
+    // top-level key in Next.js 15.)
+    outputFileTracingIncludes: {
+      '/api/admin/proposals/**': ['./assets/fonts/sarabun/**/*'],
+    },
   },
 }
 module.exports = nextConfig

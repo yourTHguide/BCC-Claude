@@ -103,10 +103,13 @@ export default function ProposalSetupClient({ partners }: { partners: PartnerRow
   // ("Create Proposal" — the optional formalization path).
   const [wantsProposal, setWantsProposal] = useState(false)
 
-  // Step 3 — Proposal-only (title + Generate Draft). Deal terms are never
-  // asked for again here — the Working Draft inherits them server-side from
-  // the Deal itself (lib/proposals.ts createProposal()).
+  // Step 3 — Proposal-only (title + Language + Generate Draft). Deal terms
+  // are never asked for again here — the Working Draft inherits them
+  // server-side from the Deal itself (lib/proposals.ts createProposal()).
+  // Language is a Proposal/document property only (Phase 4) — deliberately
+  // not on the Deal step above.
   const [title, setTitle] = useState('')
+  const [language, setLanguage] = useState<'en' | 'th'>('en')
   const [creatingProposal, setCreatingProposal] = useState(false)
 
   const [error, setError] = useState<string | null>(null)
@@ -232,6 +235,7 @@ export default function ProposalSetupClient({ partners }: { partners: PartnerRow
           businessContexts: selectedDeal.businessContexts,
           product: selectedDeal.product ?? undefined,
           title: title.trim(),
+          language,
           // dealVariables intentionally omitted — createProposal() inherits
           // the Deal's current terms server-side via dealId, never trusting
           // a client-echoed snapshot (lib/proposals.ts).
@@ -465,6 +469,13 @@ export default function ProposalSetupClient({ partners }: { partners: PartnerRow
             <div>
               <label style={labelStyle}>Proposal title *</label>
               <input style={fieldStyle} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={`${selectedPartner.displayName} partnership proposal`} />
+            </div>
+            <div>
+              <label style={labelStyle}>Proposal Language</label>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button type="button" style={tabStyle(language === 'en')} onClick={() => setLanguage('en')}>English</button>
+                <button type="button" style={tabStyle(language === 'th')} onClick={() => setLanguage('th')}>ไทย</button>
+              </div>
             </div>
             <button type="button" disabled={!title.trim() || creatingProposal} style={primaryBtn(!title.trim() || creatingProposal)} onClick={handleCreateProposal}>
               {creatingProposal ? 'Generating…' : 'Generate Draft'}

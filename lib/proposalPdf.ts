@@ -30,7 +30,11 @@ import 'server-only'
 
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import type { PDFFont, PDFPage, RGB } from 'pdf-lib'
+import fontkit from '@pdf-lib/fontkit'
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
 import type { DocBlock, DocRun, ProposalClientDocument } from '@/lib/proposalDocument'
+import type { ProposalLanguage } from '@/lib/proposals'
 
 // V1 correction: no brand accent color — plain black/neutral grayscale only.
 const INK: RGB = rgb(0.1216, 0.1608, 0.2157)
@@ -54,6 +58,67 @@ interface RenderState {
   fonts: Fonts
   page: PDFPage
   y: number
+  language: ProposalLanguage
+}
+
+// SNX Phase 4 — Thai PDF font support. Standard PDF fonts (below) are
+// WinAnsi/Latin-1 only and cannot encode Thai glyphs at all — pdf-lib
+// throws at draw time if asked to. The English path is untouched: this
+// only adds a custom-embedded font used exclusively when language === 'th'.
+// Sarabun (SIL Open Font License; license text bundled alongside the font
+// file — see assets/fonts/sarabun/OFL.txt) is Thailand's standard
+// business-document typeface.
+//
+// Only ONE weight (Regular) is embedded, not all four — a real, confirmed
+// pdf-lib limitation, not a bug in this file's own logic: embedding a
+// SECOND custom fontkit-based font (e.g. Sarabun-Bold) alongside Regular in
+// the same PDFDocument corrupts the ToUnicode text-extraction layer for
+// characters shared between the two fonts (confirmed via 10 isolated
+// repros against pdf-lib 1.17.1, the current latest release — a Thai
+// character drawn correctly in Bold earlier in the document comes out
+// missing from later Regular-font text, e.g. "ความ" extracting as "ควม").
+// The rendered PAGE is pixel-correct either way (this is a text-layer/
+// copy-paste/search-fidelity bug, not a visual one) — but shipping a
+// visually-correct, textually-broken PDF isn't acceptable, so only one
+// custom font is ever embedded for Thai. A "draw the same text twice with a
+// small offset" faux-bold was tried and rejected: it visually reads as bold
+// (still just the one real embedded font, so no corruption), but every bold
+// word then appears TWICE in the copy/search text layer — trading one
+// text-integrity defect for a different one. Net result: Thai headings and
+// term labels render in the same weight as body text for now (still
+// visually distinguished by their existing size/spacing), and no bold/
+// italic distinction is attempted for Thai — the one deliberate visual
+// trade-off against the alternative of a broken text layer. fontFor()'s
+// bold/italic switch below is untouched and still resolves normally; for
+// Thai every branch of it just lands on this same font object.
+//
+// Bundled under assets/ (NOT public/) so the raw font file is never served/
+// downloadable at a public URL — only this server-only module reads it, via
+// fs at render time. `@pdf-lib/fontkit` is required by pdf-lib to parse ANY
+// non-standard (custom-embedded) font; StandardFonts need it not at all,
+// which is why registerFontkit is only ever called on the Thai path, never
+// the English one.
+const SARABUN_DIR = path.join(process.cwd(), 'assets', 'fonts', 'sarabun')
+
+async function embedEnglishFonts(doc: PDFDocument): Promise<Fonts> {
+  const [regular, bold, italic, boldItalic] = await Promise.all([
+    doc.embedFont(StandardFonts.Helvetica),
+    doc.embedFont(StandardFonts.HelveticaBold),
+    doc.embedFont(StandardFonts.HelveticaOblique),
+    doc.embedFont(StandardFonts.HelveticaBoldOblique),
+  ])
+  return { regular, bold, italic, boldItalic }
+}
+
+async function embedThaiFonts(doc: PDFDocument): Promise<Fonts> {
+  doc.registerFontkit(fontkit)
+  const regularBytes = await readFile(path.join(SARABUN_DIR, 'Sarabun-Regular.ttf'))
+  const regular = await doc.embedFont(regularBytes, { subset: true })
+  // All four slots deliberately point at the SAME embedded font object —
+  // see the file-header comment above for why. fontFor()'s bold/italic
+  // switch still resolves normally; it just always lands on this one font
+  // for Thai. Visual bold is recovered via drawFauxBold in drawWords.
+  return { regular, bold: regular, italic: regular, boldItalic: regular }
 }
 
 function fontFor(fonts: Fonts, bold?: boolean, italic?: boolean): PDFFont {
@@ -76,22 +141,72 @@ function ensure(state: RenderState, height: number): void {
 interface Word {
   text: string
   font: PDFFont
+  /** Width of a deliberate gap before this word — 0 for a token immediately following another with no whitespace in the source text between them (Thai word segmentation; see tokenizeRunText). */
+  gapBefore: number
+}
+
+// SNX Phase 4 — Thai line wrapping. Thai script has no spaces between words
+// within a sentence, so the plain `split(/\s+/)` this file always used
+// (still used for English, unchanged below) would tokenize an entire Thai
+// paragraph as one unbreakable "word" that overflows the column instead of
+// wrapping. Intl.Segmenter('th', { granularity: 'word' }) gives real
+// Thai word-boundary segmentation with zero new dependency — Node 22 (this
+// project's runtime) ships full ICU by default. Reused as a single module-
+// level instance; Intl.Segmenter has no per-call state, so this is safe to
+// share across every render.
+const THAI_WORD_SEGMENTER = new Intl.Segmenter('th', { granularity: 'word' })
+
+interface Token {
+  text: string
+  /** Whether real whitespace existed before this token in the source text — distinct from Thai word segments, which are adjacent with no gap. */
+  spaceBefore: boolean
+}
+
+function tokenizeRunText(text: string, language: ProposalLanguage): Token[] {
+  if (language !== 'th') {
+    // English/Latin: unchanged from the original whitespace-only split.
+    return text
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((t) => ({ text: t, spaceBefore: true }))
+  }
+  const tokens: Token[] = []
+  let spaceBefore = false
+  // Array.from (not for...of) — this project's tsconfig targets es5, which
+  // can't iterate a Segments object directly without downlevelIteration;
+  // Array.from works at any target since it's a runtime call, not
+  // transpiled loop syntax.
+  for (const { segment, isWordLike } of Array.from(THAI_WORD_SEGMENTER.segment(text))) {
+    if (!isWordLike && /^\s+$/.test(segment)) {
+      spaceBefore = true
+      continue
+    }
+    if (!segment) continue
+    // A word-like Thai/Latin/number segment, or a punctuation segment —
+    // either way, a real token to render. Only a genuine space in the
+    // source text (above) produces a gap before the next one.
+    tokens.push({ text: segment, spaceBefore })
+    spaceBefore = false
+  }
+  return tokens
 }
 
 /** Flatten runs into words tagged with the font their own bold/italic resolves to, then greedily wrap to maxWidth. */
-function wrapRuns(fonts: Fonts, runs: DocRun[], size: number, maxWidth: number): Word[][] {
+function wrapRuns(fonts: Fonts, runs: DocRun[], size: number, maxWidth: number, language: ProposalLanguage): Word[][] {
+  const spaceWidth = fonts.regular.widthOfTextAtSize(' ', size)
   const words: Word[] = []
   for (const run of runs) {
     const font = fontFor(fonts, run.bold, run.italic)
-    for (const part of run.text.split(/\s+/).filter(Boolean)) words.push({ text: part, font })
+    for (const token of tokenizeRunText(run.text, language)) {
+      words.push({ text: token.text, font, gapBefore: token.spaceBefore ? spaceWidth : 0 })
+    }
   }
   const lines: Word[][] = []
   let current: Word[] = []
   let width = 0
-  const spaceWidth = fonts.regular.widthOfTextAtSize(' ', size)
   for (const w of words) {
     const wordWidth = w.font.widthOfTextAtSize(w.text, size)
-    const addWidth = current.length ? spaceWidth + wordWidth : wordWidth
+    const addWidth = current.length ? w.gapBefore + wordWidth : wordWidth
     if (width + addWidth > maxWidth && current.length) {
       lines.push(current)
       current = [w]
@@ -107,11 +222,14 @@ function wrapRuns(fonts: Fonts, runs: DocRun[], size: number, maxWidth: number):
 
 function drawWords(state: RenderState, words: Word[], x: number, size: number, color: RGB): void {
   let cx = x
-  const spaceWidth = state.fonts.regular.widthOfTextAtSize(' ', size)
-  for (const w of words) {
+  words.forEach((w, i) => {
+    // The gap belongs BEFORE a word, not after — the first word on a line
+    // starts flush at `x` regardless of whether a space preceded it in the
+    // source text (that space was consumed by the line break itself).
+    if (i > 0) cx += w.gapBefore
     state.page.drawText(w.text, { x: cx, y: state.y, size, font: w.font, color })
-    cx += w.font.widthOfTextAtSize(w.text, size) + spaceWidth
-  }
+    cx += w.font.widthOfTextAtSize(w.text, size)
+  })
 }
 
 /** Wrap + page-break + draw a run sequence as flowing text, one call per logical block. */
@@ -120,7 +238,7 @@ function drawRuns(state: RenderState, runs: DocRun[], opts: { size: number; x?: 
   const width = opts.width ?? CONTENT_WIDTH
   const lineHeight = opts.lineHeight ?? opts.size * 1.35
   const color = opts.color ?? INK
-  const lines = wrapRuns(state.fonts, runs, opts.size, width)
+  const lines = wrapRuns(state.fonts, runs, opts.size, width, state.language)
   if (lines.length === 0) {
     state.y -= lineHeight
     return
@@ -148,7 +266,8 @@ function drawCover(state: RenderState, meta: ProposalClientDocument['meta']): vo
   drawRuns(state, [{ text: meta.partnerName, bold: true }], { size: 13.5, color: INK, lineHeight: 19 })
   drawRuns(state, [{ text: `× ${meta.product ?? meta.businessLabel}` }], { size: 11.5, color: MUTE, lineHeight: 17 })
   state.y -= 5
-  drawRuns(state, [{ text: `Prepared by ${meta.preparedBy}` }], { size: 10, color: MUTE, lineHeight: 15 })
+  const preparedByLabel = meta.language === 'th' ? `จัดทำโดย ${meta.preparedBy}` : `Prepared by ${meta.preparedBy}`
+  drawRuns(state, [{ text: preparedByLabel }], { size: 10, color: MUTE, lineHeight: 15 })
   drawRuns(state, [{ text: meta.dateLabel }], { size: 10, color: MUTE, lineHeight: 15 })
   state.y -= 6
   ensure(state, 4)
@@ -183,13 +302,31 @@ function leadingBlockHeight(block: DocBlock | undefined): number {
  * follows this heading, so a page break lands BEFORE the heading instead of
  * leaving it stranded alone at the bottom of a page with its body pushed to
  * the next one.
+ *
+ * Thai has no embedded bold (see embedThaiFonts) — a heading here would
+ * otherwise be the same visual weight as body text. Layout-only compensation
+ * instead of a second font: a larger size, more air above/below, and a thin
+ * rule underneath in the same neutral RULE color already used for the
+ * cover/footer dividers elsewhere in this file — no new color introduced.
  */
 function drawHeading(state: RenderState, block: Extract<DocBlock, { type: 'heading' }>, keepWithNext = 0): void {
-  const size = block.level <= 1 ? 15 : block.level === 2 ? 12.5 : 11
+  const isTh = state.language === 'th'
+  const size = (block.level <= 1 ? 15 : block.level === 2 ? 12.5 : 11) + (isTh ? 2 : 0)
+  const spaceBefore = (block.level <= 2 ? 12 : 7) + (isTh ? 6 : 0)
+  // ensure()'s own reservation is deliberately unchanged in shape from
+  // before this Thai pass (size * 1.4 + 28 + keepWithNext) — spaceBefore is
+  // applied after the check, exactly as it always was, so English's
+  // page-break points don't shift by even a point from this change.
   ensure(state, size * 1.4 + 28 + keepWithNext)
-  state.y -= block.level <= 2 ? 12 : 7
+  state.y -= spaceBefore
   drawRuns(state, block.runs.map((r) => ({ ...r, bold: true })), { size, color: INK, lineHeight: size * 1.3 })
-  state.y -= 4
+  if (isTh) {
+    state.y -= 3
+    state.page.drawLine({ start: { x: MARGIN.left, y: state.y }, end: { x: PAGE_SIZE[0] - MARGIN.right, y: state.y }, thickness: 0.5, color: RULE })
+    state.y -= 7
+  } else {
+    state.y -= 4
+  }
 }
 
 function drawParagraph(state: RenderState, runs: DocRun[]): void {
@@ -211,6 +348,11 @@ function drawList(state: RenderState, block: Extract<DocBlock, { type: 'list' }>
 function drawTermsTable(state: RenderState, block: Extract<DocBlock, { type: 'terms' }>): void {
   const labelWidth = Math.round(CONTENT_WIDTH * 0.38)
   const valueWidth = CONTENT_WIDTH - labelWidth - 14
+  // Thai has no embedded bold, so label vs. value can't be told apart by
+  // weight the way English's bold label can — instead the value uses MUTE,
+  // the same secondary-text gray already used throughout this file (the
+  // cover's "Prepared by"/date lines, footers), not a new color.
+  const valueColor = state.language === 'th' ? MUTE : INK
   state.y -= 3
   for (const row of block.rows) {
     ensure(state, 16)
@@ -218,7 +360,7 @@ function drawTermsTable(state: RenderState, block: Extract<DocBlock, { type: 'te
     drawRuns(state, row.label, { size: 10, x: MARGIN.left, width: labelWidth, color: INK, lineHeight: 14 })
     const afterLabelY = state.y
     state.y = rowStartY
-    drawRuns(state, row.value, { size: 10, x: MARGIN.left + labelWidth + 14, width: valueWidth, color: INK, lineHeight: 14 })
+    drawRuns(state, row.value, { size: 10, x: MARGIN.left + labelWidth + 14, width: valueWidth, color: valueColor, lineHeight: 14 })
     // No divider line between rows — editorial, two-column alignment carries
     // the structure. Row gap widened slightly to compensate.
     state.y = Math.min(state.y, afterLabelY) - 8
@@ -249,11 +391,12 @@ function drawTable(state: RenderState, block: Extract<DocBlock, { type: 'table' 
 }
 
 function drawFooters(pages: PDFPage[], fonts: Fonts, meta: ProposalClientDocument['meta']): void {
+  const docTypeLabel = meta.language === 'th' ? 'ข้อเสนอความร่วมมือ' : 'Partnership Proposal'
   pages.forEach((page, i) => {
     const y = MARGIN.bottom - 22
     page.drawLine({ start: { x: MARGIN.left, y: y + 14 }, end: { x: PAGE_SIZE[0] - MARGIN.right, y: y + 14 }, thickness: 0.5, color: RULE })
-    page.drawText(`${meta.preparedBy}  |  Partnership Proposal`, { x: MARGIN.left, y, size: 8, font: fonts.regular, color: MUTE })
-    const pageLabel = `Page ${i + 1} of ${pages.length}`
+    page.drawText(`${meta.preparedBy}  |  ${docTypeLabel}`, { x: MARGIN.left, y, size: 8, font: fonts.regular, color: MUTE })
+    const pageLabel = meta.language === 'th' ? `หน้า ${i + 1} จาก ${pages.length}` : `Page ${i + 1} of ${pages.length}`
     const labelWidth = fonts.regular.widthOfTextAtSize(pageLabel, 8)
     page.drawText(pageLabel, { x: PAGE_SIZE[0] - MARGIN.right - labelWidth, y, size: 8, font: fonts.regular, color: MUTE })
   })
@@ -264,16 +407,15 @@ export async function renderProposalPdf(document: ProposalClientDocument): Promi
   doc.setTitle(`Partnership Proposal — ${document.meta.partnerName}`)
   doc.setAuthor(document.meta.preparedBy)
 
-  const [regular, bold, italic, boldItalic] = await Promise.all([
-    doc.embedFont(StandardFonts.Helvetica),
-    doc.embedFont(StandardFonts.HelveticaBold),
-    doc.embedFont(StandardFonts.HelveticaOblique),
-    doc.embedFont(StandardFonts.HelveticaBoldOblique),
-  ])
-  const fonts: Fonts = { regular, bold, italic, boldItalic }
+  // SNX Phase 4 — language is explicit, from document.meta (itself set from
+  // the Proposal's own stored language column, never inferred from the
+  // draft text — see lib/proposalDocument.ts). English keeps the exact same
+  // Helvetica embed call as before; Thai is the only path that touches
+  // fontkit/custom font embedding at all.
+  const fonts = document.meta.language === 'th' ? await embedThaiFonts(doc) : await embedEnglishFonts(doc)
 
   const firstPage = doc.addPage(PAGE_SIZE)
-  const state: RenderState = { doc, fonts, page: firstPage, y: PAGE_SIZE[1] - MARGIN.top }
+  const state: RenderState = { doc, fonts, page: firstPage, y: PAGE_SIZE[1] - MARGIN.top, language: document.meta.language }
 
   drawCover(state, document.meta)
   for (let i = 0; i < document.blocks.length; i++) {

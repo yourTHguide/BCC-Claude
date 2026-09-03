@@ -32,6 +32,10 @@ export async function POST(req: NextRequest) {
   const title = typeof body.title === 'string' ? body.title.trim() : ''
   if (!title) return NextResponse.json({ error: 'Title is required' }, { status: 400 })
 
+  // Phase 4: Proposal language, English default. A Proposal/document
+  // property only — never read from or written to the Deal.
+  const language = body.language === 'th' ? 'th' : 'en'
+
   try {
     const proposal = await createProposal({
       partnerId,
@@ -39,6 +43,7 @@ export async function POST(req: NextRequest) {
       businessContexts,
       product: typeof body.product === 'string' && body.product.trim() ? body.product.trim() : undefined,
       title,
+      language,
     })
     return NextResponse.json({ proposal }, { status: 201 })
   } catch (error) {

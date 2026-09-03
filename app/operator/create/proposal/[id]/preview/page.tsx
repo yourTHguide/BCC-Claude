@@ -115,6 +115,10 @@ export default async function ProposalPreviewPage({ params }: { params: { id: st
 
   const document = buildProposalDocument(proposal, partner.displayName)
   const contextLabel = humanizeBusinessContexts(proposal.businessContexts)
+  // Phase 4 — this chrome (not part of document.blocks) mirrors the PDF's
+  // own language: verification requires Preview and PDF to show the same
+  // Thai content, so these labels shouldn't read English around a Thai body.
+  const isTh = document.meta.language === 'th'
 
   return (
     <div style={{ padding: '20px 18px 40px' }}>
@@ -132,15 +136,15 @@ export default async function ProposalPreviewPage({ params }: { params: { id: st
 
         <div style={{ display: 'grid', gap: '4px', marginBottom: '18px' }}>
           <p style={{ fontSize: '13.5px', margin: 0 }}>
-            <span style={{ color: '#6b7280' }}>Prepared for: </span>
+            <span style={{ color: '#6b7280' }}>{isTh ? 'จัดทำสำหรับ: ' : 'Prepared for: '}</span>
             <strong>{document.meta.partnerName}</strong>
           </p>
           <p style={{ fontSize: '13px', margin: 0, color: '#6b7280' }}>
-            Business context: {contextLabel || '—'}
+            {isTh ? 'บริบทธุรกิจ' : 'Business context'}: {contextLabel || '—'}
             {document.meta.product ? ` · ${document.meta.product}` : ''}
           </p>
-          <p style={{ fontSize: '13px', margin: 0, color: '#6b7280' }}>Prepared by: {document.meta.preparedBy}</p>
-          <p style={{ fontSize: '13px', margin: 0, color: '#6b7280' }}>Date: {document.meta.dateLabel}</p>
+          <p style={{ fontSize: '13px', margin: 0, color: '#6b7280' }}>{isTh ? 'จัดทำโดย' : 'Prepared by'}: {document.meta.preparedBy}</p>
+          <p style={{ fontSize: '13px', margin: 0, color: '#6b7280' }}>{isTh ? 'วันที่' : 'Date'}: {document.meta.dateLabel}</p>
         </div>
 
         <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: '0 0 18px' }} />

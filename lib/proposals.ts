@@ -28,6 +28,7 @@ import {
   VENUE_NIGHTLIFE_PARTNERSHIP_PROFILE_KEY,
   VENUE_NIGHTLIFE_PARTNERSHIP_PROFILE_VERSION,
 } from '@/lib/proposalProfiles/venueNightlifePartnership'
+import { composeVenueNightlifePartnershipDraftTh } from '@/lib/proposalProfiles/venueNightlifePartnership.th'
 import type { DraftResult } from '@/lib/proposalGeneration'
 import { getPartner, getPartnerDeal, updatePartnerDealTerms, updatePartnerDealStatus } from '@/lib/partners'
 import type { Partner, PartnerDeal } from '@/lib/partners'
@@ -57,20 +58,31 @@ function resolveProposalVenues(partner: Partner, deal: PartnerDeal | null): stri
 
 // SNX Phase 4 — Proposal Profile dispatch. Resolves which Proposal Profile
 // (see lib/proposalProfiles/venueNightlifePartnership.ts) applies to a given
-// businessContexts/product pair and composes accordingly. When no profile
-// resolves (defensive fallback -- unreachable today, since the nightlife
-// profile resolves for any non-empty businessContexts array, which the API
-// layer already requires), this falls through to the existing
+// businessContexts/product pair and composes accordingly. `language` is
+// resolved completely independently of the profile (Phase 4 Thai support):
+// there is still exactly one profile key, venue-nightlife-partnership --
+// language only picks which of its two composers runs. The Thai composer
+// lives in its own reviewable module (venueNightlifePartnership.th.ts)
+// rather than as branches inside the English one. When no profile resolves
+// (defensive fallback -- unreachable today, since the nightlife profile
+// resolves for any non-empty businessContexts array, which the API layer
+// already requires), this falls through to the existing
 // generateProposalDraft()/composeDeterministicDraft() path unchanged -- that
-// path and lib/proposalGeneration.ts are not modified by this profile.
+// path and lib/proposalGeneration.ts are not modified by this profile, and
+// have no language concept at all (English-only, as before).
 async function composeProposalWithProfile(
-  writerInputs: ProposalWriterInputs
+  writerInputs: ProposalWriterInputs,
+  language: ProposalLanguage
 ): Promise<{ draft: DraftResult; productProfileVersion: string | null }> {
   const profile = resolveProposalProfile(writerInputs.businessContexts, writerInputs.product)
   if (profile?.key === VENUE_NIGHTLIFE_PARTNERSHIP_PROFILE_KEY) {
     const inputsWithProfile = { ...writerInputs, productProfile: profile.productProfile }
+    const content =
+      language === 'th'
+        ? composeVenueNightlifePartnershipDraftTh(inputsWithProfile)
+        : composeVenueNightlifePartnershipDraft(inputsWithProfile)
     return {
-      draft: { content: composeVenueNightlifePartnershipDraft(inputsWithProfile), mode: 'deterministic' },
+      draft: { content, mode: 'deterministic' },
       productProfileVersion: VENUE_NIGHTLIFE_PARTNERSHIP_PROFILE_VERSION,
     }
   }
@@ -85,6 +97,14 @@ async function composeProposalWithProfile(
 // yes) -> 'archived' (terminal/parked, reachable from any of the above).
 export type ProposalStatus = 'draft' | 'finalized' | 'sent' | 'accepted' | 'archived'
 export type ProposalWriterMode = 'ai' | 'deterministic'
+
+// SNX Phase 4 — Proposal language. A Proposal/document property only (see
+// proposals.language migration comment) -- never partner_deals, which stays
+// language-neutral. Set once at creation, carried forward unchanged by
+// createDraftFromFinalizedVersion, never mutated by regenerateProposalDraft/
+// requestProposalChanges, and permanently frozen once a version is assigned
+// (enforce_proposal_freeze).
+export type ProposalLanguage = 'en' | 'th'
 
 // ProposalDealVariable and its pure helpers (defaultDealVariables,
 // mergeDealVariables, missingRequiredVariables) live in lib/dealVariables.ts
@@ -112,6 +132,7 @@ export interface Proposal {
   frameworkVersion: string
   writingStandardVersion: string | null
   productProfileVersion: string | null
+  language: ProposalLanguage
   proposalDate: string
   dealTermsSnapshot: ProposalDealVariable[]
   contextForProposal: string | null
@@ -130,7 +151,7 @@ export interface Proposal {
 }
 
 const PROPOSAL_FIELDS =
-  'id, partner_id, deal_id, series_id, version, draft_revision, business_contexts, product, title, status, framework_version, writing_standard_version, product_profile_version, proposal_date, deal_terms_snapshot, context_for_proposal, writing_direction, writer_mode, draft_content, approved_content, approved_at, approved_by, pdf_storage_path, pdf_generated_at, accepted_at, created_at, updated_at'
+  'id, partner_id, deal_id, series_id, version, draft_revision, business_contexts, product, title, status, framework_version, writing_standard_version, product_profile_version, language, proposal_date, deal_terms_snapshot, context_for_proposal, writing_direction, writer_mode, draft_content, approved_content, approved_at, approved_by, pdf_storage_path, pdf_generated_at, accepted_at, created_at, updated_at'
 
 function rowToProposal(row: any): Proposal {
   return {
@@ -147,6 +168,7 @@ function rowToProposal(row: any): Proposal {
     frameworkVersion: row.framework_version,
     writingStandardVersion: row.writing_standard_version,
     productProfileVersion: row.product_profile_version,
+    language: row.language ?? 'en',
     proposalDate: row.proposal_date,
     dealTermsSnapshot: row.deal_terms_snapshot ?? [],
     contextForProposal: row.context_for_proposal,
@@ -254,6 +276,8 @@ export interface CreateProposalInput {
   contextForProposal?: string
   writingDirection?: string
   venues?: string[]
+  /** Omit for English (default). A Proposal/document property only -- never sent to or read from the Deal. */
+  language?: ProposalLanguage
 }
 
 /** Create the very first Working Draft of a new proposal "line". Mints a new series_id; version stays NULL. */
@@ -295,7 +319,8 @@ export async function createProposal(input: CreateProposalInput): Promise<Propos
     version: null,
     proposalDate,
   }
-  const { draft, productProfileVersion } = await composeProposalWithProfile(writerInputs)
+  const language: ProposalLanguage = input.language ?? 'en'
+  const { draft, productProfileVersion } = await composeProposalWithProfile(writerInputs, language)
 
   const supabase = getServiceSupabase()
   const { data, error } = await supabase
@@ -312,6 +337,7 @@ export async function createProposal(input: CreateProposalInput): Promise<Propos
       framework_version: framework.version,
       writing_standard_version: writingStandard.version,
       product_profile_version: productProfileVersion,
+      language,
       proposal_date: proposalDate,
       deal_terms_snapshot: dealVariables,
       context_for_proposal: input.contextForProposal ?? null,
@@ -382,6 +408,10 @@ export async function createDraftFromFinalizedVersion(sourceProposalId: string):
       framework_version: source.frameworkVersion,
       writing_standard_version: source.writingStandardVersion,
       product_profile_version: source.productProfileVersion,
+      // Phase 4: carry the source version's language forward unchanged --
+      // V2 from an English V1 stays English, V2 from a Thai V1 stays Thai.
+      // Never silently changes inside an existing Proposal series.
+      language: source.language,
       proposal_date: bangkokDateStamp(),
       deal_terms_snapshot: dealTermsSnapshot,
       context_for_proposal: source.contextForProposal,
@@ -488,7 +518,7 @@ export async function regenerateProposalDraft(id: string): Promise<Proposal> {
     version: null,
     proposalDate: existing.proposalDate,
   }
-  const { draft } = await composeProposalWithProfile(writerInputs)
+  const { draft } = await composeProposalWithProfile(writerInputs, existing.language)
   return updateProposalDraft(id, draft.content)
 }
 
