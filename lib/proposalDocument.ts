@@ -29,6 +29,7 @@
 import { fromMarkdown } from 'mdast-util-from-markdown'
 import type { Proposal, ProposalLanguage } from '@/lib/proposals'
 import { proposalFinalContent } from '@/lib/proposals'
+import { humanizeBusinessContexts } from '@/lib/operator/businessContexts'
 
 export interface DocRun {
   text: string
@@ -241,7 +242,15 @@ export function buildProposalDocument(proposal: Proposal, partnerName: string): 
       // title (see venueNightlifePartnership.th.ts's header comment).
       title: proposal.language === 'th' ? 'ข้อเสนอความร่วมมือ' : 'PARTNERSHIP PROPOSAL',
       partnerName,
-      businessLabel: proposal.businessContexts.join(' / '),
+      // Phase 4 correction: this was proposal.businessContexts.join(' / ') --
+      // the raw internal slugs (e.g. "bkk-club-crawl"), leaking directly
+      // into the external PDF cover's "× ..." line whenever product wasn't
+      // set (drawCover falls back to businessLabel exactly then -- see
+      // lib/proposalPdf.ts). humanizeBusinessContexts is the same shared
+      // helper the operator Preview screen already uses for this -- no
+      // second formatter, no change to the stored business_contexts values,
+      // presentation only.
+      businessLabel: humanizeBusinessContexts(proposal.businessContexts),
       product: proposal.product ?? undefined,
       // No per-business identity registry exists in this repo yet — see file header.
       identity: undefined,
