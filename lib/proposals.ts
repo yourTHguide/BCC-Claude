@@ -30,9 +30,30 @@ import {
 } from '@/lib/proposalProfiles/venueNightlifePartnership'
 import type { DraftResult } from '@/lib/proposalGeneration'
 import { getPartner, getPartnerDeal, updatePartnerDealTerms, updatePartnerDealStatus } from '@/lib/partners'
+import type { Partner, PartnerDeal } from '@/lib/partners'
 import { buildProposalDocument, bangkokDateStamp } from '@/lib/proposalDocument'
 import { renderProposalPdf } from '@/lib/proposalPdf'
 import { proposalPdfStoragePath, uploadProposalPdf, getSignedProposalPdfUrl } from '@/lib/proposalPdfStorage'
+
+/**
+ * Venues in scope for a proposal's "Proposed Collaboration" section. The
+ * Deal's own linked location wins when it has one -- a Deal about one
+ * specific venue must never render as if every location on the Partner's
+ * record is in scope (Phase 4 correction: this used to always be "every
+ * active Partner location," which produced multi-venue collaboration prose
+ * for a single-venue Deal any time the Partner happened to have other
+ * locations on file). A Deal not tied to one location ("whole relationship"
+ * in the Create flow's own UI copy) genuinely can span every active
+ * location, so that stays the fallback. Never derived from the Partner's
+ * name or a fixed venue-count assumption.
+ */
+function resolveProposalVenues(partner: Partner, deal: PartnerDeal | null): string[] {
+  if (deal?.locationId) {
+    const location = partner.locations.find((l) => l.id === deal.locationId)
+    return location ? [location.name] : []
+  }
+  return partner.locations.filter((l) => l.isActive).map((l) => l.name)
+}
 
 // SNX Phase 4 — Proposal Profile dispatch. Resolves which Proposal Profile
 // (see lib/proposalProfiles/venueNightlifePartnership.ts) applies to a given
@@ -251,13 +272,11 @@ export async function createProposal(input: CreateProposalInput): Promise<Propos
   // Server-fetched from the Deal itself (never trusted from the client) --
   // explicit input.dealVariables still wins if a caller passes it;
   // defaultDealVariables() only when there's truly nothing to inherit (no
-  // linked deal at all).
-  let dealVariables = input.dealVariables
-  if (!dealVariables && input.dealId) {
-    const deal = await getPartnerDeal(input.dealId)
-    dealVariables = deal?.terms
-  }
-  dealVariables = dealVariables ?? defaultDealVariables()
+  // linked deal at all). The same fetched Deal also resolves venues below
+  // (resolveProposalVenues) so a Deal tied to one specific location doesn't
+  // pull in every other location on the Partner's record.
+  const deal = input.dealId ? await getPartnerDeal(input.dealId) : null
+  const dealVariables = input.dealVariables ?? deal?.terms ?? defaultDealVariables()
 
   const proposalDate = bangkokDateStamp()
 
@@ -268,7 +287,7 @@ export async function createProposal(input: CreateProposalInput): Promise<Propos
     partnerDisplayName: partner.displayName,
     businessContexts: input.businessContexts,
     product: input.product,
-    venues: input.venues ?? partner.locations.filter((l) => l.isActive).map((l) => l.name),
+    venues: input.venues ?? resolveProposalVenues(partner, deal),
     relationshipSummary: partner.relationshipSummary ?? undefined,
     dealVariables,
     contextForProposal: input.contextForProposal,
@@ -452,6 +471,7 @@ export async function regenerateProposalDraft(id: string): Promise<Proposal> {
   assertStillDraft(existing, 'regenerateProposalDraft')
   const partner = await getPartner(existing.partnerId)
   if (!partner) throw new Error(`regenerateProposalDraft: partner ${existing.partnerId} not found`)
+  const deal = existing.dealId ? await getPartnerDeal(existing.dealId) : null
 
   const writerInputs: ProposalWriterInputs = {
     framework: getPartnershipFramework(),
@@ -460,7 +480,7 @@ export async function regenerateProposalDraft(id: string): Promise<Proposal> {
     partnerDisplayName: partner.displayName,
     businessContexts: existing.businessContexts,
     product: existing.product ?? undefined,
-    venues: partner.locations.filter((l) => l.isActive).map((l) => l.name),
+    venues: resolveProposalVenues(partner, deal),
     relationshipSummary: partner.relationshipSummary ?? undefined,
     dealVariables: existing.dealTermsSnapshot,
     contextForProposal: existing.contextForProposal ?? undefined,

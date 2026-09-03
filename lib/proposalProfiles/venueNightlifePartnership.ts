@@ -238,21 +238,35 @@ export function composeVenueNightlifePartnershipDraft(inputs: ProposalWriterInpu
     lines.push('')
   }
 
-  // Proposed collaboration
+  // Proposed collaboration — prose reflects how many actual venues are in
+  // scope (see lib/proposals.ts's resolveProposalVenues: the Deal's own
+  // linked location when it has one, else every active Partner location).
+  // A single-venue partner never gets "multiple visits in a night" language
+  // — that only describes routing across genuinely multiple venues, and
+  // must never be assumed from the Partner's name or venue count.
   lines.push('## Proposed collaboration')
   lines.push('')
-  if (venues.length) {
+  if (venues.length === 1) {
+    lines.push(`We propose including ${venues[0]} as one of the partner venues on selected ${label} routes.`)
+    lines.push('')
+    lines.push(
+      "The venue may be included depending on the night's route, timing, guest profile, and operational fit. This should begin as a clear working partnership: confirm the terms, test selected nights, review the real results, and improve from there."
+    )
+  } else if (venues.length > 1) {
     lines.push(`We propose including selected ${partnerDisplayName} venues as part of ${label} routes, starting with:`)
     lines.push('')
     for (const venue of venues) lines.push(`- ${venue}`)
     lines.push('')
+    lines.push(
+      `${label} may bring guests to more than one ${partnerDisplayName} venue in a night, depending on the route, timing, guest profile, and what works best operationally for the venues. This should begin as a clear working partnership: confirm the terms, test selected nights, review the real results, and improve from there.`
+    )
   } else {
     lines.push(`We propose including ${partnerDisplayName} as part of ${label} routes.`)
     lines.push('')
+    lines.push(
+      'This should begin as a clear working partnership: confirm the terms, test selected nights, review the real results, and improve from there.'
+    )
   }
-  lines.push(
-    `${label} may bring guests to ${partnerDisplayName} on more than one visit in a night, depending on the route, timing, guest profile, and what works best operationally for the venue. This should begin as a clear working partnership: confirm the terms, test selected nights, review the real results, and improve from there.`
-  )
   lines.push('')
 
   // What we bring

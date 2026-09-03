@@ -32,9 +32,9 @@ import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import type { PDFFont, PDFPage, RGB } from 'pdf-lib'
 import type { DocBlock, DocRun, ProposalClientDocument } from '@/lib/proposalDocument'
 
+// V1 correction: no brand accent color — plain black/neutral grayscale only.
 const INK: RGB = rgb(0.1216, 0.1608, 0.2157)
 const MUTE: RGB = rgb(0.4196, 0.4471, 0.502)
-const ACCENT: RGB = rgb(0.4863, 0.2275, 0.9294)
 const RULE: RGB = rgb(0.898, 0.9059, 0.9216)
 const FAINT: RGB = rgb(0.9529, 0.9569, 0.9647)
 
@@ -140,8 +140,9 @@ function drawRule(state: RenderState): void {
 }
 
 function drawCover(state: RenderState, meta: ProposalClientDocument['meta']): void {
-  drawRuns(state, [{ text: meta.preparedBy.toUpperCase(), bold: true }], { size: 8.5, color: ACCENT, lineHeight: 13 })
-  state.y -= 5
+  drawRuns(state, [{ text: meta.preparedBy.toUpperCase(), bold: true }], { size: 8.5, color: MUTE, lineHeight: 13 })
+  // Visible gap before the headline — was too tight against the eyebrow line.
+  state.y -= 12
   drawRuns(state, [{ text: meta.title, bold: true }], { size: 21, color: INK, lineHeight: 26 })
   state.y -= 3
   drawRuns(state, [{ text: meta.partnerName, bold: true }], { size: 13.5, color: INK, lineHeight: 19 })
@@ -151,13 +152,41 @@ function drawCover(state: RenderState, meta: ProposalClientDocument['meta']): vo
   drawRuns(state, [{ text: meta.dateLabel }], { size: 10, color: MUTE, lineHeight: 15 })
   state.y -= 6
   ensure(state, 4)
-  state.page.drawLine({ start: { x: MARGIN.left, y: state.y }, end: { x: MARGIN.left + 52, y: state.y }, thickness: 1.2, color: ACCENT })
+  state.page.drawLine({ start: { x: MARGIN.left, y: state.y }, end: { x: MARGIN.left + 52, y: state.y }, thickness: 1.2, color: INK })
   state.y -= 22
 }
 
-function drawHeading(state: RenderState, block: Extract<DocBlock, { type: 'heading' }>): void {
+/**
+ * Rough height of the first line of `block` — used only as a "keep with
+ * next" reservation for the heading that precedes it, never for real
+ * layout. A heading followed by another heading (or by nothing) needs no
+ * safeguard: an empty section heading breaking alone is not the "orphaned
+ * heading" case being guarded against.
+ */
+function leadingBlockHeight(block: DocBlock | undefined): number {
+  switch (block?.type) {
+    case 'paragraph':
+      return 15
+    case 'list':
+      return 17
+    case 'terms':
+      return 16
+    case 'table':
+      return 20
+    default:
+      return 0
+  }
+}
+
+/**
+ * `keepWithNext` reserves enough extra room for the first line of whatever
+ * follows this heading, so a page break lands BEFORE the heading instead of
+ * leaving it stranded alone at the bottom of a page with its body pushed to
+ * the next one.
+ */
+function drawHeading(state: RenderState, block: Extract<DocBlock, { type: 'heading' }>, keepWithNext = 0): void {
   const size = block.level <= 1 ? 15 : block.level === 2 ? 12.5 : 11
-  ensure(state, size * 1.4 + 28)
+  ensure(state, size * 1.4 + 28 + keepWithNext)
   state.y -= block.level <= 2 ? 12 : 7
   drawRuns(state, block.runs.map((r) => ({ ...r, bold: true })), { size, color: INK, lineHeight: size * 1.3 })
   state.y -= 4
@@ -172,7 +201,7 @@ function drawList(state: RenderState, block: Extract<DocBlock, { type: 'list' }>
   block.items.forEach((item, idx) => {
     ensure(state, 15)
     const marker = block.ordered ? `${idx + 1}.` : '•'
-    state.page.drawText(marker, { x: MARGIN.left, y: state.y, size: 10.5, font: state.fonts.bold, color: ACCENT })
+    state.page.drawText(marker, { x: MARGIN.left, y: state.y, size: 10.5, font: state.fonts.bold, color: INK })
     drawRuns(state, item, { size: 10.5, x: MARGIN.left + 16, width: CONTENT_WIDTH - 16, color: INK, lineHeight: 15 })
     state.y -= 2
   })
@@ -190,9 +219,9 @@ function drawTermsTable(state: RenderState, block: Extract<DocBlock, { type: 'te
     const afterLabelY = state.y
     state.y = rowStartY
     drawRuns(state, row.value, { size: 10, x: MARGIN.left + labelWidth + 14, width: valueWidth, color: INK, lineHeight: 14 })
-    state.y = Math.min(state.y, afterLabelY) - 3
-    ensure(state, 4)
-    state.page.drawLine({ start: { x: MARGIN.left, y: state.y + 5 }, end: { x: PAGE_SIZE[0] - MARGIN.right, y: state.y + 5 }, thickness: 0.5, color: RULE })
+    // No divider line between rows — editorial, two-column alignment carries
+    // the structure. Row gap widened slightly to compensate.
+    state.y = Math.min(state.y, afterLabelY) - 8
   }
   state.y -= 8
 }
@@ -247,10 +276,11 @@ export async function renderProposalPdf(document: ProposalClientDocument): Promi
   const state: RenderState = { doc, fonts, page: firstPage, y: PAGE_SIZE[1] - MARGIN.top }
 
   drawCover(state, document.meta)
-  for (const block of document.blocks) {
+  for (let i = 0; i < document.blocks.length; i++) {
+    const block = document.blocks[i]
     switch (block.type) {
       case 'heading':
-        drawHeading(state, block)
+        drawHeading(state, block, leadingBlockHeight(document.blocks[i + 1]))
         break
       case 'paragraph':
         drawParagraph(state, block.runs)
