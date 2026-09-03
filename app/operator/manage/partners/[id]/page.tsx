@@ -35,17 +35,23 @@ const RELATIONSHIP_STATUS_SOFT: Record<RelationshipStatus, string> = {
 const ORG_TYPE_LABEL: Record<string, string> = {
   'hospitality-group': 'Hospitality group', venue: 'Venue', brand: 'Brand', agency: 'Agency', individual: 'Individual', other: 'Organization',
 }
-const DEAL_STATUS_LABEL: Record<PartnerDealStatus, string> = { proposed: 'Proposed', informal: 'Informal', signed: 'Signed', expired: 'Expired' }
-const DEAL_STATUS_COLOR: Record<PartnerDealStatus, string> = { proposed: T.statusBlue, informal: T.statusAmber, signed: T.statusGreen, expired: T.textFaint }
-const DEAL_STATUS_SOFT: Record<PartnerDealStatus, string> = { proposed: T.statusBlueSoft, informal: T.statusAmberSoft, signed: T.statusGreenSoft, expired: T.chipBg }
+const DEAL_STATUS_LABEL: Record<PartnerDealStatus, string> = {
+  discussing: 'Discussing', terms_agreed: 'Terms Agreed', active: 'Active', paused: 'Paused', ended: 'Ended',
+}
+const DEAL_STATUS_COLOR: Record<PartnerDealStatus, string> = {
+  discussing: T.statusBlue, terms_agreed: T.statusAmber, active: T.statusGreen, paused: T.textMuted, ended: T.textFaint,
+}
+const DEAL_STATUS_SOFT: Record<PartnerDealStatus, string> = {
+  discussing: T.statusBlueSoft, terms_agreed: T.statusAmberSoft, active: T.statusGreenSoft, paused: T.chipBg, ended: T.chipBg,
+}
 const PROPOSAL_STATUS_LABEL: Record<ProposalStatus, string> = {
-  draft: 'Draft', review: 'Review', approved: 'Approved', exported: 'Exported', sent: 'Sent', archived: 'Archived',
+  draft: 'Draft', finalized: 'Ready to Send', sent: 'Sent', accepted: 'Accepted', archived: 'Archived',
 }
 const PROPOSAL_STATUS_COLOR: Record<ProposalStatus, string> = {
-  draft: T.statusAmber, review: T.statusBlue, approved: T.statusPurple, exported: T.statusGreen, sent: T.statusGreen, archived: T.textFaint,
+  draft: T.statusAmber, finalized: T.statusPurple, sent: T.statusBlue, accepted: T.statusGreen, archived: T.textFaint,
 }
 const PROPOSAL_STATUS_SOFT: Record<ProposalStatus, string> = {
-  draft: T.statusAmberSoft, review: T.statusBlueSoft, approved: T.statusPurpleSoft, exported: T.statusGreenSoft, sent: T.statusGreenSoft, archived: T.chipBg,
+  draft: T.statusAmberSoft, finalized: T.statusPurpleSoft, sent: T.statusBlueSoft, accepted: T.statusGreenSoft, archived: T.chipBg,
 }
 
 function fmtDate(value: string | null | undefined): string {

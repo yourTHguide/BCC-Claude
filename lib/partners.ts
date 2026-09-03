@@ -22,7 +22,16 @@ import { defaultDealVariables, type ProposalDealVariable } from '@/lib/proposals
 
 export type PartnerOrganizationType = 'hospitality-group' | 'venue' | 'brand' | 'agency' | 'individual' | 'other'
 export type RelationshipStatus = 'prospect' | 'in-conversation' | 'proposal-pending' | 'active' | 'paused' | 'archived'
-export type PartnerDealStatus = 'proposed' | 'informal' | 'signed' | 'expired'
+// Phase 3G lifecycle vocabulary correction. 'discussing' is the Opportunity
+// stage (a specific thread under discussion, no agreed terms yet — not a
+// new table, just this row's earliest status). 'terms_agreed' = commercial/
+// operational terms agreed sufficiently to proceed (verbal/WhatsApp/email
+// all count — no signature required, see agreedAt/documentUrl/notes below).
+// 'active'/'paused'/'ended' are the operating states. Retired: 'proposed'
+// (now exclusively a Proposal-lifecycle word, never a Deal one), 'signed'
+// (implies a formal signature the real workflow doesn't require), 'informal'
+// (vague), 'expired' (folded into 'ended').
+export type PartnerDealStatus = 'discussing' | 'terms_agreed' | 'active' | 'paused' | 'ended'
 
 export interface PartnerNote {
   date: string
@@ -551,7 +560,7 @@ export async function createPartnerDeal(partnerId: string, input: CreatePartnerD
       location_id: input.locationId ?? null,
       business_contexts: input.businessContexts,
       product: input.product ?? null,
-      status: input.status ?? 'proposed',
+      status: input.status ?? 'discussing',
       terms: input.terms ?? defaultDealVariables(),
       agreed_at: input.agreedAt ?? null,
       effective_from: input.effectiveFrom ?? null,
@@ -579,7 +588,7 @@ export async function updatePartnerDealTerms(id: string, terms: ProposalDealVari
   return rowToDeal(data)
 }
 
-/** Mark a Deal signed/informal/expired/proposed. actorUserId is recorded for parity with createPartnerDeal even though partner_deals has no per-status-change attribution column today — kept so a future audit column costs no signature change. */
+/** Move a Deal through discussing/terms_agreed/active/paused/ended. actorUserId is recorded for parity with createPartnerDeal even though partner_deals has no per-status-change attribution column today — kept so a future audit column costs no signature change. */
 export async function updatePartnerDealStatus(id: string, status: PartnerDealStatus, _actorUserId: string): Promise<PartnerDeal> {
   const supabase = getServiceSupabase()
   const { data, error } = await supabase.from('partner_deals').update({ status }).eq('id', id).select('*').single()

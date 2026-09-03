@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 // Proposal setup wizard's "choose an existing Deal, or create a minimal new
 // one" step. Deal editing (status changes, term edits) is not built here --
 // only creation, per the approved scope.
-const DEAL_STATUSES: PartnerDealStatus[] = ['proposed', 'informal', 'signed', 'expired']
+const DEAL_STATUSES: PartnerDealStatus[] = ['discussing', 'terms_agreed', 'active', 'paused', 'ended']
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const auth = await requireRole(['owner', 'admin'])

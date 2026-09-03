@@ -27,7 +27,13 @@ import { buildProposalDocument, bangkokDateStamp } from '@/lib/proposalDocument'
 import { renderProposalPdf } from '@/lib/proposalPdf'
 import { proposalPdfStoragePath, uploadProposalPdf, getSignedProposalPdfUrl } from '@/lib/proposalPdfStorage'
 
-export type ProposalStatus = 'draft' | 'review' | 'approved' | 'exported' | 'sent' | 'archived'
+// Phase 3G lifecycle vocabulary correction. Working Draft: 'draft' only
+// ('review' retired — unused). Finalized Version: 'finalized' (PDF exists,
+// not necessarily delivered yet — replaces the old 'approved'/'exported',
+// which conflated internal finalization with external delivery) ->
+// 'sent' (operator delivered it to the partner) -> 'accepted' (partner said
+// yes) -> 'archived' (terminal/parked, reachable from any of the above).
+export type ProposalStatus = 'draft' | 'finalized' | 'sent' | 'accepted' | 'archived'
 export type ProposalWriterMode = 'ai' | 'deterministic'
 
 /**
@@ -70,12 +76,14 @@ export interface Proposal {
   approvedBy: string | null
   pdfStoragePath: string | null
   pdfGeneratedAt: string | null
+  /** When the Partner accepted this Finalized Version. Null until status becomes 'accepted'; write-once and permanently immutable once set (enforced by enforce_proposal_freeze, not just app logic). Distinct from approvedAt, which stamps the internal finalize/freeze moment, not partner acceptance. */
+  acceptedAt: string | null
   createdAt: string
   updatedAt: string
 }
 
 const PROPOSAL_FIELDS =
-  'id, partner_id, deal_id, series_id, version, draft_revision, business_contexts, product, title, status, framework_version, writing_standard_version, product_profile_version, proposal_date, deal_terms_snapshot, context_for_proposal, writing_direction, writer_mode, draft_content, approved_content, approved_at, approved_by, pdf_storage_path, pdf_generated_at, created_at, updated_at'
+  'id, partner_id, deal_id, series_id, version, draft_revision, business_contexts, product, title, status, framework_version, writing_standard_version, product_profile_version, proposal_date, deal_terms_snapshot, context_for_proposal, writing_direction, writer_mode, draft_content, approved_content, approved_at, approved_by, pdf_storage_path, pdf_generated_at, accepted_at, created_at, updated_at'
 
 function rowToProposal(row: any): Proposal {
   return {
@@ -103,6 +111,7 @@ function rowToProposal(row: any): Proposal {
     approvedBy: row.approved_by,
     pdfStoragePath: row.pdf_storage_path,
     pdfGeneratedAt: row.pdf_generated_at,
+    acceptedAt: row.accepted_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -566,7 +575,7 @@ export async function finalizeProposal(id: string, actorUserId: string, expected
       approved_by: actorUserId,
       pdf_storage_path: path,
       pdf_generated_at: nowIso,
-      status: 'exported',
+      status: 'finalized',
     })
     .eq('id', id)
     .is('version', null)

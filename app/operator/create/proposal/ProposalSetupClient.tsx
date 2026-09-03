@@ -19,10 +19,11 @@ type PartnerRow = { id: string; displayName: string; relationshipStatus: Relatio
 // only from this one entry point's UI.
 
 // Same principle for New Deal: Status is NOT collected here — every deal
-// created through this fast-setup flow is 'proposed' (the API omits the
-// field from its request and lib/partners.ts's createPartnerDeal() already
-// defaults status to 'proposed' when it's absent, so no domain/schema change
-// was needed). Status stays fully editable later via Manage → Partner.
+// created through this fast-setup flow starts 'discussing' (the API omits
+// the field from its request and lib/partners.ts's createPartnerDeal()
+// already defaults status to 'discussing' when it's absent — Phase 3G's
+// Opportunity stage — so no domain/schema change was needed). Status stays
+// fully editable later via Manage → Partner.
 //
 // Known business-context values are a UI convenience only — a fixed list of
 // {value, label} pairs for the common cases, using exactly the canonical
@@ -163,7 +164,7 @@ export default function ProposalSetupClient({ partners }: { partners: PartnerRow
           businessContexts: newDeal.businessContexts,
           product: newDeal.product || undefined,
           // status intentionally omitted — the API route's own default
-          // applies ('proposed'), unchanged from lib/partners.ts.
+          // applies ('discussing'), unchanged from lib/partners.ts.
           locationId: newDeal.locationId || undefined,
         }),
       })

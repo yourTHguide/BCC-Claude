@@ -60,6 +60,23 @@ async function openPdf(proposalId: string, mode: 'view' | 'download', setError: 
   }
 }
 
+// Phase 3G: PDF creation ('finalized') is deliberately kept distinct from
+// external delivery ('sent') and partner acceptance ('accepted') — this is
+// the one place the operator sees which of the three a Finalized Version is
+// currently at.
+const FINALIZED_STATUS_LABEL: Partial<Record<Proposal['status'], string>> = {
+  finalized: 'Ready to Send',
+  sent: 'Sent',
+  accepted: 'Accepted',
+  archived: 'Archived',
+}
+const FINALIZED_STATUS_COLOR: Partial<Record<Proposal['status'], { text: string; bg: string }>> = {
+  finalized: { text: T.statusPurple, bg: T.statusPurpleSoft },
+  sent: { text: T.statusBlue, bg: T.statusBlueSoft },
+  accepted: { text: T.statusGreen, bg: T.statusGreenSoft },
+  archived: { text: T.textFaint, bg: T.chipBg },
+}
+
 /** The frozen, finalized-version view: no editing, only status + PDF access + Create New Draft. */
 function FinalizedView({ proposal, partnerName, finalizedByName }: { proposal: Proposal; partnerName: string; finalizedByName: string | null }) {
   const router = useRouter()
@@ -86,8 +103,14 @@ function FinalizedView({ proposal, partnerName, finalizedByName }: { proposal: P
   return (
     <div>
       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '4px' }}>
-        <span style={{ fontSize: '10.5px', fontWeight: 700, padding: '3px 9px', borderRadius: '999px', color: T.statusGreen, background: T.statusGreenSoft }}>
-          Version {proposal.version} · Finalized
+        <span
+          style={{
+            fontSize: '10.5px', fontWeight: 700, padding: '3px 9px', borderRadius: '999px',
+            color: FINALIZED_STATUS_COLOR[proposal.status]?.text ?? T.statusGreen,
+            background: FINALIZED_STATUS_COLOR[proposal.status]?.bg ?? T.statusGreenSoft,
+          }}
+        >
+          {FINALIZED_STATUS_LABEL[proposal.status] ?? proposal.status} · V{proposal.version}
         </span>
         {proposal.businessContexts.map((c) => (
           <span key={c} style={{ fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '999px', color: T.textMuted, background: T.chipBg }}>{c}</span>
