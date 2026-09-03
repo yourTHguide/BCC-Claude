@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Search, Check } from 'lucide-react'
 import { operatorTheme as T, eyebrow } from '@/lib/operator/theme'
 import { KNOWN_BUSINESS_CONTEXTS } from '@/lib/operator/businessContexts'
+import { defaultDealVariables, type ProposalDealVariable } from '@/lib/dealVariables'
 import type { RelationshipStatus, PartnerDeal, PartnerLocation } from '@/lib/partners'
 
 type PartnerRow = { id: string; displayName: string; relationshipStatus: RelationshipStatus }
@@ -18,12 +19,16 @@ type PartnerRow = { id: string; displayName: string; relationshipStatus: Relatio
 // Manage → Partner. No field is removed from the schema or domain model,
 // only from this one entry point's UI.
 
-// Same principle for New Deal: Status is NOT collected here — every deal
-// created through this fast-setup flow starts 'discussing' (the API omits
-// the field from its request and lib/partners.ts's createPartnerDeal()
-// already defaults status to 'discussing' when it's absent — Phase 3G's
-// Opportunity stage — so no domain/schema change was needed). Status stays
-// fully editable later via Manage → Partner.
+// Phase 3F correction — Deal-first workflow: the real SNX lifecycle is
+// Partner -> Opportunity/Deal -> optionally Proposal. A Proposal is NOT
+// required for every Deal — a small partner can go straight from
+// terms-agreed to an Active Deal with no Proposal ever created, and that's
+// a first-class path, not a shortcut. So Step 2 here is the real Deal
+// workspace (business context, what's being discussed, and the actual
+// commercial terms — all of it belongs to partner_deals, not to a Proposal
+// that may never exist), and Step 3 (Proposal title + Generate Draft) is
+// reached only if the operator explicitly chooses to formalize the Deal
+// into a Proposal after saving it.
 //
 // Known business-context values are a UI convenience only — a fixed list of
 // {value, label} pairs for the common cases, using exactly the canonical
@@ -52,6 +57,13 @@ const primaryBtn = (disabled: boolean): React.CSSProperties => ({
   width: '100%', padding: '11px', borderRadius: T.radiusSm, border: 'none', fontSize: '13.5px', fontWeight: 700,
   cursor: disabled ? 'default' : 'pointer', background: disabled ? T.chipBg : T.accent, color: disabled ? T.textFaint : T.bg,
 })
+// Only the Deal-saved branch row (Done for now / Create Proposal) uses
+// flex: 1 — it's the one place two buttons share a row.
+const branchPrimaryBtn: React.CSSProperties = { ...primaryBtn(false), width: undefined, flex: 1 }
+const branchSecondaryBtn: React.CSSProperties = {
+  flex: 1, padding: '11px', borderRadius: T.radiusSm, border: `1px solid ${T.border}`, fontSize: '13.5px', fontWeight: 600,
+  cursor: 'pointer', background: T.bgElevated, color: T.text,
+}
 
 function SectionCard({ title, done, children }: { title: string; done?: boolean; children: React.ReactNode }) {
   return (
@@ -74,17 +86,25 @@ export default function ProposalSetupClient({ partners }: { partners: PartnerRow
   const [newPartner, setNewPartner] = useState({ displayName: '', legalName: '', relationshipSummary: '' })
   const [creatingPartner, setCreatingPartner] = useState(false)
 
-  // Step 2 — Deal
+  // Step 2 — Deal (the real workspace: context, what's being discussed, and
+  // commercial terms — all partner_deals fields, not Proposal fields)
   const [existingDeals, setExistingDeals] = useState<PartnerDeal[] | null>(null)
   const [locations, setLocations] = useState<PartnerLocation[]>([])
   const [dealTab, setDealTab] = useState<'existing' | 'new'>('new')
   const [selectedDeal, setSelectedDeal] = useState<PartnerDeal | null>(null)
-  const [newDeal, setNewDeal] = useState<{ businessContexts: string[]; product: string; locationId: string }>({
-    businessContexts: [], product: '', locationId: '',
+  const [newDeal, setNewDeal] = useState<{ businessContexts: string[]; product: string; locationId: string; terms: ProposalDealVariable[] }>({
+    businessContexts: [], product: '', locationId: '', terms: defaultDealVariables(),
   })
   const [creatingDeal, setCreatingDeal] = useState(false)
 
-  // Step 3 — Draft
+  // Branch after a Deal is selected/saved: stay ("Done for now" — the
+  // first-class small-partner path, no Proposal) or continue to Step 3
+  // ("Create Proposal" — the optional formalization path).
+  const [wantsProposal, setWantsProposal] = useState(false)
+
+  // Step 3 — Proposal-only (title + Generate Draft). Deal terms are never
+  // asked for again here — the Working Draft inherits them server-side from
+  // the Deal itself (lib/proposals.ts createProposal()).
   const [title, setTitle] = useState('')
   const [creatingProposal, setCreatingProposal] = useState(false)
 
@@ -100,6 +120,7 @@ export default function ProposalSetupClient({ partners }: { partners: PartnerRow
     if (!selectedPartner) return
     setExistingDeals(null)
     setSelectedDeal(null)
+    setWantsProposal(false)
     setDealTab('new')
     ;(async () => {
       const [dealsRes, partnerRes] = await Promise.all([
@@ -152,7 +173,11 @@ export default function ProposalSetupClient({ partners }: { partners: PartnerRow
     }))
   }
 
-  async function handleCreateDeal() {
+  function setDealTermValue(key: string, value: string) {
+    setNewDeal((d) => ({ ...d, terms: d.terms.map((t) => (t.key === key ? { ...t, value } : t)) }))
+  }
+
+  async function handleSaveDeal() {
     if (!selectedPartner || newDeal.businessContexts.length === 0 || creatingDeal) return
     setCreatingDeal(true)
     setError(null)
@@ -164,19 +189,32 @@ export default function ProposalSetupClient({ partners }: { partners: PartnerRow
           businessContexts: newDeal.businessContexts,
           product: newDeal.product || undefined,
           // status intentionally omitted — the API route's own default
-          // applies ('discussing'), unchanged from lib/partners.ts.
+          // applies ('discussing'), unchanged from lib/partners.ts. Saving
+          // a Deal here does not require or imply a Proposal.
           locationId: newDeal.locationId || undefined,
+          terms: newDeal.terms,
         }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setError(data.error || 'Could not create deal.')
+        setError(data.error || 'Could not save the deal.')
         return
       }
       setSelectedDeal(data.deal)
+      setWantsProposal(false)
     } finally {
       setCreatingDeal(false)
     }
+  }
+
+  function handleChangeDeal() {
+    setSelectedDeal(null)
+    setWantsProposal(false)
+  }
+
+  function handleDoneForNow() {
+    if (!selectedPartner) return
+    router.push(`/operator/manage/partners/${selectedPartner.id}`)
   }
 
   async function handleCreateProposal() {
@@ -193,6 +231,9 @@ export default function ProposalSetupClient({ partners }: { partners: PartnerRow
           businessContexts: selectedDeal.businessContexts,
           product: selectedDeal.product ?? undefined,
           title: title.trim(),
+          // dealVariables intentionally omitted — createProposal() inherits
+          // the Deal's current terms server-side via dealId, never trusting
+          // a client-echoed snapshot (lib/proposals.ts).
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -213,7 +254,7 @@ export default function ProposalSetupClient({ partners }: { partners: PartnerRow
         {selectedPartner ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
             <p style={{ fontSize: '14px', fontWeight: 600, margin: 0 }}>{selectedPartner.displayName}</p>
-            <button type="button" onClick={() => { setSelectedPartner(null); setSelectedDeal(null) }} style={{ fontSize: '11.5px', color: T.textMuted, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+            <button type="button" onClick={() => { setSelectedPartner(null); handleChangeDeal() }} style={{ fontSize: '11.5px', color: T.textMuted, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
               Change
             </button>
           </div>
@@ -272,20 +313,43 @@ export default function ProposalSetupClient({ partners }: { partners: PartnerRow
         )}
       </SectionCard>
 
-      {/* Step 2 — Deal context */}
+      {/* Step 2 — Deal: the real workspace (context, what's being discussed,
+          commercial terms). Saving here is already a valid Deal/Opportunity
+          record — it does not require or create a Proposal. */}
       {selectedPartner && (
-        <SectionCard title="2 · Deal context" done={Boolean(selectedDeal)}>
+        <SectionCard title="2 · Deal" done={Boolean(selectedDeal)}>
           {selectedDeal ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-              <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-                {selectedDeal.businessContexts.map((c) => (
-                  <span key={c} style={{ fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '999px', color: T.textMuted, background: T.chipBg }}>{c}</span>
-                ))}
+            wantsProposal ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                  {selectedDeal.businessContexts.map((c) => (
+                    <span key={c} style={{ fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '999px', color: T.textMuted, background: T.chipBg }}>{c}</span>
+                  ))}
+                </div>
+                <button type="button" onClick={handleChangeDeal} style={{ fontSize: '11.5px', color: T.textMuted, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                  Change
+                </button>
               </div>
-              <button type="button" onClick={() => setSelectedDeal(null)} style={{ fontSize: '11.5px', color: T.textMuted, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
-                Change
-              </button>
-            </div>
+            ) : (
+              <div>
+                <p style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Check size={14} color={T.statusGreen} /> Deal saved
+                </p>
+                <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', margin: '0 0 4px' }}>
+                  {selectedDeal.businessContexts.map((c) => (
+                    <span key={c} style={{ fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '999px', color: T.textMuted, background: T.chipBg }}>{c}</span>
+                  ))}
+                </div>
+                {selectedDeal.product && <p style={{ fontSize: '12.5px', color: T.textMuted, margin: '0 0 12px' }}>{selectedDeal.product}</p>}
+                <p style={{ fontSize: '12px', color: T.textFaint, margin: '0 0 12px' }}>
+                  This is already a valid Opportunity/Deal record. A Proposal is optional — most small partners don't need one.
+                </p>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button type="button" style={branchSecondaryBtn} onClick={handleDoneForNow}>Done for now</button>
+                  <button type="button" style={branchPrimaryBtn} onClick={() => setWantsProposal(true)}>Create Proposal</button>
+                </div>
+              </div>
+            )
           ) : existingDeals === null ? (
             <p style={{ fontSize: '12.5px', color: T.textFaint, margin: 0 }}>Loading…</p>
           ) : (
@@ -353,8 +417,8 @@ export default function ProposalSetupClient({ partners }: { partners: PartnerRow
                     </div>
                   </div>
                   <div>
-                    <label style={labelStyle}>What are we proposing?</label>
-                    <input style={fieldStyle} value={newDeal.product} onChange={(e) => setNewDeal((s) => ({ ...s, product: e.target.value }))} placeholder="e.g. Bangkok Club Crawl partnership" />
+                    <label style={labelStyle}>What are we discussing?</label>
+                    <input style={fieldStyle} value={newDeal.product} onChange={(e) => setNewDeal((s) => ({ ...s, product: e.target.value }))} placeholder="e.g. BCC venue partnership" />
                   </div>
                   {locations.length > 0 && (
                     <div>
@@ -365,8 +429,24 @@ export default function ProposalSetupClient({ partners }: { partners: PartnerRow
                       </select>
                     </div>
                   )}
-                  <button type="button" disabled={newDeal.businessContexts.length === 0 || creatingDeal} style={primaryBtn(newDeal.businessContexts.length === 0 || creatingDeal)} onClick={handleCreateDeal}>
-                    {creatingDeal ? 'Creating…' : 'Create Deal'}
+                  <div>
+                    <label style={labelStyle}>Deal terms — fill in what's agreed so far, optional</label>
+                    <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: T.radiusSm, padding: '2px 12px' }}>
+                      {newDeal.terms.map((v, i) => (
+                        <div key={v.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0', borderTop: i > 0 ? `1px solid ${T.border}` : 'none' }}>
+                          <span style={{ fontSize: '11.5px', color: T.textMuted, flex: '0 0 42%' }}>{v.label}{v.required ? ' *' : ''}</span>
+                          <input
+                            value={v.value ?? ''}
+                            onChange={(e) => setDealTermValue(v.key, e.target.value)}
+                            placeholder="TBD"
+                            style={{ ...fieldStyle, flex: 1, padding: '6px 9px', fontSize: '12px' }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <button type="button" disabled={newDeal.businessContexts.length === 0 || creatingDeal} style={primaryBtn(newDeal.businessContexts.length === 0 || creatingDeal)} onClick={handleSaveDeal}>
+                    {creatingDeal ? 'Saving…' : 'Save Deal'}
                   </button>
                 </div>
               )}
@@ -375,8 +455,10 @@ export default function ProposalSetupClient({ partners }: { partners: PartnerRow
         </SectionCard>
       )}
 
-      {/* Step 3 — Draft */}
-      {selectedPartner && selectedDeal && (
+      {/* Step 3 — Proposal only (reached only by explicit "Create Proposal"
+          choice above). No Deal Variables here — the Working Draft inherits
+          them server-side from the Deal (lib/proposals.ts createProposal()). */}
+      {selectedPartner && selectedDeal && wantsProposal && (
         <SectionCard title="3 · Create the Working Draft">
           <div style={{ display: 'grid', gap: '10px' }}>
             <div>

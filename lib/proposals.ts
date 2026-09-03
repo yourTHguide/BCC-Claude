@@ -22,7 +22,7 @@ import { getPartnershipFramework } from '@/lib/partnershipFramework'
 import { getProposalWritingStandard } from '@/lib/proposalWritingStandard'
 import { generateProposalDraft, reviseProposalDraft } from '@/lib/proposalGeneration'
 import type { ProposalWriterInputs } from '@/lib/proposalWriter'
-import { getPartner, getPartnerDeal } from '@/lib/partners'
+import { getPartner, getPartnerDeal, updatePartnerDealTerms } from '@/lib/partners'
 import { buildProposalDocument, bangkokDateStamp } from '@/lib/proposalDocument'
 import { renderProposalPdf } from '@/lib/proposalPdf'
 import { proposalPdfStoragePath, uploadProposalPdf, getSignedProposalPdfUrl } from '@/lib/proposalPdfStorage'
@@ -36,19 +36,16 @@ import { proposalPdfStoragePath, uploadProposalPdf, getSignedProposalPdfUrl } fr
 export type ProposalStatus = 'draft' | 'finalized' | 'sent' | 'accepted' | 'archived'
 export type ProposalWriterMode = 'ai' | 'deterministic'
 
-/**
- * A single dynamic deal variable. Unknown commercial terms stay visible as
- * TBD. PORT UNCHANGED from Living OS's src/lib/proposals.ts
- * ProposalDealVariable — the exact shape `partner_deals.terms` and
- * `proposals.deal_terms_snapshot` both store as JSONB.
- */
-export interface ProposalDealVariable {
-  key: string
-  label: string
-  value?: string
-  /** Whether this variable is required before a proposal can be finalized. */
-  required?: boolean
-}
+// ProposalDealVariable and its pure helpers (defaultDealVariables,
+// mergeDealVariables, missingRequiredVariables) live in lib/dealVariables.ts
+// as of Phase 3F — that file has no `import 'server-only'`, so a client
+// component (ProposalSetupClient.tsx's Deal workspace) can import them
+// directly. Re-exported below (alongside being used internally in this
+// file) so every existing `from '@/lib/proposals'` import keeps working
+// unchanged.
+import { defaultDealVariables, mergeDealVariables, missingRequiredVariables, type ProposalDealVariable } from '@/lib/dealVariables'
+export { defaultDealVariables, mergeDealVariables, missingRequiredVariables }
+export type { ProposalDealVariable }
 
 export interface Proposal {
   id: string
@@ -125,57 +122,6 @@ export function proposalDraftContent(proposal: Proposal): string {
 /** The content to freeze/print: the approved copy once finalized, else the current draft. */
 export function proposalFinalContent(proposal: Proposal): string {
   return proposal.approvedContent ?? proposal.draftContent ?? ''
-}
-
-// ── Deal-variable helpers ──────────────────────────────────────────────
-// PORT UNCHANGED from Living OS's src/lib/proposals.ts — pure functions over
-// the ProposalDealVariable[] shape, genuinely indifferent to where the JSON
-// came from. One typing adaptation: Living OS's missingRequiredVariables()
-// took a whole Proposal and read `proposal.dealVariables`; this repo has
-// TWO places this shape lives (`partner_deals.terms` and
-// `proposals.dealTermsSnapshot`), so it now takes the variable array
-// directly — the minimal adaptation the Phase 3C plan pre-authorized.
-
-/**
- * The standard commercial deal variables a partnership must settle. Every
- * value is intentionally BLANK — these are the terms that must be agreed
- * with the partner and must never be invented. Required ones block a Deal's
- * terms (or a proposal's snapshot of them) from being treated as complete.
- */
-export function defaultDealVariables(): ProposalDealVariable[] {
-  return [
-    { key: 'commission', label: 'Commission / revenue share', required: true },
-    { key: 'entry-terms', label: 'Entry / free-drink terms', required: false },
-    { key: 'minimum-spend', label: 'Minimum spend', required: false },
-    { key: 'guaranteed-traffic', label: 'Guaranteed traffic / group sizes', required: false },
-    { key: 'operating-rules', label: 'Venue operating rules', required: false },
-    { key: 'contract-period', label: 'Contract period', required: true },
-    { key: 'exclusivity', label: 'Exclusivity', required: false },
-  ]
-}
-
-/** Merge provided variable values over the standard template, keeping labels/required. */
-export function mergeDealVariables(
-  template: ProposalDealVariable[],
-  provided: Array<{ key: string; value?: string }> | undefined
-): ProposalDealVariable[] {
-  if (!provided || provided.length === 0) return template.map((variable) => ({ ...variable }))
-  const byKey = new Map(provided.map((item) => [item.key, item.value]))
-  const merged = template.map((variable) =>
-    byKey.has(variable.key) ? { ...variable, value: byKey.get(variable.key)?.trim() || undefined } : { ...variable }
-  )
-  // Preserve any extra provided variables not in the template.
-  for (const item of provided) {
-    if (!template.some((variable) => variable.key === item.key)) {
-      merged.push({ key: item.key, label: item.key, value: item.value?.trim() || undefined })
-    }
-  }
-  return merged
-}
-
-/** Required variables that are still blank — must be surfaced before finalization. */
-export function missingRequiredVariables(variables: ProposalDealVariable[]): ProposalDealVariable[] {
-  return variables.filter((variable) => variable.required && !variable.value?.trim())
 }
 
 // ── Reads ───────────────────────────────────────────────────────────────
@@ -267,7 +213,23 @@ export async function createProposal(input: CreateProposalInput): Promise<Propos
 
   const framework = getPartnershipFramework()
   const writingStandard = getProposalWritingStandard()
-  const dealVariables = input.dealVariables ?? defaultDealVariables()
+
+  // Phase 3F correction: Deal-first workflow -- by the time a Proposal is
+  // started, a partner_deals row already exists with real agreed-or-being-
+  // agreed commercial terms (the operator entered them when saving the
+  // Deal, before ever choosing to formalize it into a Proposal). The
+  // Working Draft's initial snapshot must inherit those, not start blank.
+  // Server-fetched from the Deal itself (never trusted from the client) --
+  // explicit input.dealVariables still wins if a caller passes it;
+  // defaultDealVariables() only when there's truly nothing to inherit (no
+  // linked deal at all).
+  let dealVariables = input.dealVariables
+  if (!dealVariables && input.dealId) {
+    const deal = await getPartnerDeal(input.dealId)
+    dealVariables = deal?.terms
+  }
+  dealVariables = dealVariables ?? defaultDealVariables()
+
   const proposalDate = bangkokDateStamp()
 
   const writerInputs: ProposalWriterInputs = {
@@ -415,11 +377,26 @@ export async function updateProposalDraft(id: string, draftContent: string): Pro
   return rowToProposal(data)
 }
 
-/** Update the deal-variable snapshot on a Working Draft (commercial-term edits while drafting). Same row, no version change. */
+/**
+ * Update the deal-variable snapshot on a Working Draft (commercial-term
+ * edits while drafting). Same row, no version change.
+ *
+ * Phase 3F correction: the Working Draft's deal_terms_snapshot and its
+ * linked Deal's own partner_deals.terms must never be allowed to silently
+ * diverge -- this updates both, in the same operation, whenever the
+ * proposal has a linked deal (dealId null is a pre-existing edge case the
+ * schema still allows -- a proposal with no linked deal only updates its
+ * own snapshot). The Deal write happens first: if it fails, the proposal's
+ * snapshot is never touched, rather than ending up updated on one side only.
+ */
 export async function updateProposalDealVariables(id: string, variables: ProposalDealVariable[]): Promise<Proposal> {
   const existing = await getProposal(id)
   if (!existing) throw new Error(`updateProposalDealVariables: proposal ${id} not found`)
   assertStillDraft(existing, 'updateProposalDealVariables')
+
+  if (existing.dealId) {
+    await updatePartnerDealTerms(existing.dealId, variables)
+  }
 
   const supabase = getServiceSupabase()
   const { data, error } = await supabase

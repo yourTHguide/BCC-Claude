@@ -263,7 +263,10 @@ export default function ProposalDraftClient({
         <MessageSquarePlus size={13} /> {busy === 'request-changes' ? 'Applying…' : 'Request Changes'}
       </button>
 
-      <SectionLabel>Deal variables</SectionLabel>
+      <SectionLabel>Deal terms</SectionLabel>
+      <p style={{ fontSize: '11px', color: T.textFaint, margin: '-4px 0 8px' }}>
+        Inherited from the Deal. Editing and saving here updates both this Working Draft and the Deal's own terms together — they never drift apart.
+      </p>
       <div style={{ background: T.bgElevated, border: `1px solid ${T.border}`, borderRadius: T.radiusSm, padding: '4px 14px' }}>
         {dealVariables.map((v, i) => (
           <div key={v.key} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', borderTop: i > 0 ? `1px solid ${T.border}` : 'none' }}>
@@ -286,7 +289,7 @@ export default function ProposalDraftClient({
         <Save size={13} /> {busy === 'update-deal-variables' ? 'Saving…' : termsSaved ? 'Saved ✓' : 'Save Terms'}
       </button>
       <p style={{ fontSize: '11px', color: T.textFaint, margin: '6px 0 0' }}>
-        Saving terms does not change the draft wording. Use Regenerate Draft above if you want the proposal text updated to match.
+        Saving terms updates the Deal but does not change the draft wording. Use Regenerate Draft above if you want the proposal text updated to match.
       </p>
 
       {proposal.contextForProposal && (
