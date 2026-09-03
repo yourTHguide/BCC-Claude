@@ -20,20 +20,13 @@ const nextConfig = {
     staleTimes: {
       dynamic: 0,
     },
-    // Phase 3F correction: pdfkit's Node entry point resolves its 14
-    // standard PDF fonts (Helvetica, Times, Courier, ...) through Node's
-    // package.json `imports` field (`#standard-fonts/*`) rather than plain
-    // relative requires. Next's webpack bundling of a Route Handler doesn't
-    // preserve/trace that resolution correctly, which crashed
-    // Finalize & Generate PDF on Vercel with
-    // "Cannot find module '#standard-fonts/Helvetica'". Marking pdfkit as an
-    // external package tells Next to leave require()/import() calls for it
-    // untouched instead of bundling it, so Node's own module resolver (which
-    // understands package.json `imports`) handles it at runtime, and
-    // Vercel's file tracer includes the whole package — including every
-    // standard-fonts/*.cjs file pdfkit already ships — in the deployed
-    // function. No font files were added to this repo; nothing needed to be.
-    serverComponentsExternalPackages: ['pdfkit'],
+    // Phase 3G correction: the pdfkit + serverComponentsExternalPackages
+    // fix attempted here did NOT resolve "Cannot find module
+    // '#standard-fonts/Helvetica'" in the actual deployed Vercel runtime
+    // (confirmed by a live retest) — pdfkit itself was replaced with pdf-lib
+    // instead (lib/proposalPdf.ts), which needs no external-package bundling
+    // workaround at all. This config entry is intentionally gone, not
+    // forgotten.
   },
 }
 module.exports = nextConfig

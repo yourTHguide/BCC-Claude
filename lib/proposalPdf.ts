@@ -1,262 +1,277 @@
 import 'server-only'
 
-// SNX Phase 3C-2 — ported from Living OS (sanctuary-nexus)
-// src/lib/server/proposalPdf.ts. "PORT UNCHANGED" per the Phase 3C plan —
-// pure rendering logic, no storage awareness. The caller (a future 3G
-// finalize action) uploads the returned Buffer to Supabase Storage; this
-// function has never done that and still doesn't. `meta.identity` is always
-// undefined today (see lib/proposalDocument.ts's header) so the cover always
-// takes the plain "no identity" branch below — both branches are ported
-// unchanged and ready for whenever per-business branding exists.
+// SNX Phase 3G correction — pdfkit replaced with pdf-lib. pdfkit's Node
+// entry resolves its 14 standard fonts through Node's package.json
+// `imports` field (`#standard-fonts/*`), which Next's bundling of a Route
+// Handler doesn't preserve — it crashed Finalize & Generate PDF on Vercel
+// with "Cannot find module '#standard-fonts/Helvetica'". Adding pdfkit to
+// serverComponentsExternalPackages did NOT fix it in the actual deployed
+// runtime (confirmed by a live retest), so rather than keep stacking
+// bundling workarounds around a package whose font-loading mechanism this
+// stack can't reliably support, it's replaced outright. pdf-lib ships its
+// 14 standard font metrics as plain embedded JS data (StandardFonts) — no
+// package.json `imports` trick, no external font files, nothing for a
+// bundler to lose — and has zero npm-audit-flagged dependencies.
 //
-// True multi-page A4 PDF renderer for a client-facing proposal. Uses
-// pdfkit's native document flow — text wraps and paginates automatically;
-// tables and headings get manual page-break checks so nothing is stranded,
-// clipped, or pushed off the page. It consumes the clean
-// ProposalClientDocument (no internal metadata) and draws a cover, the
-// proposal body, and a "Page X of Y" footer.
+// Public boundary preserved exactly: renderProposalPdf(document) => Buffer.
+// Every caller (lib/proposals.ts's finalizeProposal) is unchanged.
 //
-// This is NOT a screenshot of any UI and does not depend on viewport size.
+// pdf-lib has no built-in flowing-text layout or automatic pagination (unlike
+// pdfkit) — this file does its own word-wrapping and page-break tracking via
+// a small mutable render cursor. It also has no single-call mixed-run text
+// (bold/italic switching mid-line), which this app's real content actually
+// needs (a `**Label:**` prefix inside a plain paragraph, and the writing
+// standard's whole-paragraph italic disclaimers) — handled by wrapping at
+// the word level with a font resolved per source DocRun, not per block.
+//
+// V1 scope only, per instruction: reliable structure (header/cover, headings,
+// wrapped paragraphs/lists, a commercial-terms table, page breaks, a footer)
+// — not final branding/template design, which is a later pass.
 
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
+import type { PDFFont, PDFPage, RGB } from 'pdf-lib'
 import type { DocBlock, DocRun, ProposalClientDocument } from '@/lib/proposalDocument'
-import fs from 'node:fs'
-import path from 'node:path'
 
-const INK = '#1f2937'
-const MUTE = '#6b7280'
-const ACCENT = '#7c3aed'
-const RULE = '#e5e7eb'
-const FAINT = '#f3f4f6'
+const INK: RGB = rgb(0.1216, 0.1608, 0.2157)
+const MUTE: RGB = rgb(0.4196, 0.4471, 0.502)
+const ACCENT: RGB = rgb(0.4863, 0.2275, 0.9294)
+const RULE: RGB = rgb(0.898, 0.9059, 0.9216)
+const FAINT: RGB = rgb(0.9529, 0.9569, 0.9647)
 
-const MARGIN = { top: 60, bottom: 72, left: 64, right: 64 }
+const PAGE_SIZE: [number, number] = [595.28, 841.89] // A4, points
+const MARGIN = { top: 60, bottom: 56, left: 64, right: 64 }
+const CONTENT_WIDTH = PAGE_SIZE[0] - MARGIN.left - MARGIN.right
 
-type Doc = PDFKit.PDFDocument
-
-function contentWidth(doc: Doc): number {
-  return doc.page.width - MARGIN.left - MARGIN.right
-}
-function pageBottom(doc: Doc): number {
-  return doc.page.height - MARGIN.bottom
-}
-function ensure(doc: Doc, height: number): void {
-  if (doc.y + height > pageBottom(doc)) doc.addPage()
+interface Fonts {
+  regular: PDFFont
+  bold: PDFFont
+  italic: PDFFont
+  boldItalic: PDFFont
 }
 
-/** Emit a run sequence (with bold/italic) as one flowing paragraph. */
-function renderRuns(doc: Doc, runs: DocRun[], opts: { size: number; x?: number; width: number; lineGap?: number; color?: string }): void {
-  const startY = doc.y
-  // Always anchor the first run at an explicit x (the left margin by default) so
-  // a block never inherits a drifted doc.x from a preceding table cell.
-  const x = opts.x ?? MARGIN.left
-  doc.fontSize(opts.size).fillColor(opts.color ?? INK)
-  runs.forEach((run, i) => {
-    const font = run.bold ? (run.italic ? 'Helvetica-BoldOblique' : 'Helvetica-Bold') : run.italic ? 'Helvetica-Oblique' : 'Helvetica'
-    doc.font(font)
-    const textOpts = { width: opts.width, continued: i < runs.length - 1, lineGap: opts.lineGap ?? 3 }
-    if (i === 0) doc.text(run.text, x, startY, textOpts)
-    else doc.text(run.text, textOpts)
-  })
+interface RenderState {
+  doc: PDFDocument
+  fonts: Fonts
+  page: PDFPage
+  y: number
 }
 
-function runsText(runs: DocRun[]): string {
-  return runs.map((r) => r.text).join('')
+function fontFor(fonts: Fonts, bold?: boolean, italic?: boolean): PDFFont {
+  if (bold && italic) return fonts.boldItalic
+  if (bold) return fonts.bold
+  if (italic) return fonts.italic
+  return fonts.regular
 }
 
-function publicAssetPath(publicPath: string): string {
-  return path.join(process.cwd(), 'public', publicPath.replace(/^\//, ''))
+function newPage(state: RenderState): void {
+  state.page = state.doc.addPage(PAGE_SIZE)
+  state.y = PAGE_SIZE[1] - MARGIN.top
 }
 
-function drawCover(doc: Doc, meta: ProposalClientDocument['meta']): void {
-  const w = contentWidth(doc)
-  const identity = meta.identity
-  const accent = identity?.accent ?? ACCENT
+/** Page-break check: start a fresh page if the next `height` of content would run past the bottom margin. */
+function ensure(state: RenderState, height: number): void {
+  if (state.y - height < MARGIN.bottom) newPage(state)
+}
 
-  if (identity) {
-    const headerX = 0
-    const headerY = 0
-    const headerH = 178
-    const logoW = 182
-    const logoH = 61
-    const logoX = MARGIN.left
-    const logoY = 46
-    doc.rect(headerX, headerY, doc.page.width, headerH).fill(identity.dark)
+interface Word {
+  text: string
+  font: PDFFont
+}
 
-    const logoPath = publicAssetPath(identity.logoPath)
-    if (fs.existsSync(logoPath)) {
-      doc.image(logoPath, logoX, logoY, { fit: [logoW, logoH] })
+/** Flatten runs into words tagged with the font their own bold/italic resolves to, then greedily wrap to maxWidth. */
+function wrapRuns(fonts: Fonts, runs: DocRun[], size: number, maxWidth: number): Word[][] {
+  const words: Word[] = []
+  for (const run of runs) {
+    const font = fontFor(fonts, run.bold, run.italic)
+    for (const part of run.text.split(/\s+/).filter(Boolean)) words.push({ text: part, font })
+  }
+  const lines: Word[][] = []
+  let current: Word[] = []
+  let width = 0
+  const spaceWidth = fonts.regular.widthOfTextAtSize(' ', size)
+  for (const w of words) {
+    const wordWidth = w.font.widthOfTextAtSize(w.text, size)
+    const addWidth = current.length ? spaceWidth + wordWidth : wordWidth
+    if (width + addWidth > maxWidth && current.length) {
+      lines.push(current)
+      current = [w]
+      width = wordWidth
+    } else {
+      current.push(w)
+      width += addWidth
     }
-
-    doc.font('Helvetica').fontSize(7.5).fillColor('#d7d2de').text('PRESENTED BY:', MARGIN.left, 50, {
-      align: 'right',
-      width: w,
-      characterSpacing: 0.5,
-    })
-    doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#ffffff').text(meta.preparedBy.toUpperCase(), MARGIN.left, 65, {
-      align: 'right',
-      width: w,
-      characterSpacing: 0.2,
-    })
-
-    doc.font('Helvetica-Bold').fontSize(20).fillColor('#ffffff').text(meta.title, MARGIN.left, 126, {
-      characterSpacing: 1,
-      width: w,
-    })
-    doc.lineWidth(1).strokeColor(accent).moveTo(MARGIN.left, 158).lineTo(MARGIN.left + 48, 158).stroke()
-
-    doc.y = headerH + 34
-  } else {
-    doc.font('Helvetica-Bold').fontSize(8.5).fillColor(accent).text(meta.preparedBy.toUpperCase(), MARGIN.left, MARGIN.top, { characterSpacing: 1.5, width: w })
-    doc.moveDown(1.2)
-    doc.font('Helvetica-Bold').fontSize(24).fillColor(INK).text(meta.title, MARGIN.left, doc.y, { characterSpacing: 1, width: w })
-    doc.moveDown(0.5)
   }
-
-  doc.font('Helvetica-Bold').fontSize(15).fillColor(INK).text(meta.partnerName, { width: w })
-  doc.font('Helvetica').fontSize(13).fillColor(MUTE).text(`× ${meta.product ?? meta.businessLabel}`, { width: w })
-  doc.moveDown(0.8)
-  doc.font('Helvetica').fontSize(10).fillColor(MUTE).text(`Prepared by ${meta.preparedBy}`, { width: w })
-  doc.font('Helvetica').fontSize(10).fillColor(MUTE).text(meta.dateLabel, { width: w })
-  doc.moveDown(1)
-  const y = doc.y
-  doc.lineWidth(1).strokeColor(accent).moveTo(MARGIN.left, y).lineTo(MARGIN.left + 56, y).stroke()
-  doc.moveDown(1.2)
+  if (current.length) lines.push(current)
+  return lines
 }
 
-function drawHeading(doc: Doc, block: Extract<DocBlock, { type: 'heading' }>): void {
+function drawWords(state: RenderState, words: Word[], x: number, size: number, color: RGB): void {
+  let cx = x
+  const spaceWidth = state.fonts.regular.widthOfTextAtSize(' ', size)
+  for (const w of words) {
+    state.page.drawText(w.text, { x: cx, y: state.y, size, font: w.font, color })
+    cx += w.font.widthOfTextAtSize(w.text, size) + spaceWidth
+  }
+}
+
+/** Wrap + page-break + draw a run sequence as flowing text, one call per logical block. */
+function drawRuns(state: RenderState, runs: DocRun[], opts: { size: number; x?: number; width?: number; lineHeight?: number; color?: RGB }): void {
+  const x = opts.x ?? MARGIN.left
+  const width = opts.width ?? CONTENT_WIDTH
+  const lineHeight = opts.lineHeight ?? opts.size * 1.35
+  const color = opts.color ?? INK
+  const lines = wrapRuns(state.fonts, runs, opts.size, width)
+  if (lines.length === 0) {
+    state.y -= lineHeight
+    return
+  }
+  for (const line of lines) {
+    ensure(state, lineHeight)
+    drawWords(state, line, x, opts.size, color)
+    state.y -= lineHeight
+  }
+}
+
+function drawRule(state: RenderState): void {
+  ensure(state, 20)
+  state.y -= 6
+  state.page.drawLine({ start: { x: MARGIN.left, y: state.y }, end: { x: PAGE_SIZE[0] - MARGIN.right, y: state.y }, thickness: 0.75, color: RULE })
+  state.y -= 12
+}
+
+function drawCover(state: RenderState, meta: ProposalClientDocument['meta']): void {
+  drawRuns(state, [{ text: meta.preparedBy.toUpperCase(), bold: true }], { size: 8.5, color: ACCENT, lineHeight: 13 })
+  state.y -= 5
+  drawRuns(state, [{ text: meta.title, bold: true }], { size: 21, color: INK, lineHeight: 26 })
+  state.y -= 3
+  drawRuns(state, [{ text: meta.partnerName, bold: true }], { size: 13.5, color: INK, lineHeight: 19 })
+  drawRuns(state, [{ text: `× ${meta.product ?? meta.businessLabel}` }], { size: 11.5, color: MUTE, lineHeight: 17 })
+  state.y -= 5
+  drawRuns(state, [{ text: `Prepared by ${meta.preparedBy}` }], { size: 10, color: MUTE, lineHeight: 15 })
+  drawRuns(state, [{ text: meta.dateLabel }], { size: 10, color: MUTE, lineHeight: 15 })
+  state.y -= 6
+  ensure(state, 4)
+  state.page.drawLine({ start: { x: MARGIN.left, y: state.y }, end: { x: MARGIN.left + 52, y: state.y }, thickness: 1.2, color: ACCENT })
+  state.y -= 22
+}
+
+function drawHeading(state: RenderState, block: Extract<DocBlock, { type: 'heading' }>): void {
   const size = block.level <= 1 ? 15 : block.level === 2 ? 12.5 : 11
-  // Keep the heading with at least the next couple of lines.
-  ensure(doc, size * 1.4 + 42)
-  doc.moveDown(block.level <= 2 ? 0.7 : 0.4)
-  renderRuns(doc, block.runs.map((r) => ({ ...r, bold: true })), { size, width: contentWidth(doc), lineGap: 2, color: INK })
-  doc.moveDown(0.25)
+  ensure(state, size * 1.4 + 28)
+  state.y -= block.level <= 2 ? 12 : 7
+  drawRuns(state, block.runs.map((r) => ({ ...r, bold: true })), { size, color: INK, lineHeight: size * 1.3 })
+  state.y -= 4
 }
 
-function drawParagraph(doc: Doc, runs: DocRun[]): void {
-  renderRuns(doc, runs, { size: 10.5, width: contentWidth(doc), lineGap: 3, color: INK })
-  doc.moveDown(0.55)
+function drawParagraph(state: RenderState, runs: DocRun[]): void {
+  drawRuns(state, runs, { size: 10.5, color: INK, lineHeight: 15 })
+  state.y -= 6
 }
 
-function drawList(doc: Doc, block: Extract<DocBlock, { type: 'list' }>): void {
-  const w = contentWidth(doc)
+function drawList(state: RenderState, block: Extract<DocBlock, { type: 'list' }>): void {
   block.items.forEach((item, idx) => {
-    doc.font('Helvetica').fontSize(10.5)
-    const bodyText = runsText(item)
-    const h = doc.heightOfString(bodyText, { width: w - 18, lineGap: 3 })
-    ensure(doc, h + 4)
-    const y0 = doc.y
+    ensure(state, 15)
     const marker = block.ordered ? `${idx + 1}.` : '•'
-    doc.font('Helvetica-Bold').fontSize(10.5).fillColor(ACCENT).text(marker, MARGIN.left, y0, { width: 14 })
-    doc.y = y0
-    renderRuns(doc, item, { size: 10.5, x: MARGIN.left + 18, width: w - 18, lineGap: 3, color: INK })
-    doc.moveDown(0.2)
+    state.page.drawText(marker, { x: MARGIN.left, y: state.y, size: 10.5, font: state.fonts.bold, color: ACCENT })
+    drawRuns(state, item, { size: 10.5, x: MARGIN.left + 16, width: CONTENT_WIDTH - 16, color: INK, lineHeight: 15 })
+    state.y -= 2
   })
-  doc.moveDown(0.4)
+  state.y -= 5
 }
 
-function drawTermsTable(doc: Doc, block: Extract<DocBlock, { type: 'terms' }>): void {
-  const w = contentWidth(doc)
-  const labelW = Math.round(w * 0.4)
-  const valueW = w - labelW
-  doc.moveDown(0.2)
+function drawTermsTable(state: RenderState, block: Extract<DocBlock, { type: 'terms' }>): void {
+  const labelWidth = Math.round(CONTENT_WIDTH * 0.38)
+  const valueWidth = CONTENT_WIDTH - labelWidth - 14
+  state.y -= 3
   for (const row of block.rows) {
-    const labelText = runsText(row.label)
-    const valueText = runsText(row.value)
-    doc.font('Helvetica-Bold').fontSize(10)
-    const hL = doc.heightOfString(labelText, { width: labelW - 16 })
-    doc.font('Helvetica').fontSize(10)
-    const hV = doc.heightOfString(valueText, { width: valueW - 16 })
-    const rowH = Math.max(hL, hV, 14) + 12
-    ensure(doc, rowH)
-    const y = doc.y
-    doc.lineWidth(0.5).strokeColor(RULE)
-    doc.rect(MARGIN.left, y, labelW, rowH).stroke()
-    doc.rect(MARGIN.left + labelW, y, valueW, rowH).stroke()
-    doc.font('Helvetica-Bold').fontSize(10).fillColor(INK).text(labelText, MARGIN.left + 8, y + 6, { width: labelW - 16 })
-    doc.font('Helvetica').fontSize(10).fillColor(INK).text(valueText, MARGIN.left + labelW + 8, y + 6, { width: valueW - 16 })
-    doc.y = y + rowH
+    ensure(state, 16)
+    const rowStartY = state.y
+    drawRuns(state, row.label, { size: 10, x: MARGIN.left, width: labelWidth, color: INK, lineHeight: 14 })
+    const afterLabelY = state.y
+    state.y = rowStartY
+    drawRuns(state, row.value, { size: 10, x: MARGIN.left + labelWidth + 14, width: valueWidth, color: INK, lineHeight: 14 })
+    state.y = Math.min(state.y, afterLabelY) - 3
+    ensure(state, 4)
+    state.page.drawLine({ start: { x: MARGIN.left, y: state.y + 5 }, end: { x: PAGE_SIZE[0] - MARGIN.right, y: state.y + 5 }, thickness: 0.5, color: RULE })
   }
-  doc.x = MARGIN.left
-  doc.moveDown(0.6)
+  state.y -= 8
 }
 
-function drawTable(doc: Doc, block: Extract<DocBlock, { type: 'table' }>): void {
-  const w = contentWidth(doc)
+function drawTable(state: RenderState, block: Extract<DocBlock, { type: 'table' }>): void {
   const cols = Math.max(block.header.length, 1)
-  const colW = w / cols
+  const colWidth = CONTENT_WIDTH / cols
 
   const drawRow = (cells: string[], header: boolean) => {
-    doc.font(header ? 'Helvetica-Bold' : 'Helvetica').fontSize(9.5)
-    const heights = cells.map((c) => doc.heightOfString(c || ' ', { width: colW - 12 }))
-    const rowH = Math.max(...heights, 12) + 10
-    ensure(doc, rowH)
-    const y = doc.y
-    if (header) doc.rect(MARGIN.left, y, w, rowH).fill(FAINT)
-    doc.lineWidth(0.5).strokeColor(RULE)
+    ensure(state, 20)
+    if (header) {
+      state.page.drawRectangle({ x: MARGIN.left, y: state.y - 5, width: CONTENT_WIDTH, height: 16, color: FAINT })
+    }
+    const font = header ? state.fonts.bold : state.fonts.regular
     cells.forEach((cell, i) => {
-      const x = MARGIN.left + i * colW
-      doc.rect(x, y, colW, rowH).stroke()
-      doc.font(header ? 'Helvetica-Bold' : 'Helvetica').fontSize(9.5).fillColor(INK).text(cell || '', x + 6, y + 5, { width: colW - 12 })
+      state.page.drawText(cell || '', { x: MARGIN.left + i * colWidth + 6, y: state.y, size: 9.5, font, color: INK, maxWidth: colWidth - 12 })
     })
-    doc.y = y + rowH
+    state.y -= 18
   }
 
-  doc.moveDown(0.2)
+  state.y -= 3
   if (block.header.length) drawRow(block.header, true)
   for (const row of block.rows) drawRow(row, false)
-  doc.x = MARGIN.left
-  doc.moveDown(0.6)
+  state.y -= 6
 }
 
-function drawFooters(doc: Doc, meta: ProposalClientDocument['meta']): void {
-  const range = doc.bufferedPageRange()
-  for (let i = 0; i < range.count; i += 1) {
-    doc.switchToPage(range.start + i)
-    // Writing text inside the bottom margin makes pdfkit think the page
-    // overflowed and append a blank page — zero the bottom margin for the pass.
-    const savedBottom = doc.page.margins.bottom
-    doc.page.margins.bottom = 0
-    const y = doc.page.height - 50
-    doc.lineWidth(0.5).strokeColor(RULE).moveTo(MARGIN.left, y).lineTo(doc.page.width - MARGIN.right, y).stroke()
-    doc.font('Helvetica').fontSize(8).fillColor(MUTE)
-    doc.text(`${meta.preparedBy}  |  Partnership Proposal`, MARGIN.left, y + 8, { width: contentWidth(doc) / 2, lineBreak: false })
-    doc.text(`Page ${i + 1} of ${range.count}`, doc.page.width / 2, y + 8, { width: contentWidth(doc) / 2, align: 'right', lineBreak: false })
-    doc.page.margins.bottom = savedBottom
-  }
+function drawFooters(pages: PDFPage[], fonts: Fonts, meta: ProposalClientDocument['meta']): void {
+  pages.forEach((page, i) => {
+    const y = MARGIN.bottom - 22
+    page.drawLine({ start: { x: MARGIN.left, y: y + 14 }, end: { x: PAGE_SIZE[0] - MARGIN.right, y: y + 14 }, thickness: 0.5, color: RULE })
+    page.drawText(`${meta.preparedBy}  |  Partnership Proposal`, { x: MARGIN.left, y, size: 8, font: fonts.regular, color: MUTE })
+    const pageLabel = `Page ${i + 1} of ${pages.length}`
+    const labelWidth = fonts.regular.widthOfTextAtSize(pageLabel, 8)
+    page.drawText(pageLabel, { x: PAGE_SIZE[0] - MARGIN.right - labelWidth, y, size: 8, font: fonts.regular, color: MUTE })
+  })
 }
 
 export async function renderProposalPdf(document: ProposalClientDocument): Promise<Buffer> {
-  // Load pdfkit lazily at call time (it's an external package) so it never
-  // enters the build/dev module graph unnecessarily — avoids dev-server
-  // bundling issues, matching Living OS's own approach.
-  const { default: PDFDocument } = await import('pdfkit')
-  return new Promise((resolve, reject) => {
-    try {
-      const doc = new PDFDocument({ size: 'A4', margins: MARGIN, bufferPages: true, info: { Title: `Partnership Proposal — ${document.meta.partnerName}`, Author: document.meta.preparedBy } })
-      const chunks: Buffer[] = []
-      doc.on('data', (chunk: Buffer) => chunks.push(chunk))
-      doc.on('end', () => resolve(Buffer.concat(chunks)))
-      doc.on('error', reject)
+  const doc = await PDFDocument.create()
+  doc.setTitle(`Partnership Proposal — ${document.meta.partnerName}`)
+  doc.setAuthor(document.meta.preparedBy)
 
-      drawCover(doc, document.meta)
-      for (const block of document.blocks) {
-        switch (block.type) {
-          case 'heading': drawHeading(doc, block); break
-          case 'paragraph': drawParagraph(doc, block.runs); break
-          case 'list': drawList(doc, block); break
-          case 'terms': drawTermsTable(doc, block); break
-          case 'table': drawTable(doc, block); break
-          case 'rule':
-            doc.moveDown(0.3)
-            doc.lineWidth(0.5).strokeColor(RULE).moveTo(MARGIN.left, doc.y).lineTo(doc.page.width - MARGIN.right, doc.y).stroke()
-            doc.moveDown(0.5)
-            break
-        }
-      }
+  const [regular, bold, italic, boldItalic] = await Promise.all([
+    doc.embedFont(StandardFonts.Helvetica),
+    doc.embedFont(StandardFonts.HelveticaBold),
+    doc.embedFont(StandardFonts.HelveticaOblique),
+    doc.embedFont(StandardFonts.HelveticaBoldOblique),
+  ])
+  const fonts: Fonts = { regular, bold, italic, boldItalic }
 
-      drawFooters(doc, document.meta)
-      doc.end()
-    } catch (error) {
-      reject(error instanceof Error ? error : new Error(String(error)))
+  const firstPage = doc.addPage(PAGE_SIZE)
+  const state: RenderState = { doc, fonts, page: firstPage, y: PAGE_SIZE[1] - MARGIN.top }
+
+  drawCover(state, document.meta)
+  for (const block of document.blocks) {
+    switch (block.type) {
+      case 'heading':
+        drawHeading(state, block)
+        break
+      case 'paragraph':
+        drawParagraph(state, block.runs)
+        break
+      case 'list':
+        drawList(state, block)
+        break
+      case 'terms':
+        drawTermsTable(state, block)
+        break
+      case 'table':
+        drawTable(state, block)
+        break
+      case 'rule':
+        drawRule(state)
+        break
     }
-  })
+  }
+
+  drawFooters(doc.getPages(), fonts, document.meta)
+
+  const bytes = await doc.save()
+  return Buffer.from(bytes)
 }
