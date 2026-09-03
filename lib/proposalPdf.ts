@@ -117,8 +117,106 @@ async function embedThaiFonts(doc: PDFDocument): Promise<Fonts> {
   // All four slots deliberately point at the SAME embedded font object —
   // see the file-header comment above for why. fontFor()'s bold/italic
   // switch still resolves normally; it just always lands on this one font
-  // for Thai. Visual bold is recovered via drawFauxBold in drawWords.
+  // for Thai — no bold/italic distinction is attempted for Thai (see the
+  // file-header comment for the trade-off that decision was made under).
+  patchSaraAmDecomposition(regular)
   return { regular, bold: regular, italic: regular, boldItalic: regular }
+}
+
+/**
+ * SNX Phase 4 correction — SARA AM (ำ, U+0E33) text-extraction fix.
+ *
+ * Root cause (confirmed by direct inspection of fontkit's shaping output and
+ * pdf-lib's generated PDF bytes, not guessed): Sarabun's own OpenType GSUB
+ * rules ALWAYS decompose ำ during shaping into two glyphs — a zero-advance
+ * "loop" glyph (uni0E4D, optionally fused with a following tone mark) plus
+ * the font's ordinary, shared า (SARA AA, U+0E32) glyph for the stroke. This
+ * is correct, standard Thai typography — the rendered PAGE has always been
+ * pixel-correct (confirmed visually every round this font has been used).
+ * The defect is purely in pdf-lib's ToUnicode CMap: it derives each CID's
+ * Unicode value from fontkit's per-glyph `codePoints`, which is a MUTABLE
+ * property on a glyph object fontkit caches and reuses by glyph id — so the
+ * SAME shared า-glyph object used for the ำ decomposition is also used for
+ * every genuine, standalone า elsewhere in the whole document. Extracted
+ * text ends up with a spurious extra า after every ำ (e.g. "จัดทำโดย"
+ * extracts as "จัดทำาโดย") purely because the decomposition's second glyph
+ * gets its own correct ToUnicode entry independent of the first.
+ *
+ * Fix: the font also ships a genuine, complete, standalone glyph for
+ * precomposed SARA AM (reachable only via a direct cmap lookup — fontkit's
+ * shaper never selects it on its own). This wraps the embedded font's
+ * layout() — which both drawText() and widthOfTextAtSize() call internally,
+ * so measurement and drawing stay in sync — to detect the decomposition
+ * pattern and collapse it back into that one complete glyph, so ำ maps to
+ * exactly one CID/one Unicode value like any other character. It also
+ * "heals" the shared า-glyph object's mutated codePoints back to its
+ * correct value immediately after each such collapse, since pdf-lib reads
+ * that field lazily at doc.save() time — without this, one ำ anywhere in
+ * the document could silently corrupt a real, unrelated า everywhere else.
+ *
+ * Known residual limitation, not fixed by this patch: a Thai tone mark
+ * placed directly on a ำ syllable (e.g. ต่ำ, "minimum" — used in several
+ * nightlife term labels) triggers a THIRD glyph variant (a loop+tone-mark
+ * ligature) that has no complete standalone replacement in this font — the
+ * loop and the stroke are genuinely two separate glyphs with no monolithic
+ * alternative, so this narrower case still extracts with an extra า. The
+ * rendered page remains pixel-correct for it either way; only copy/paste of
+ * that specific pattern is affected. Not resolved here per the explicit
+ * instruction against introducing a second embedded glyph identity via
+ * lower-level PDF/subset-embedder surgery for this one narrow case.
+ */
+function patchSaraAmDecomposition(font: PDFFont): void {
+  // @ts-expect-error — reaching into pdf-lib's internal embedder to get the
+  // underlying fontkit font object; there is no public API for this. Pinned
+  // to pdf-lib 1.17.1 (this project's exact version) — re-verify this reach-in
+  // (and re-run the verification script this fix shipped with) before ever
+  // upgrading pdf-lib.
+  const fkFont = font.embedder?.font
+  if (!fkFont || typeof fkFont.layout !== 'function') return
+
+  const originalLayout = fkFont.layout.bind(fkFont)
+  const isolated = originalLayout('ำ')
+  if (isolated.glyphs.length !== 2) return // this font doesn't decompose SARA AM — nothing to patch
+  const [firstPieceId, secondPieceId] = isolated.glyphs.map((g: any) => g.id)
+  const monolithicGlyph = fkFont.glyphForCodePoint(0x0e33)
+  if (!monolithicGlyph || monolithicGlyph.id === firstPieceId) return // no separate complete glyph available
+  monolithicGlyph.codePoints = [0x0e33]
+  // The calibration call just above ALSO clobbered the shared า-glyph's
+  // codePoints (glyph #1 of this isolated run is that same shared object) as
+  // a side effect of computing the decomposition it just revealed — heal it
+  // immediately, before any real document text is ever rendered.
+  isolated.glyphs[1].codePoints = [0x0e32]
+
+  fkFont.layout = function (string: string, ...rest: unknown[]) {
+    const run = originalLayout(string, ...rest)
+    const glyphs: any[] = []
+    const positions: any[] = []
+    for (let i = 0; i < run.glyphs.length; i++) {
+      const g = run.glyphs[i]
+      const next = run.glyphs[i + 1]
+      if (g.id === firstPieceId && next && next.id === secondPieceId && run.positions[i].xAdvance === 0) {
+        glyphs.push(monolithicGlyph)
+        positions.push(run.positions[i + 1])
+        i++
+        continue
+      }
+      glyphs.push(g)
+      positions.push(run.positions[i])
+    }
+    // Unconditionally heal every occurrence of the shared า-glyph in THIS
+    // run's output, not just ones consumed by the collapse above — it only
+    // ever legitimately represents U+0E32, whether drawn standalone or as a
+    // decomposition remnant somewhere else this same call touched. Without
+    // this, one ำ anywhere in the document could silently corrupt a real,
+    // unrelated า elsewhere (pdf-lib reads codePoints lazily, at doc.save()
+    // time, off this same shared, mutable object).
+    for (const g of glyphs) {
+      if (g.id === secondPieceId) g.codePoints = [0x0e32]
+    }
+    run.glyphs = glyphs
+    run.positions = positions
+    return run
+  }
 }
 
 function fontFor(fonts: Fonts, bold?: boolean, italic?: boolean): PDFFont {
