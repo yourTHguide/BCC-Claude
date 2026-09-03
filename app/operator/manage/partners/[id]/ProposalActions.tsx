@@ -6,6 +6,14 @@ import { useState } from 'react'
 import { operatorTheme as T } from '@/lib/operator/theme'
 import type { ProposalStatus } from '@/lib/proposals'
 
+// Visual-only distinction (Phase 3H refinement): Mark as Sent/Accepted is
+// the primary lifecycle action (accent, filled) — it's the one that
+// actually moves the Proposal forward. View/PDF/Download stay secondary
+// utility actions (same muted outline treatment as before).
+const primaryActionBtn: React.CSSProperties = {
+  fontSize: '11px', fontWeight: 700, padding: '6px 12px', borderRadius: '999px', textDecoration: 'none',
+  border: 'none', background: T.accent, color: T.bg, cursor: 'pointer', display: 'inline-flex', alignItems: 'center',
+}
 const actionBtn: React.CSSProperties = {
   fontSize: '11px', fontWeight: 600, padding: '5px 10px', borderRadius: '999px', textDecoration: 'none',
   border: `1px solid ${T.border}`, background: T.bg, color: T.textMuted, cursor: 'pointer', display: 'inline-flex', alignItems: 'center',
@@ -85,8 +93,28 @@ export default function ProposalActions({
 
   const isWorkingDraft = version === null
 
+  const canMarkSent = status === 'finalized'
+  const canMarkAccepted = status === 'sent'
+
   return (
     <div style={{ marginTop: '8px' }}>
+      {/* Primary lifecycle action leads its own line when available. */}
+      {(canMarkSent || canMarkAccepted) && (
+        <div style={{ marginBottom: '8px' }}>
+          {canMarkSent && (
+            <button type="button" style={primaryActionBtn} disabled={busy !== null} onClick={() => post(`/api/admin/proposals/${proposalId}/mark-sent`, 'sent')}>
+              {busy === 'sent' ? 'Saving…' : 'Mark as Sent'}
+            </button>
+          )}
+          {canMarkAccepted && (
+            <button type="button" style={primaryActionBtn} disabled={busy !== null} onClick={() => post(`/api/admin/proposals/${proposalId}/mark-accepted`, 'accepted')}>
+              {busy === 'accepted' ? 'Saving…' : 'Mark as Accepted'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Document utilities — secondary, grouped together. */}
       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
         <Link href={`/operator/create/proposal/${proposalId}`} style={actionBtn}>
           View Proposal
@@ -101,22 +129,18 @@ export default function ProposalActions({
             </button>
           </>
         )}
-        {status === 'finalized' && (
-          <button type="button" style={actionBtn} disabled={busy !== null} onClick={() => post(`/api/admin/proposals/${proposalId}/mark-sent`, 'sent')}>
-            {busy === 'sent' ? 'Saving…' : 'Mark as Sent'}
-          </button>
-        )}
-        {status === 'sent' && (
-          <button type="button" style={actionBtn} disabled={busy !== null} onClick={() => post(`/api/admin/proposals/${proposalId}/mark-accepted`, 'accepted')}>
-            {busy === 'accepted' ? 'Saving…' : 'Mark as Accepted'}
-          </button>
-        )}
-        {!isWorkingDraft && (
+      </div>
+
+      {/* Create New Draft — a next-round action, kept visually apart from
+          the document utilities above rather than mixed into that row. */}
+      {!isWorkingDraft && (
+        <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: `1px dashed ${T.border}` }}>
           <button type="button" style={actionBtn} disabled={busy !== null} onClick={handleCreateNewDraft}>
             {busy === 'new-draft' ? 'Creating…' : 'Create New Draft'}
           </button>
-        )}
-      </div>
+        </div>
+      )}
+
       {error && <p style={{ fontSize: '11px', color: T.statusRed, margin: '6px 0 0' }}>{error}</p>}
     </div>
   )

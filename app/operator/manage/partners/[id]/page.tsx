@@ -78,24 +78,24 @@ function StatusPill({ label, color, soft }: { label: string; color: string; soft
   return <span style={{ fontSize: '10.5px', fontWeight: 600, padding: '3px 8px', borderRadius: '999px', color, background: soft, flexShrink: 0 }}>{label}</span>
 }
 
+// Phase 3H visual refinement: title and state (Ready to Send/Sent/Accepted
+// · V{N}, or Working Draft) are the two primary lines — combining status
+// and version into one line removes the redundant standalone "Version 1"
+// pill next to a "Ready to Send" pill that said almost the same thing
+// twice. Date/PDF-available and business-context chips stay secondary.
 function ProposalBlock({ proposal: p }: { proposal: Proposal }) {
+  const stateLabel = p.version === null ? 'Working Draft' : `${PROPOSAL_STATUS_LABEL[p.status]} · V${p.version}`
+  const stateColor = p.version === null ? T.statusAmber : PROPOSAL_STATUS_COLOR[p.status]
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '4px' }}>
-        <p style={{ fontSize: '13.5px', fontWeight: 600, margin: 0, display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, overflow: 'hidden' }}>
-          <FileText size={13} color={T.textFaint} style={{ flexShrink: 0 }} />
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</span>
-        </p>
-        <StatusPill label={PROPOSAL_STATUS_LABEL[p.status]} color={PROPOSAL_STATUS_COLOR[p.status]} soft={PROPOSAL_STATUS_SOFT[p.status]} />
-      </div>
-      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '4px' }}>
-        <span style={{ fontSize: '10.5px', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', color: p.version === null ? T.statusAmber : T.statusPurple, background: p.version === null ? T.statusAmberSoft : T.statusPurpleSoft }}>
-          {p.version === null ? 'Working Draft' : `Version ${p.version}`}
-        </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '2px' }}>
+        <FileText size={12} color={T.textFaint} style={{ flexShrink: 0 }} />
+        <span style={{ fontSize: '12.5px', fontWeight: 600, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</span>
         {p.businessContexts.map((c) => (
-          <span key={c} style={{ fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '999px', color: T.textMuted, background: T.chipBg }}>{c}</span>
+          <span key={c} style={{ fontSize: '9.5px', fontWeight: 600, padding: '1px 6px', borderRadius: '999px', color: T.textFaint, background: T.chipBg, flexShrink: 0 }}>{c}</span>
         ))}
       </div>
+      <p style={{ fontSize: '13.5px', fontWeight: 700, color: stateColor, margin: '0 0 4px' }}>{stateLabel}</p>
       <p style={{ fontSize: '11px', color: T.textFaint, margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
         <span>{fmtDate(p.proposalDate)}</span>
         {p.pdfStoragePath && (
@@ -114,9 +114,12 @@ function DealProposalCard({ deal, proposals, locationName }: { deal: PartnerDeal
   return (
     <Card>
       <p style={{ ...eyebrow(T.textFaint), marginBottom: '6px' }}>Deal</p>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
-        <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <StatusPill label={DEAL_STATUS_LABEL[deal.status]} color={DEAL_STATUS_COLOR[deal.status]} soft={DEAL_STATUS_SOFT[deal.status]} />
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap', marginBottom: '6px' }}>
+        {/* Deal status promoted to plain bold text (not a pill) so it reads
+            as the headline of this card; business-context chips stay the
+            small muted pill treatment — secondary, as before. */}
+        <span style={{ fontSize: '16px', fontWeight: 700, color: DEAL_STATUS_COLOR[deal.status] }}>{DEAL_STATUS_LABEL[deal.status]}</span>
+        <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
           {deal.businessContexts.map((c) => (
             <span key={c} style={{ fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '999px', color: T.textMuted, background: T.chipBg }}>{c}</span>
           ))}
@@ -146,11 +149,18 @@ function DealProposalCard({ deal, proposals, locationName }: { deal: PartnerDeal
       <DealActions dealId={deal.id} status={deal.status} />
 
       {proposals.length > 0 && (
-        <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: `1px solid ${T.border}` }}>
-          <p style={{ ...eyebrow(T.textFaint), marginBottom: '6px' }}>Proposal{proposals.length > 1 ? 's' : ''}</p>
-          <div style={{ display: 'grid', gap: '12px' }}>
+        // A stronger divider (border + a touch more space) than the plain
+        // hairlines used between Deal terms rows above, so PROPOSAL reads
+        // as a clearly separate zone — plus a flat background tint per
+        // proposal (T.bg, distinct from the card's own T.bgElevated)
+        // instead of a nested bordered card, which would make this heavier.
+        <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: `1px solid ${T.borderStrong}` }}>
+          <p style={{ ...eyebrow(T.textFaint), marginBottom: '8px' }}>Proposal{proposals.length > 1 ? 's' : ''}</p>
+          <div style={{ display: 'grid', gap: '10px' }}>
             {proposals.map((p) => (
-              <ProposalBlock key={p.id} proposal={p} />
+              <div key={p.id} style={{ background: T.bg, borderRadius: T.radiusSm, padding: '10px 12px' }}>
+                <ProposalBlock proposal={p} />
+              </div>
             ))}
           </div>
         </div>

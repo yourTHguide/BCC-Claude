@@ -30,7 +30,14 @@ const NEXT_STATUSES: Record<PartnerDealStatus, { status: PartnerDealStatus; labe
   ended: [],
 }
 
-const actionBtn: React.CSSProperties = {
+// Visual-only distinction (Phase 3H refinement): the forward-moving action
+// leads (accent, filled); a move into 'ended' — terminal, one-way — stays
+// secondary/muted regardless of which status it's offered from.
+const primaryActionBtn: React.CSSProperties = {
+  fontSize: '11px', fontWeight: 700, padding: '6px 12px', borderRadius: '999px',
+  border: 'none', background: T.accent, color: T.bg, cursor: 'pointer',
+}
+const secondaryActionBtn: React.CSSProperties = {
   fontSize: '11px', fontWeight: 600, padding: '5px 10px', borderRadius: '999px',
   border: `1px solid ${T.border}`, background: T.bg, color: T.textMuted, cursor: 'pointer',
 }
@@ -69,7 +76,13 @@ export default function DealActions({ dealId, status }: { dealId: string; status
     <div style={{ marginTop: '8px' }}>
       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
         {next.map((n) => (
-          <button key={n.status} type="button" style={actionBtn} disabled={busy !== null} onClick={() => handle(n.status)}>
+          <button
+            key={n.status}
+            type="button"
+            style={n.status === 'ended' ? secondaryActionBtn : primaryActionBtn}
+            disabled={busy !== null}
+            onClick={() => handle(n.status)}
+          >
             {busy === n.status ? 'Saving…' : n.label}
           </button>
         ))}
