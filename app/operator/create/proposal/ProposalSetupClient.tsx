@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { Search, Check } from 'lucide-react'
 import { operatorTheme as T, eyebrow } from '@/lib/operator/theme'
 import { KNOWN_BUSINESS_CONTEXTS } from '@/lib/operator/businessContexts'
-import { defaultDealVariables, type ProposalDealVariable } from '@/lib/dealVariables'
+import type { ProposalDealVariable } from '@/lib/dealVariables'
+import { nightlifeDealVariables } from '@/lib/proposalProfiles/venueNightlifePartnership'
 import type { RelationshipStatus, PartnerDeal, PartnerLocation } from '@/lib/partners'
 
 type PartnerRow = { id: string; displayName: string; relationshipStatus: RelationshipStatus }
@@ -93,7 +94,7 @@ export default function ProposalSetupClient({ partners }: { partners: PartnerRow
   const [dealTab, setDealTab] = useState<'existing' | 'new'>('new')
   const [selectedDeal, setSelectedDeal] = useState<PartnerDeal | null>(null)
   const [newDeal, setNewDeal] = useState<{ businessContexts: string[]; product: string; locationId: string; terms: ProposalDealVariable[] }>({
-    businessContexts: [], product: '', locationId: '', terms: defaultDealVariables(),
+    businessContexts: [], product: '', locationId: '', terms: nightlifeDealVariables(),
   })
   const [creatingDeal, setCreatingDeal] = useState(false)
 

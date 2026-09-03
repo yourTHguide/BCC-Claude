@@ -22,10 +22,39 @@ import { getPartnershipFramework } from '@/lib/partnershipFramework'
 import { getProposalWritingStandard } from '@/lib/proposalWritingStandard'
 import { generateProposalDraft, reviseProposalDraft } from '@/lib/proposalGeneration'
 import type { ProposalWriterInputs } from '@/lib/proposalWriter'
+import {
+  resolveProposalProfile,
+  composeVenueNightlifePartnershipDraft,
+  VENUE_NIGHTLIFE_PARTNERSHIP_PROFILE_KEY,
+  VENUE_NIGHTLIFE_PARTNERSHIP_PROFILE_VERSION,
+} from '@/lib/proposalProfiles/venueNightlifePartnership'
+import type { DraftResult } from '@/lib/proposalGeneration'
 import { getPartner, getPartnerDeal, updatePartnerDealTerms, updatePartnerDealStatus } from '@/lib/partners'
 import { buildProposalDocument, bangkokDateStamp } from '@/lib/proposalDocument'
 import { renderProposalPdf } from '@/lib/proposalPdf'
 import { proposalPdfStoragePath, uploadProposalPdf, getSignedProposalPdfUrl } from '@/lib/proposalPdfStorage'
+
+// SNX Phase 4 — Proposal Profile dispatch. Resolves which Proposal Profile
+// (see lib/proposalProfiles/venueNightlifePartnership.ts) applies to a given
+// businessContexts/product pair and composes accordingly. When no profile
+// resolves (defensive fallback -- unreachable today, since the nightlife
+// profile resolves for any non-empty businessContexts array, which the API
+// layer already requires), this falls through to the existing
+// generateProposalDraft()/composeDeterministicDraft() path unchanged -- that
+// path and lib/proposalGeneration.ts are not modified by this profile.
+async function composeProposalWithProfile(
+  writerInputs: ProposalWriterInputs
+): Promise<{ draft: DraftResult; productProfileVersion: string | null }> {
+  const profile = resolveProposalProfile(writerInputs.businessContexts, writerInputs.product)
+  if (profile?.key === VENUE_NIGHTLIFE_PARTNERSHIP_PROFILE_KEY) {
+    const inputsWithProfile = { ...writerInputs, productProfile: profile.productProfile }
+    return {
+      draft: { content: composeVenueNightlifePartnershipDraft(inputsWithProfile), mode: 'deterministic' },
+      productProfileVersion: VENUE_NIGHTLIFE_PARTNERSHIP_PROFILE_VERSION,
+    }
+  }
+  return { draft: await generateProposalDraft(writerInputs), productProfileVersion: null }
+}
 
 // Phase 3G lifecycle vocabulary correction. Working Draft: 'draft' only
 // ('review' retired — unused). Finalized Version: 'finalized' (PDF exists,
@@ -247,7 +276,7 @@ export async function createProposal(input: CreateProposalInput): Promise<Propos
     version: null,
     proposalDate,
   }
-  const draft = await generateProposalDraft(writerInputs)
+  const { draft, productProfileVersion } = await composeProposalWithProfile(writerInputs)
 
   const supabase = getServiceSupabase()
   const { data, error } = await supabase
@@ -263,7 +292,7 @@ export async function createProposal(input: CreateProposalInput): Promise<Propos
       status: 'draft',
       framework_version: framework.version,
       writing_standard_version: writingStandard.version,
-      product_profile_version: null,
+      product_profile_version: productProfileVersion,
       proposal_date: proposalDate,
       deal_terms_snapshot: dealVariables,
       context_for_proposal: input.contextForProposal ?? null,
@@ -439,7 +468,7 @@ export async function regenerateProposalDraft(id: string): Promise<Proposal> {
     version: null,
     proposalDate: existing.proposalDate,
   }
-  const draft = await generateProposalDraft(writerInputs)
+  const { draft } = await composeProposalWithProfile(writerInputs)
   return updateProposalDraft(id, draft.content)
 }
 
