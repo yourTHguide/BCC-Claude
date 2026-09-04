@@ -12,7 +12,7 @@
 // raw, unlabeled slug.
 
 export const KNOWN_BUSINESS_CONTEXTS: { value: string; label: string }[] = [
-  { value: 'best-nightlife', label: 'BEST Nightlife' },
+  { value: 'best-nightlife', label: 'BEST Nightlife Thailand' },
   { value: 'bkk-club-crawl', label: 'Bangkok Club Crawl' },
   { value: 'your-thailand-guide', label: 'Your Thailand Guide' },
   { value: 'flow-lab', label: 'Flow Lab' },
