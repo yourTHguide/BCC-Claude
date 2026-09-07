@@ -1,0 +1,75 @@
+/* SNX Operator OS theme tokens — scoped to #operator-shell only, so this
+   never affects /dashboard or the public site. Tri-state pattern: bare
+   selector = light default, media query = system dark preference (unless
+   the user picked "light" explicitly), [data-theme="dark"] = explicit
+   choice wins either direction. Set/persisted by ThemeToggle.tsx. */
+
+#operator-shell {
+  --op-bg: #FAF7F3;
+  --op-elevated: rgba(20, 14, 8, 0.035);
+  --op-elevated-hover: rgba(20, 14, 8, 0.06);
+  --op-border: rgba(20, 14, 8, 0.09);
+  --op-border-strong: rgba(20, 14, 8, 0.16);
+  --op-text: #201A14;
+  --op-muted: rgba(32, 26, 20, 0.6);
+  --op-faint: rgba(32, 26, 20, 0.38);
+  --op-chip-bg: rgba(20, 14, 8, 0.055);
+  --op-dashed-bg: rgba(20, 14, 8, 0.025);
+  --op-nav-bg: rgba(250, 247, 243, 0.92);
+
+  --op-accent: #F5793A;
+  --op-accent-soft: rgba(245, 121, 58, 0.14);
+  --op-accent-text: #B8541A;
+
+  --op-green: #1F9D63; --op-green-soft: rgba(31, 157, 99, 0.14);
+  --op-amber: #A66208; --op-amber-soft: rgba(166, 98, 8, 0.13);
+  --op-red: #D2003A; --op-red-soft: rgba(210, 0, 58, 0.12);
+  --op-blue: #2266CC; --op-blue-soft: rgba(34, 102, 204, 0.12);
+  --op-purple: #7B4FDB; --op-purple-soft: rgba(123, 79, 219, 0.13);
+}
+
+@media (prefers-color-scheme: dark) {
+  #operator-shell:not([data-theme="light"]) {
+    --op-bg: #0B0B0D;
+    --op-elevated: rgba(255, 255, 255, 0.045);
+    --op-elevated-hover: rgba(255, 255, 255, 0.07);
+    --op-border: rgba(255, 255, 255, 0.08);
+    --op-border-strong: rgba(255, 255, 255, 0.14);
+    --op-text: #F5F3EF;
+    --op-muted: rgba(245, 243, 239, 0.55);
+    --op-faint: rgba(245, 243, 239, 0.32);
+    --op-chip-bg: rgba(255, 255, 255, 0.06);
+    --op-dashed-bg: rgba(255, 255, 255, 0.02);
+    --op-nav-bg: rgba(11, 11, 13, 0.94);
+
+    --op-accent-text: #FFA267;
+
+    --op-green: #3DD68C; --op-green-soft: rgba(61, 214, 140, 0.14);
+    --op-amber: #F5A623; --op-amber-soft: rgba(245, 166, 35, 0.14);
+    --op-red: #EA003A; --op-red-soft: rgba(234, 0, 58, 0.14);
+    --op-blue: #4C9AFF; --op-blue-soft: rgba(76, 154, 255, 0.14);
+    --op-purple: #9B6BFF; --op-purple-soft: rgba(155, 107, 255, 0.14);
+  }
+}
+
+#operator-shell[data-theme="dark"] {
+  --op-bg: #0B0B0D;
+  --op-elevated: rgba(255, 255, 255, 0.045);
+  --op-elevated-hover: rgba(255, 255, 255, 0.07);
+  --op-border: rgba(255, 255, 255, 0.08);
+  --op-border-strong: rgba(255, 255, 255, 0.14);
+  --op-text: #F5F3EF;
+  --op-muted: rgba(245, 243, 239, 0.55);
+  --op-faint: rgba(245, 243, 239, 0.32);
+  --op-chip-bg: rgba(255, 255, 255, 0.06);
+  --op-dashed-bg: rgba(255, 255, 255, 0.02);
+  --op-nav-bg: rgba(11, 11, 13, 0.94);
+
+  --op-accent-text: #FFA267;
+
+  --op-green: #3DD68C; --op-green-soft: rgba(61, 214, 140, 0.14);
+  --op-amber: #F5A623; --op-amber-soft: rgba(245, 166, 35, 0.14);
+  --op-red: #EA003A; --op-red-soft: rgba(234, 0, 58, 0.14);
+  --op-blue: #4C9AFF; --op-blue-soft: rgba(76, 154, 255, 0.14);
+  --op-purple: #9B6BFF; --op-purple-soft: rgba(155, 107, 255, 0.14);
+}

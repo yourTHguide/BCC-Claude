@@ -43,8 +43,8 @@ export async function middleware(request: NextRequest) {
     if (pathname.startsWith('/api/admin')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    // Dashboard: no session -> send to /login (preserving intended path).
-    if (pathname.startsWith('/dashboard')) {
+    // Dashboard / Operator: no session -> send to /login (preserving intended path).
+    if (pathname.startsWith('/dashboard') || pathname.startsWith('/operator')) {
       const url = request.nextUrl.clone()
       url.pathname = '/login'
       url.searchParams.set('redirect', pathname)
@@ -55,8 +55,11 @@ export async function middleware(request: NextRequest) {
   return supabaseResponse
 }
 
-// Authorization (admin_users membership) is enforced in the dashboard layout and
-// requireAdmin(); middleware only enforces authentication on these two subtrees.
+// Authorization (admin_users membership) is enforced in the dashboard/operator
+// layouts and requireAdmin(); middleware only enforces authentication on these
+// subtrees. /operator (SNX Operator OS Phase 1) reuses the exact same
+// authentication pattern as /dashboard — see app/operator/layout.tsx for the
+// membership + role gate.
 export const config = {
-  matcher: ['/dashboard/:path*', '/api/admin/:path*'],
+  matcher: ['/dashboard/:path*', '/operator/:path*', '/api/admin/:path*'],
 }

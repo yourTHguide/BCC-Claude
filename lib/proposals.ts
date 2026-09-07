@@ -1,0 +1,742 @@
+import 'server-only'
+
+// SNX Phase 3C-2 — Proposal domain layer, backed by the production
+// `proposals` table (Phase 3C-1, applied 2026-09-03). "PORT WITH STORAGE
+// ADAPTATION" for the CRUD/lineage logic per the Phase 3C plan: Living OS's
+// src/lib/proposals.ts held the same shapes in an in-memory array hydrated
+// from a JSON file; this is the same domain model against real Postgres
+// rows. The deal-variable helpers below are the one piece that is genuinely
+// unchanged logic, not just re-hosted (see their own comments).
+//
+// Working Draft / Finalized Version lifecycle (this repo's correction,
+// applied in the Phase 3C-1 schema): a row is a Working Draft
+// (`version IS NULL`, freely editable — createProposal/updateProposalDraft/
+// updateProposalDealVariables all just UPDATE this same row) or a
+// permanently frozen Finalized Version (`version IS NOT NULL`, assigned
+// exactly once by a future Finalize & Generate PDF action — see the
+// deliberately-unimplemented boundary marker near the bottom of this file).
+// NOTHING in this file ever assigns or increments `version`.
+
+import { getServiceSupabase } from '@/lib/supabase'
+import { getPartnershipFramework } from '@/lib/partnershipFramework'
+import { getProposalWritingStandard } from '@/lib/proposalWritingStandard'
+import { generateProposalDraft, reviseProposalDraft } from '@/lib/proposalGeneration'
+import type { ProposalWriterInputs } from '@/lib/proposalWriter'
+import {
+  resolveProposalProfile,
+  composeVenueNightlifePartnershipDraft,
+  VENUE_NIGHTLIFE_PARTNERSHIP_PROFILE_KEY,
+  VENUE_NIGHTLIFE_PARTNERSHIP_PROFILE_VERSION,
+} from '@/lib/proposalProfiles/venueNightlifePartnership'
+import { composeVenueNightlifePartnershipDraftTh } from '@/lib/proposalProfiles/venueNightlifePartnership.th'
+import type { DraftResult } from '@/lib/proposalGeneration'
+import { getPartner, getPartnerDeal, updatePartnerDealTerms, updatePartnerDealStatus } from '@/lib/partners'
+import type { Partner, PartnerDeal } from '@/lib/partners'
+import { buildProposalDocument, bangkokDateStamp } from '@/lib/proposalDocument'
+import { renderProposalPdf } from '@/lib/proposalPdf'
+import { proposalPdfStoragePath, uploadProposalPdf, getSignedProposalPdfUrl } from '@/lib/proposalPdfStorage'
+
+/**
+ * Venues in scope for a proposal's "Proposed Collaboration" section. The
+ * Deal's own linked location wins when it has one -- a Deal about one
+ * specific venue must never render as if every location on the Partner's
+ * record is in scope (Phase 4 correction: this used to always be "every
+ * active Partner location," which produced multi-venue collaboration prose
+ * for a single-venue Deal any time the Partner happened to have other
+ * locations on file). A Deal not tied to one location ("whole relationship"
+ * in the Create flow's own UI copy) genuinely can span every active
+ * location, so that stays the fallback. Never derived from the Partner's
+ * name or a fixed venue-count assumption.
+ */
+function resolveProposalVenues(partner: Partner, deal: PartnerDeal | null): string[] {
+  if (deal?.locationId) {
+    const location = partner.locations.find((l) => l.id === deal.locationId)
+    return location ? [location.name] : []
+  }
+  return partner.locations.filter((l) => l.isActive).map((l) => l.name)
+}
+
+// SNX Phase 4 — Proposal Profile dispatch. Resolves which Proposal Profile
+// (see lib/proposalProfiles/venueNightlifePartnership.ts) applies to a given
+// businessContexts/product pair and composes accordingly. `language` is
+// resolved completely independently of the profile (Phase 4 Thai support):
+// there is still exactly one profile key, venue-nightlife-partnership --
+// language only picks which of its two composers runs. The Thai composer
+// lives in its own reviewable module (venueNightlifePartnership.th.ts)
+// rather than as branches inside the English one. When no profile resolves
+// (defensive fallback -- unreachable today, since the nightlife profile
+// resolves for any non-empty businessContexts array, which the API layer
+// already requires), this falls through to the existing
+// generateProposalDraft()/composeDeterministicDraft() path unchanged -- that
+// path and lib/proposalGeneration.ts are not modified by this profile, and
+// have no language concept at all (English-only, as before).
+async function composeProposalWithProfile(
+  writerInputs: ProposalWriterInputs,
+  language: ProposalLanguage
+): Promise<{ draft: DraftResult; productProfileVersion: string | null }> {
+  const profile = resolveProposalProfile(writerInputs.businessContexts, writerInputs.product)
+  if (profile?.key === VENUE_NIGHTLIFE_PARTNERSHIP_PROFILE_KEY) {
+    const inputsWithProfile = { ...writerInputs, productProfile: profile.productProfile }
+    const content =
+      language === 'th'
+        ? composeVenueNightlifePartnershipDraftTh(inputsWithProfile)
+        : composeVenueNightlifePartnershipDraft(inputsWithProfile)
+    return {
+      draft: { content, mode: 'deterministic' },
+      productProfileVersion: VENUE_NIGHTLIFE_PARTNERSHIP_PROFILE_VERSION,
+    }
+  }
+  return { draft: await generateProposalDraft(writerInputs), productProfileVersion: null }
+}
+
+// Phase 3G lifecycle vocabulary correction. Working Draft: 'draft' only
+// ('review' retired — unused). Finalized Version: 'finalized' (PDF exists,
+// not necessarily delivered yet — replaces the old 'approved'/'exported',
+// which conflated internal finalization with external delivery) ->
+// 'sent' (operator delivered it to the partner) -> 'accepted' (partner said
+// yes) -> 'archived' (terminal/parked, reachable from any of the above).
+export type ProposalStatus = 'draft' | 'finalized' | 'sent' | 'accepted' | 'archived'
+export type ProposalWriterMode = 'ai' | 'deterministic'
+
+// SNX Phase 4 — Proposal language. A Proposal/document property only (see
+// proposals.language migration comment) -- never partner_deals, which stays
+// language-neutral. Set once at creation, carried forward unchanged by
+// createDraftFromFinalizedVersion, never mutated by regenerateProposalDraft/
+// requestProposalChanges, and permanently frozen once a version is assigned
+// (enforce_proposal_freeze).
+export type ProposalLanguage = 'en' | 'th'
+
+// ProposalDealVariable and its pure helpers (defaultDealVariables,
+// mergeDealVariables, missingRequiredVariables) live in lib/dealVariables.ts
+// as of Phase 3F — that file has no `import 'server-only'`, so a client
+// component (ProposalSetupClient.tsx's Deal workspace) can import them
+// directly. Re-exported below (alongside being used internally in this
+// file) so every existing `from '@/lib/proposals'` import keeps working
+// unchanged.
+import { defaultDealVariables, mergeDealVariables, missingRequiredVariables, type ProposalDealVariable } from '@/lib/dealVariables'
+export { defaultDealVariables, mergeDealVariables, missingRequiredVariables }
+export type { ProposalDealVariable }
+
+export interface Proposal {
+  id: string
+  partnerId: string
+  dealId: string | null
+  seriesId: string
+  /** null = Working Draft. Non-null = permanently frozen Finalized Version. */
+  version: number | null
+  draftRevision: number
+  businessContexts: string[]
+  product: string | null
+  title: string
+  status: ProposalStatus
+  frameworkVersion: string
+  writingStandardVersion: string | null
+  productProfileVersion: string | null
+  language: ProposalLanguage
+  proposalDate: string
+  dealTermsSnapshot: ProposalDealVariable[]
+  contextForProposal: string | null
+  writingDirection: string | null
+  writerMode: ProposalWriterMode | null
+  draftContent: string | null
+  approvedContent: string | null
+  approvedAt: string | null
+  approvedBy: string | null
+  pdfStoragePath: string | null
+  pdfGeneratedAt: string | null
+  /** When the Partner accepted this Finalized Version. Null until status becomes 'accepted'; write-once and permanently immutable once set (enforced by enforce_proposal_freeze, not just app logic). Distinct from approvedAt, which stamps the internal finalize/freeze moment, not partner acceptance. */
+  acceptedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+const PROPOSAL_FIELDS =
+  'id, partner_id, deal_id, series_id, version, draft_revision, business_contexts, product, title, status, framework_version, writing_standard_version, product_profile_version, language, proposal_date, deal_terms_snapshot, context_for_proposal, writing_direction, writer_mode, draft_content, approved_content, approved_at, approved_by, pdf_storage_path, pdf_generated_at, accepted_at, created_at, updated_at'
+
+function rowToProposal(row: any): Proposal {
+  return {
+    id: row.id,
+    partnerId: row.partner_id,
+    dealId: row.deal_id,
+    seriesId: row.series_id,
+    version: row.version,
+    draftRevision: row.draft_revision,
+    businessContexts: row.business_contexts ?? [],
+    product: row.product,
+    title: row.title,
+    status: row.status,
+    frameworkVersion: row.framework_version,
+    writingStandardVersion: row.writing_standard_version,
+    productProfileVersion: row.product_profile_version,
+    language: row.language ?? 'en',
+    proposalDate: row.proposal_date,
+    dealTermsSnapshot: row.deal_terms_snapshot ?? [],
+    contextForProposal: row.context_for_proposal,
+    writingDirection: row.writing_direction,
+    writerMode: row.writer_mode,
+    draftContent: row.draft_content,
+    approvedContent: row.approved_content,
+    approvedAt: row.approved_at,
+    approvedBy: row.approved_by,
+    pdfStoragePath: row.pdf_storage_path,
+    pdfGeneratedAt: row.pdf_generated_at,
+    acceptedAt: row.accepted_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+/** The editable draft content. */
+export function proposalDraftContent(proposal: Proposal): string {
+  return proposal.draftContent ?? ''
+}
+
+/** The content to freeze/print: the approved copy once finalized, else the current draft. */
+export function proposalFinalContent(proposal: Proposal): string {
+  return proposal.approvedContent ?? proposal.draftContent ?? ''
+}
+
+// ── Reads ───────────────────────────────────────────────────────────────
+
+export async function getProposals(filter?: { status?: ProposalStatus; partnerId?: string }): Promise<Proposal[]> {
+  const supabase = getServiceSupabase()
+  let query = supabase.from('proposals').select(PROPOSAL_FIELDS).order('created_at', { ascending: false })
+  if (filter?.status) query = query.eq('status', filter.status)
+  if (filter?.partnerId) query = query.eq('partner_id', filter.partnerId)
+  const { data, error } = await query
+  if (error) {
+    console.error('lib/proposals getProposals: query error:', error)
+    return []
+  }
+  return (data ?? []).map(rowToProposal)
+}
+
+export async function proposalsForPartner(partnerId: string): Promise<Proposal[]> {
+  return getProposals({ partnerId })
+}
+
+/** Every Working Draft and Finalized Version sharing one lineage, newest first. */
+export async function proposalsForSeries(seriesId: string): Promise<Proposal[]> {
+  const supabase = getServiceSupabase()
+  const { data, error } = await supabase
+    .from('proposals')
+    .select(PROPOSAL_FIELDS)
+    .eq('series_id', seriesId)
+    .order('version', { ascending: false, nullsFirst: true })
+  if (error) {
+    console.error('lib/proposals proposalsForSeries: query error:', error)
+    return []
+  }
+  return (data ?? []).map(rowToProposal)
+}
+
+/** The highest-numbered Finalized Version in a series, or null if none has ever been finalized. */
+export async function latestVersionForSeries(seriesId: string): Promise<Proposal | null> {
+  const supabase = getServiceSupabase()
+  const { data, error } = await supabase
+    .from('proposals')
+    .select(PROPOSAL_FIELDS)
+    .eq('series_id', seriesId)
+    .not('version', 'is', null)
+    .order('version', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) {
+    console.error('lib/proposals latestVersionForSeries: query error:', error)
+    return null
+  }
+  return data ? rowToProposal(data) : null
+}
+
+export async function getProposal(id: string): Promise<Proposal | null> {
+  const supabase = getServiceSupabase()
+  const { data, error } = await supabase.from('proposals').select(PROPOSAL_FIELDS).eq('id', id).maybeSingle()
+  if (error) {
+    console.error('lib/proposals getProposal: query error:', error)
+    return null
+  }
+  return data ? rowToProposal(data) : null
+}
+
+// ── Working Draft writes ─────────────────────────────────────────────────
+// None of the functions below ever touch `version` — every one is a plain
+// INSERT (the very first draft) or UPDATE of the current Working Draft row.
+// proposals_lifecycle_invariant and the at-most-one-draft-per-series partial
+// unique index (Phase 3C-1) are the database-level backstop; the app-layer
+// checks here (status/version guards) are the friendly first line.
+
+export interface CreateProposalInput {
+  partnerId: string
+  dealId?: string | null
+  businessContexts: string[]
+  product?: string
+  title: string
+  /** Omit to start from defaultDealVariables(). */
+  dealVariables?: ProposalDealVariable[]
+  contextForProposal?: string
+  writingDirection?: string
+  venues?: string[]
+  /** Omit for English (default). A Proposal/document property only -- never sent to or read from the Deal. */
+  language?: ProposalLanguage
+}
+
+/** Create the very first Working Draft of a new proposal "line". Mints a new series_id; version stays NULL. */
+export async function createProposal(input: CreateProposalInput): Promise<Proposal> {
+  const partner = await getPartner(input.partnerId)
+  if (!partner) throw new Error(`createProposal: partner ${input.partnerId} not found`)
+
+  const framework = getPartnershipFramework()
+  const writingStandard = getProposalWritingStandard()
+
+  // Phase 3F correction: Deal-first workflow -- by the time a Proposal is
+  // started, a partner_deals row already exists with real agreed-or-being-
+  // agreed commercial terms (the operator entered them when saving the
+  // Deal, before ever choosing to formalize it into a Proposal). The
+  // Working Draft's initial snapshot must inherit those, not start blank.
+  // Server-fetched from the Deal itself (never trusted from the client) --
+  // explicit input.dealVariables still wins if a caller passes it;
+  // defaultDealVariables() only when there's truly nothing to inherit (no
+  // linked deal at all). The same fetched Deal also resolves venues below
+  // (resolveProposalVenues) so a Deal tied to one specific location doesn't
+  // pull in every other location on the Partner's record.
+  const deal = input.dealId ? await getPartnerDeal(input.dealId) : null
+  const dealVariables = input.dealVariables ?? deal?.terms ?? defaultDealVariables()
+
+  const proposalDate = bangkokDateStamp()
+
+  const writerInputs: ProposalWriterInputs = {
+    framework,
+    writingStandard,
+    productProfile: undefined,
+    partnerDisplayName: partner.displayName,
+    businessContexts: input.businessContexts,
+    product: input.product,
+    venues: input.venues ?? resolveProposalVenues(partner, deal),
+    relationshipSummary: partner.relationshipSummary ?? undefined,
+    dealVariables,
+    contextForProposal: input.contextForProposal,
+    writingDirection: input.writingDirection,
+    version: null,
+    proposalDate,
+  }
+  const language: ProposalLanguage = input.language ?? 'en'
+  const { draft, productProfileVersion } = await composeProposalWithProfile(writerInputs, language)
+
+  const supabase = getServiceSupabase()
+  const { data, error } = await supabase
+    .from('proposals')
+    .insert({
+      partner_id: input.partnerId,
+      deal_id: input.dealId ?? null,
+      series_id: crypto.randomUUID(),
+      version: null,
+      business_contexts: input.businessContexts,
+      product: input.product ?? null,
+      title: input.title,
+      status: 'draft',
+      framework_version: framework.version,
+      writing_standard_version: writingStandard.version,
+      product_profile_version: productProfileVersion,
+      language,
+      proposal_date: proposalDate,
+      deal_terms_snapshot: dealVariables,
+      context_for_proposal: input.contextForProposal ?? null,
+      writing_direction: input.writingDirection ?? null,
+      writer_mode: draft.mode,
+      draft_content: draft.content,
+    })
+    .select(PROPOSAL_FIELDS)
+    .single()
+
+  if (error || !data) {
+    console.error('lib/proposals createProposal: insert error:', error)
+    throw new Error('Failed to create proposal draft')
+  }
+  return rowToProposal(data)
+}
+
+/**
+ * "Create New Draft from V1" (or any other Finalized Version). Only valid
+ * from an already-frozen row (app-layer check; the DB has no direct
+ * constraint forcing this since a Working Draft simply has nothing to
+ * branch from). Same series_id; a brand-new row, version NULL. draft_content
+ * seeds from the source version's frozen content; deal variables are
+ * re-merged from the partner's CURRENT deal terms (if dealId is supplied) so
+ * a new round reflects any commercial changes since the prior version,
+ * rather than silently reusing stale figures.
+ */
+export async function createDraftFromFinalizedVersion(sourceProposalId: string): Promise<Proposal> {
+  const source = await getProposal(sourceProposalId)
+  if (!source) throw new Error(`createDraftFromFinalizedVersion: proposal ${sourceProposalId} not found`)
+  if (source.version === null) {
+    throw new Error('createDraftFromFinalizedVersion: source proposal is still a Working Draft, not a Finalized Version')
+  }
+
+  // Friendly pre-check for the DB's own at-most-one-open-draft-per-series
+  // partial unique index (idx_proposals_one_draft_per_series) — the index is
+  // the real guarantee; this just gives a clear error instead of a raw
+  // Postgres unique-violation.
+  const seriesRows = await proposalsForSeries(source.seriesId)
+  const openDraft = seriesRows.find((p) => p.version === null)
+  if (openDraft) {
+    throw new Error(`createDraftFromFinalizedVersion: series ${source.seriesId} already has an open Working Draft (${openDraft.id}) — finalize or continue that one first`)
+  }
+
+  // Re-merge the partner's CURRENT deal terms (if this line has a linked
+  // Deal) onto the frozen version's snapshot as the template, so a new round
+  // starts from any commercial changes made since the prior version rather
+  // than silently reusing stale figures. Labels/required flags come from the
+  // frozen snapshot; values come from the live deal.
+  let dealTermsSnapshot = source.dealTermsSnapshot
+  if (source.dealId) {
+    const deal = await getPartnerDeal(source.dealId)
+    if (deal) dealTermsSnapshot = mergeDealVariables(source.dealTermsSnapshot, deal.terms)
+  }
+
+  const supabase = getServiceSupabase()
+  const { data, error } = await supabase
+    .from('proposals')
+    .insert({
+      partner_id: source.partnerId,
+      deal_id: source.dealId,
+      series_id: source.seriesId,
+      version: null,
+      business_contexts: source.businessContexts,
+      product: source.product,
+      title: source.title,
+      status: 'draft',
+      framework_version: source.frameworkVersion,
+      writing_standard_version: source.writingStandardVersion,
+      product_profile_version: source.productProfileVersion,
+      // Phase 4: carry the source version's language forward unchanged --
+      // V2 from an English V1 stays English, V2 from a Thai V1 stays Thai.
+      // Never silently changes inside an existing Proposal series.
+      language: source.language,
+      proposal_date: bangkokDateStamp(),
+      deal_terms_snapshot: dealTermsSnapshot,
+      context_for_proposal: source.contextForProposal,
+      writing_direction: source.writingDirection,
+      writer_mode: source.writerMode,
+      draft_content: proposalFinalContent(source),
+    })
+    .select(PROPOSAL_FIELDS)
+    .single()
+
+  if (error || !data) {
+    console.error('lib/proposals createDraftFromFinalizedVersion: insert error:', error)
+    throw new Error('Failed to create new draft from finalized version')
+  }
+  return rowToProposal(data)
+}
+
+function assertStillDraft(proposal: Pick<Proposal, 'version'>, action: string) {
+  if (proposal.version !== null) {
+    throw new Error(`${action}: proposal is already a finalized version (frozen) — create a new Working Draft to keep editing`)
+  }
+}
+
+/** Manual edit of the draft's content. Same row, no version change — draft_revision auto-advances via the DB trigger. */
+export async function updateProposalDraft(id: string, draftContent: string): Promise<Proposal> {
+  const existing = await getProposal(id)
+  if (!existing) throw new Error(`updateProposalDraft: proposal ${id} not found`)
+  assertStillDraft(existing, 'updateProposalDraft')
+
+  const supabase = getServiceSupabase()
+  const { data, error } = await supabase
+    .from('proposals')
+    .update({ draft_content: draftContent })
+    .eq('id', id)
+    .select(PROPOSAL_FIELDS)
+    .single()
+  if (error || !data) {
+    console.error('lib/proposals updateProposalDraft: update error:', error)
+    throw new Error('Failed to update proposal draft')
+  }
+  return rowToProposal(data)
+}
+
+/**
+ * Update the deal-variable snapshot on a Working Draft (commercial-term
+ * edits while drafting). Same row, no version change.
+ *
+ * Phase 3F correction: the Working Draft's deal_terms_snapshot and its
+ * linked Deal's own partner_deals.terms must never be allowed to silently
+ * diverge -- this updates both, in the same operation, whenever the
+ * proposal has a linked deal (dealId null is a pre-existing edge case the
+ * schema still allows -- a proposal with no linked deal only updates its
+ * own snapshot). The Deal write happens first: if it fails, the proposal's
+ * snapshot is never touched, rather than ending up updated on one side only.
+ */
+export async function updateProposalDealVariables(id: string, variables: ProposalDealVariable[]): Promise<Proposal> {
+  const existing = await getProposal(id)
+  if (!existing) throw new Error(`updateProposalDealVariables: proposal ${id} not found`)
+  assertStillDraft(existing, 'updateProposalDealVariables')
+
+  if (existing.dealId) {
+    await updatePartnerDealTerms(existing.dealId, variables)
+  }
+
+  const supabase = getServiceSupabase()
+  const { data, error } = await supabase
+    .from('proposals')
+    .update({ deal_terms_snapshot: variables })
+    .eq('id', id)
+    .select(PROPOSAL_FIELDS)
+    .single()
+  if (error || !data) {
+    console.error('lib/proposals updateProposalDealVariables: update error:', error)
+    throw new Error('Failed to update proposal deal variables')
+  }
+  return rowToProposal(data)
+}
+
+/**
+ * Regenerate the draft from scratch against the same stored inputs (AI if
+ * configured, deterministic otherwise — Phase 3C-2: always deterministic).
+ * Same row, no version change.
+ */
+export async function regenerateProposalDraft(id: string): Promise<Proposal> {
+  const existing = await getProposal(id)
+  if (!existing) throw new Error(`regenerateProposalDraft: proposal ${id} not found`)
+  assertStillDraft(existing, 'regenerateProposalDraft')
+  const partner = await getPartner(existing.partnerId)
+  if (!partner) throw new Error(`regenerateProposalDraft: partner ${existing.partnerId} not found`)
+  const deal = existing.dealId ? await getPartnerDeal(existing.dealId) : null
+
+  const writerInputs: ProposalWriterInputs = {
+    framework: getPartnershipFramework(),
+    writingStandard: getProposalWritingStandard(),
+    productProfile: undefined,
+    partnerDisplayName: partner.displayName,
+    businessContexts: existing.businessContexts,
+    product: existing.product ?? undefined,
+    venues: resolveProposalVenues(partner, deal),
+    relationshipSummary: partner.relationshipSummary ?? undefined,
+    dealVariables: existing.dealTermsSnapshot,
+    contextForProposal: existing.contextForProposal ?? undefined,
+    writingDirection: existing.writingDirection ?? undefined,
+    version: null,
+    proposalDate: existing.proposalDate,
+  }
+  const { draft } = await composeProposalWithProfile(writerInputs, existing.language)
+  return updateProposalDraft(id, draft.content)
+}
+
+/** Apply a natural-language revision instruction (Request Changes). Same row, no version change. */
+export async function requestProposalChanges(id: string, instruction: string): Promise<Proposal> {
+  const existing = await getProposal(id)
+  if (!existing) throw new Error(`requestProposalChanges: proposal ${id} not found`)
+  assertStillDraft(existing, 'requestProposalChanges')
+  const partner = await getPartner(existing.partnerId)
+  if (!partner) throw new Error(`requestProposalChanges: partner ${existing.partnerId} not found`)
+
+  const writerInputs: ProposalWriterInputs = {
+    framework: getPartnershipFramework(),
+    writingStandard: getProposalWritingStandard(),
+    productProfile: undefined,
+    partnerDisplayName: partner.displayName,
+    businessContexts: existing.businessContexts,
+    product: existing.product ?? undefined,
+    venues: partner.locations.filter((l) => l.isActive).map((l) => l.name),
+    relationshipSummary: partner.relationshipSummary ?? undefined,
+    dealVariables: existing.dealTermsSnapshot,
+    contextForProposal: existing.contextForProposal ?? undefined,
+    writingDirection: existing.writingDirection ?? undefined,
+    version: null,
+    proposalDate: existing.proposalDate,
+  }
+  const revised = await reviseProposalDraft(writerInputs, proposalDraftContent(existing), instruction)
+  return updateProposalDraft(id, revised.content)
+}
+
+// ── Finalize & Generate PDF (Phase 3F/3G) ─────────────────────────────────
+// The ONLY function in this file that ever assigns `version`. Implements the
+// algorithm settled in the Phase 3C-2 boundary comment (see git history for
+// the original text) exactly: capture a snapshot, render + upload the PDF
+// from that snapshot only, then one atomic conditional Postgres write.
+// `proposals_lifecycle_invariant` (Phase 3C-1) rejects any attempt to set
+// `version` without approved_content/approved_at/approved_by/
+// pdf_storage_path/pdf_generated_at all present in the same statement, so
+// the final UPDATE below cannot partially succeed at the database level.
+
+export interface FinalizeProposalResult {
+  proposal: Proposal
+  /** True when this call did not itself perform the finalize — the proposal was already a Finalized Version (either a genuine retry, or a concurrent request won the race). Never a failure. */
+  alreadyFinalized: boolean
+}
+
+/**
+ * Finalize & Generate PDF: turns the current Working Draft into a
+ * permanently frozen, numbered Finalized Version with a durable PDF.
+ * Idempotent — calling this again on an already-finalized proposal returns
+ * that same finalized row rather than erroring.
+ *
+ * `expectedDraftRevision`, when supplied, is a precondition: the caller
+ * asserts "this is the revision I actually showed the operator on Preview."
+ * If the live row has already moved past it, this fails immediately with
+ * the same message the CAS write's own race-loss path produces — Preview
+ * and the generated PDF must always be the same snapshot (Phase 3F
+ * correction), never "whatever happened to be current when Finalize was
+ * clicked." The CAS UPDATE below is still the final, authoritative guard
+ * (it also catches an edit landing in the gap between this check and the
+ * write); this check just fails fast, before spending a PDF render on
+ * content the operator never actually previewed.
+ */
+export async function finalizeProposal(id: string, actorUserId: string, expectedDraftRevision?: number): Promise<FinalizeProposalResult> {
+  const existing = await getProposal(id)
+  if (!existing) throw new Error(`finalizeProposal: proposal ${id} not found`)
+
+  // Idempotent short-circuit: already a Finalized Version (a genuine retry
+  // from the UI, or this exact call racing a concurrent one that already won).
+  if (existing.version !== null) {
+    return { proposal: existing, alreadyFinalized: true }
+  }
+
+  if (expectedDraftRevision !== undefined && existing.draftRevision !== expectedDraftRevision) {
+    throw new Error('The draft changed since it was last previewed. Preview it again before finalizing.')
+  }
+
+  const partner = await getPartner(existing.partnerId)
+  if (!partner) throw new Error(`finalizeProposal: partner ${existing.partnerId} not found`)
+
+  // 1. Capture the exact snapshot to freeze. Nothing below this line ever
+  // re-reads draft_content, deal_terms_snapshot, or any other mutable source
+  // — the PDF and the frozen row must reflect this moment, not whatever the
+  // draft has become by the time rendering/upload finishes.
+  const capturedRevision = existing.draftRevision
+  const capturedContent = existing.draftContent ?? ''
+
+  const latest = await latestVersionForSeries(existing.seriesId)
+  const nextVersion = (latest?.version ?? 0) + 1
+
+  // 2. Render the PDF from exactly that snapshot.
+  const document = buildProposalDocument({ ...existing, approvedContent: capturedContent }, partner.displayName)
+  const pdfBuffer = await renderProposalPdf(document)
+
+  // 3. Upload first (write-once, revision-keyed path — a retry at the same
+  // captured revision safely reuses whatever is already there).
+  const path = proposalPdfStoragePath(existing.partnerId, existing.seriesId, existing.id, capturedRevision)
+  await uploadProposalPdf(path, pdfBuffer)
+
+  // 4. The one atomic Postgres write, conditioned on nothing having changed
+  // since the snapshot was captured.
+  const supabase = getServiceSupabase()
+  const nowIso = new Date().toISOString()
+  const { data, error } = await supabase
+    .from('proposals')
+    .update({
+      version: nextVersion,
+      approved_content: capturedContent,
+      approved_at: nowIso,
+      approved_by: actorUserId,
+      pdf_storage_path: path,
+      pdf_generated_at: nowIso,
+      status: 'finalized',
+    })
+    .eq('id', id)
+    .is('version', null)
+    .eq('draft_revision', capturedRevision)
+    .select(PROPOSAL_FIELDS)
+    .maybeSingle()
+
+  if (error) {
+    console.error('lib/proposals finalizeProposal: update error:', error)
+    throw new Error('Failed to finalize proposal')
+  }
+
+  if (data) {
+    return { proposal: rowToProposal(data), alreadyFinalized: false }
+  }
+
+  // Zero rows matched the WHERE clause — re-read to tell apart the two
+  // possible causes rather than guessing.
+  const reread = await getProposal(id)
+  if (reread && reread.version !== null) {
+    // A concurrent finalize already won this exact race — idempotent success.
+    return { proposal: reread, alreadyFinalized: true }
+  }
+  // The draft changed mid-render (a new edit bumped draft_revision past what
+  // was captured). No version was assigned; nothing was frozen; the orphaned
+  // PDF upload at the old revision's path is harmless and unreferenced.
+  throw new Error('The draft changed since it was last previewed. Preview it again before finalizing.')
+}
+
+/** Signed URL to view or download a Finalized Version's durable PDF. Throws if this proposal has no PDF yet (still a Working Draft). */
+export async function getProposalPdfUrl(id: string, opts?: { download?: boolean | string }): Promise<string> {
+  const proposal = await getProposal(id)
+  if (!proposal) throw new Error(`getProposalPdfUrl: proposal ${id} not found`)
+  if (!proposal.pdfStoragePath) throw new Error('getProposalPdfUrl: this proposal has not been finalized yet')
+  return getSignedProposalPdfUrl(proposal.pdfStoragePath, opts)
+}
+
+// ── Phase 3H — Proposal delivery/acceptance actions ───────────────────────
+// Manual operator confirmations only -- no email, no WhatsApp, no
+// e-signature, no acceptance link. "Mark as Sent" records that the operator
+// delivered the PDF themselves through whatever channel; "Mark as Accepted"
+// records that the partner said yes. Both are plain forward status moves
+// already permitted by enforce_proposal_freeze's transition table
+// (finalized -> sent -> accepted); PDF content, approved_content, and
+// version are never touched by either.
+
+/** Record that the operator delivered this Finalized Version's PDF to the partner (WhatsApp/email/etc., not sent by this app). finalized -> sent only. */
+export async function markProposalSent(id: string): Promise<Proposal> {
+  const existing = await getProposal(id)
+  if (!existing) throw new Error(`markProposalSent: proposal ${id} not found`)
+  if (existing.status !== 'finalized') {
+    throw new Error(`markProposalSent: proposal is '${existing.status}', not 'finalized' -- cannot mark as sent`)
+  }
+
+  const supabase = getServiceSupabase()
+  const { data, error } = await supabase.from('proposals').update({ status: 'sent' }).eq('id', id).select(PROPOSAL_FIELDS).single()
+  if (error || !data) {
+    console.error('lib/proposals markProposalSent: update error:', error)
+    throw new Error('Failed to mark proposal as sent')
+  }
+  return rowToProposal(data)
+}
+
+/**
+ * Record that the partner accepted this Finalized Version. sent -> accepted,
+ * stamping accepted_at in the same write (enforce_proposal_freeze enforces
+ * this is a write-once, NULL -> timestamp change and nothing else).
+ *
+ * In the same server operation, per the approved Deal-activation boundary:
+ * if the linked Deal is exactly 'terms_agreed', it moves to 'active'; if
+ * already 'active', left unchanged; a 'paused' or 'ended' Deal is never
+ * auto-resurrected (updatePartnerDealStatus's own transition table would
+ * reject those moves anyway, but the check here means a paused/ended Deal
+ * is left untouched rather than surfacing an unrelated error to the
+ * operator during what should be a simple acceptance action).
+ */
+export async function markProposalAccepted(id: string, actorUserId: string): Promise<Proposal> {
+  const existing = await getProposal(id)
+  if (!existing) throw new Error(`markProposalAccepted: proposal ${id} not found`)
+  if (existing.status !== 'sent') {
+    throw new Error(`markProposalAccepted: proposal is '${existing.status}', not 'sent' -- cannot mark as accepted`)
+  }
+
+  const supabase = getServiceSupabase()
+  const { data, error } = await supabase
+    .from('proposals')
+    .update({ status: 'accepted', accepted_at: new Date().toISOString() })
+    .eq('id', id)
+    .select(PROPOSAL_FIELDS)
+    .single()
+  if (error || !data) {
+    console.error('lib/proposals markProposalAccepted: update error:', error)
+    throw new Error('Failed to mark proposal as accepted')
+  }
+  const accepted = rowToProposal(data)
+
+  if (accepted.dealId) {
+    const deal = await getPartnerDeal(accepted.dealId)
+    if (deal?.status === 'terms_agreed') {
+      await updatePartnerDealStatus(accepted.dealId, 'active', actorUserId)
+    }
+    // Already 'active': nothing to do. 'discussing'/'paused'/'ended': left
+    // alone -- acceptance never resurrects or fast-forwards a Deal on its
+    // own beyond this one documented case.
+  }
+
+  return accepted
+}
