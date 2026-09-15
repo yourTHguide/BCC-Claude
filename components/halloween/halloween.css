@@ -1,0 +1,103 @@
+/*
+ * Scoped design tokens + utility classes for the Halloween Crawl page only.
+ * Ported from bangkok-nights-concierge (TanStack) src/styles.css — the
+ * halloween-specific slice. Everything here lives under `.halloween-page`
+ * (or is a uniquely-named class) so it cannot leak into or override
+ * BCC-Claude's global design tokens in app/globals.css.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,500&display=swap');
+
+.halloween-page {
+  --crimson: oklch(0.58 0.25 16); /* ~#EA003A */
+  --halloween-bg: oklch(0.145 0.022 349);
+  --halloween-surface: oklch(0.19 0.025 350);
+  --halloween-ivory: oklch(0.92 0.035 78);
+  --halloween-muted: oklch(0.76 0.018 45);
+  --halloween-bright: oklch(0.64 0.26 18);
+}
+
+.halloween-page .font-display {
+  font-family: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+
+.halloween-grain {
+  background-image:
+    linear-gradient(180deg, color-mix(in oklab, var(--halloween-bg) 92%, transparent), var(--halloween-bg)),
+    radial-gradient(circle at 1px 1px, color-mix(in oklab, var(--halloween-ivory) 8%, transparent) 1px, transparent 0);
+  background-size: auto, 4px 4px;
+}
+
+.halloween-cta {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  background: var(--crimson);
+  padding: 0.85rem 1.4rem;
+  color: var(--halloween-ivory);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  transition: background-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+}
+
+.halloween-cta:hover {
+  background: var(--halloween-bright);
+  box-shadow: 0 14px 40px color-mix(in oklab, var(--crimson) 24%, transparent);
+  transform: translateY(-1px);
+}
+
+/* Bokun buttons render `disabled` until BokunWidgetsLoader.js finishes attaching its
+   click handler — keep them looking like normal, clickable CTAs during that window
+   instead of the browser's default dimmed/not-allowed disabled treatment. */
+.halloween-cta:disabled {
+  opacity: 1;
+  cursor: pointer;
+}
+
+.halloween-cta:focus-visible,
+.halloween-link:focus-visible,
+.halloween-faq:focus-visible {
+  outline: 2px solid var(--halloween-ivory);
+  outline-offset: 4px;
+}
+
+.halloween-link {
+  position: relative;
+}
+
+.halloween-link::after {
+  position: absolute;
+  right: 0;
+  bottom: -0.35rem;
+  left: 0;
+  height: 1px;
+  content: '';
+  background: var(--crimson);
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 180ms ease;
+}
+
+.halloween-link:hover::after {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .halloween-page,
+  .halloween-page *,
+  .halloween-page *::before,
+  .halloween-page *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
