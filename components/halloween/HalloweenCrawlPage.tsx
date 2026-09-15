@@ -2,9 +2,18 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { forwardRef, useEffect, useRef, useState, type ReactNode } from 'react'
-import { ArrowDown, Check, ChevronDown, MapPin, MoveRight } from 'lucide-react'
+import { createContext, forwardRef, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { ArrowDown, Check, ChevronDown, MapPin, MoveRight, X } from 'lucide-react'
 import './halloween.css'
+
+// Re-encoding an already-compressed JPEG through Next's image optimizer at its
+// default quality (75) visibly softens it further. These photos were exported
+// once already, so every <Image> here asks for a high quality pass to avoid
+// that double-compression blur.
+const IMAGE_QUALITY = 92
+
+type LightboxImage = { src: string; alt: string }
+const LightboxContext = createContext<(image: LightboxImage) => void>(() => {})
 
 // Bokun booking-channel widget: loaded once via <Script> in app/halloween/page.tsx.
 // Every CTA on this page is a BokunButton pointing at this same experience — each
@@ -89,6 +98,7 @@ const faqs = [
 export default function HalloweenCrawlPage() {
   const heroCtaRef = useRef<HTMLButtonElement | null>(null)
   const [showSticky, setShowSticky] = useState(false)
+  const [lightboxImage, setLightboxImage] = useState<LightboxImage | null>(null)
 
   useEffect(() => {
     const target = heroCtaRef.current
@@ -101,22 +111,25 @@ export default function HalloweenCrawlPage() {
   }, [])
 
   return (
-    <main className="halloween-page halloween-grain relative overflow-x-hidden bg-halloween-bg text-halloween-ivory">
-      <EventHeader />
-      <HeroSection ctaRef={heroCtaRef} />
-      <SocialProofGallery />
-      <ProblemSection />
-      <NightFlowTimeline />
-      <SoloSection />
-      <InclusionsSection />
-      <YearThreeSection />
-      <PricingSection />
-      <BookingReasonsSection />
-      <FAQSection />
-      <FinalCTA />
-      <EventFooter />
-      <MobileStickyCTA show={showSticky} />
-    </main>
+    <LightboxContext.Provider value={setLightboxImage}>
+      <main className="halloween-page halloween-grain relative overflow-x-hidden bg-halloween-bg text-halloween-ivory">
+        <EventHeader />
+        <HeroSection ctaRef={heroCtaRef} />
+        <SocialProofGallery />
+        <ProblemSection />
+        <NightFlowTimeline />
+        <SoloSection />
+        <InclusionsSection />
+        <YearThreeSection />
+        <PricingSection />
+        <BookingReasonsSection />
+        <FAQSection />
+        <FinalCTA />
+        <EventFooter />
+        <MobileStickyCTA show={showSticky} />
+      </main>
+      <Lightbox image={lightboxImage} onClose={() => setLightboxImage(null)} />
+    </LightboxContext.Provider>
   )
 }
 
@@ -124,8 +137,8 @@ function EventHeader() {
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-halloween-ivory/10 bg-halloween-bg/80 backdrop-blur-xl">
       <div className="mx-auto grid max-w-[1240px] grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-5 py-3 sm:px-6 lg:flex lg:justify-between">
-        <Link href="/" className="min-w-0 truncate text-[11px] font-semibold tracking-[0.19em] text-halloween-ivory sm:text-xs">
-          BEST NIGHTLIFE <span className="text-crimson">THAILAND</span>
+        <Link href="/" className="shrink-0">
+          <Image src="/images/Nightlife Thailand LOGO.png" alt="Nightlife Thailand" width={144} height={144} className="h-9 w-9 object-contain sm:h-10 sm:w-10" />
         </Link>
         <nav aria-label="Event navigation" className="hidden items-center gap-8 lg:flex">
           <a className="halloween-link text-[11px] font-semibold tracking-[0.16em] text-halloween-muted" href="#the-night">THE NIGHT</a>
@@ -147,6 +160,7 @@ function HeroSection({ ctaRef }: { ctaRef: React.RefObject<HTMLButtonElement> })
           alt="Costumed guests celebrating together at Bangkok Halloween Crawl"
           fill
           priority
+          quality={IMAGE_QUALITY}
           sizes="(min-width: 1024px) 56vw, 100vw"
           className="object-cover object-center"
         />
@@ -249,8 +263,8 @@ function NightFlowTimeline() {
         ))}
       </ol>
       <div className="mt-14 grid grid-cols-2 gap-2 lg:mt-24 lg:grid-cols-[1.3fr_0.7fr]">
-        <EditorialImage src="/halloween/halloween-night-1.jpg" alt="Guests checking in at the first Halloween venue" className="aspect-[4/3] lg:aspect-[16/6]" />
-        <EditorialImage src="/halloween/halloween-night-2.jpg" alt="The Halloween group celebrating together under red lights" className="aspect-[4/3] lg:aspect-[16/6]" />
+        <EditorialImage src="/halloween/halloween-night-1.jpg" alt="Guests checking in at the first Halloween venue" className="aspect-[4/3] lg:aspect-[16/6]" lightbox />
+        <EditorialImage src="/halloween/halloween-night-2.jpg" alt="The Halloween group celebrating together under red lights" className="aspect-[4/3] lg:aspect-[16/6]" lightbox />
       </div>
     </PageSection>
   )
@@ -332,7 +346,7 @@ function PricingSection() {
         <p className="mt-4 text-[12px] text-halloween-muted">Presale closes when the first 30 spots are taken.</p>
       </div>
       <div className="relative min-h-[420px] lg:min-h-0">
-        <Image src="/halloween/halloween-ticket-releases.jpg" alt="Large hosted nightlife gathering overlooking the Bangkok skyline" fill sizes="(min-width: 1024px) 40vw, 100vw" className="object-cover" />
+        <Image src="/halloween/halloween-ticket-releases.jpg" alt="Large hosted nightlife gathering overlooking the Bangkok skyline" fill quality={IMAGE_QUALITY} sizes="(min-width: 1024px) 40vw, 100vw" className="object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-halloween-surface via-transparent to-transparent lg:bg-gradient-to-r lg:from-halloween-surface/70 lg:to-transparent" />
         <div className="absolute bottom-6 left-6 flex items-center gap-2 text-[10px] font-semibold tracking-[0.16em] text-halloween-ivory"><MapPin className="h-3.5 w-3.5 text-crimson" />BANGKOK · OCTOBER 31</div>
       </div>
@@ -386,7 +400,7 @@ function FAQSection() {
 function FinalCTA() {
   return (
     <section className="relative isolate flex min-h-[760px] items-end overflow-hidden px-5 py-20 sm:px-6 sm:py-24 lg:min-h-[820px] lg:items-center">
-      <Image src="/halloween/halloween-final-cta.jpg" alt="Bangkok nightlife crowd at the final party stop" fill sizes="100vw" className="-z-20 object-cover" />
+      <Image src="/halloween/halloween-final-cta.jpg" alt="Bangkok nightlife crowd at the final party stop" fill quality={IMAGE_QUALITY} sizes="100vw" className="-z-20 object-cover" />
       <div className="absolute inset-0 -z-10 bg-gradient-to-b from-halloween-bg/55 via-halloween-bg/75 to-halloween-bg lg:bg-gradient-to-r lg:from-halloween-bg lg:via-halloween-bg/85 lg:to-halloween-bg/40" />
       <div className="mx-auto w-full max-w-[1240px]">
         <div className="max-w-2xl">
@@ -412,7 +426,7 @@ function EventFooter() {
   return (
     <footer className="border-t border-halloween-ivory/10 px-5 py-12 pb-28 sm:px-6 sm:pb-12">
       <div className="mx-auto flex max-w-[1240px] flex-col gap-7 sm:flex-row sm:items-end sm:justify-between">
-        <div><Link href="/" className="text-[12px] font-semibold tracking-[0.18em] text-halloween-ivory">BEST NIGHTLIFE <span className="text-crimson">THAILAND</span></Link><p className="mt-3 text-xs text-halloween-muted">Bangkok, Thailand</p></div>
+        <div><Link href="/"><Image src="/images/Nightlife Thailand LOGO.png" alt="Nightlife Thailand" width={144} height={144} className="h-9 w-9 object-contain" /></Link><p className="mt-3 text-xs text-halloween-muted">Bangkok, Thailand</p></div>
         <nav aria-label="Footer navigation" className="flex flex-wrap gap-x-6 gap-y-3 text-xs text-halloween-muted"><a href="#" className="halloween-link">Instagram</a><a href="#" className="halloween-link">Contact</a><a href="#" className="halloween-link">Terms</a><a href="#" className="halloween-link">Privacy</a></nav>
       </div>
     </footer>
@@ -460,30 +474,97 @@ const BokunButton = forwardRef<HTMLButtonElement, { id: string; className?: stri
 )
 
 function GalleryImage({ src, alt, className }: { src: string; alt: string; className: string }) {
+  const openLightbox = useContext(LightboxContext)
   return (
     <figure className={`group relative min-h-0 overflow-hidden border border-halloween-ivory/10 ${className}`}>
-      <Image
-        src={src}
-        alt={alt}
-        fill
-        sizes="(min-width: 1024px) 50vw, 100vw"
-        className="object-cover transition-transform duration-700 group-hover:scale-[1.025]"
-      />
+      <button
+        type="button"
+        onClick={() => openLightbox({ src, alt })}
+        className="block h-full w-full cursor-zoom-in"
+        aria-label={`Expand photo: ${alt}`}
+      >
+        <Image
+          src={src}
+          alt={alt}
+          fill
+          quality={IMAGE_QUALITY}
+          sizes="(min-width: 1024px) 50vw, 100vw"
+          className="object-cover transition-transform duration-700 group-hover:scale-[1.025]"
+        />
+      </button>
     </figure>
   )
 }
 
-function EditorialImage({ src, alt, className, position = 'object-center' }: { src: string; alt: string; className: string; position?: string }) {
-  return (
-    <figure className={`group relative overflow-hidden border border-halloween-ivory/10 ${className}`}>
+function EditorialImage({ src, alt, className, position = 'object-center', lightbox = false }: { src: string; alt: string; className: string; position?: string; lightbox?: boolean }) {
+  const openLightbox = useContext(LightboxContext)
+  const image = (
+    <>
       <Image
         src={src}
         alt={alt}
         fill
+        quality={IMAGE_QUALITY}
         sizes="(min-width: 1024px) 50vw, 100vw"
         className={`object-cover transition-transform duration-700 group-hover:scale-[1.025] ${position}`}
       />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-halloween-bg/45 via-transparent to-transparent" />
+    </>
+  )
+  return (
+    <figure className={`group relative overflow-hidden border border-halloween-ivory/10 ${className}`}>
+      {lightbox ? (
+        <button
+          type="button"
+          onClick={() => openLightbox({ src, alt })}
+          className="block h-full w-full cursor-zoom-in"
+          aria-label={`Expand photo: ${alt}`}
+        >
+          {image}
+        </button>
+      ) : (
+        image
+      )}
     </figure>
+  )
+}
+
+function Lightbox({ image, onClose }: { image: LightboxImage | null; onClose: () => void }) {
+  useEffect(() => {
+    if (!image) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      document.body.style.overflow = previousOverflow
+    }
+  }, [image, onClose])
+
+  if (!image) return null
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-halloween-bg/95 p-4 backdrop-blur-sm sm:p-8"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={image.alt}
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full border border-halloween-ivory/20 text-halloween-ivory transition-colors hover:bg-halloween-ivory/10 sm:right-6 sm:top-6"
+        aria-label="Close"
+      >
+        <X className="h-5 w-5" />
+      </button>
+      <div className="relative h-full w-full max-w-5xl" onClick={(e) => e.stopPropagation()}>
+        <Image src={image.src} alt={image.alt} fill quality={IMAGE_QUALITY} sizes="100vw" className="object-contain" />
+      </div>
+    </div>
   )
 }
