@@ -557,7 +557,7 @@ function Lightbox({ image, onClose }: { image: LightboxImage | null; onClose: ()
       <button
         type="button"
         onClick={onClose}
-        className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full border border-halloween-ivory/20 text-halloween-ivory transition-colors hover:bg-halloween-ivory/10 sm:right-6 sm:top-6"
+        className="absolute right-4 top-4 z-10 flex h-11 w-11 items-center justify-center rounded-full border border-halloween-ivory/20 text-halloween-ivory transition-colors hover:bg-halloween-ivory/10 sm:right-6 sm:top-6"
         aria-label="Close"
       >
         <X className="h-5 w-5" />
