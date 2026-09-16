@@ -19,7 +19,7 @@ const LightboxContext = createContext<(image: LightboxImage) => void>(() => {})
 // Every CTA on this page is a BokunButton pointing at this same experience — each
 // needs its own unique `id` (Bokun's loader hooks widgets up per-element), but they
 // all share this data-src, so changing the booked experience only means editing this.
-const BOKUN_WIDGET_SRC = 'https://widgets.bokun.io/online-sales/177041bf-9290-4d5f-b92c-fca9b79e8df5/experience/1288589?partialView=1'
+const BOKUN_WIDGET_SRC = 'https://widgets.bokun.io/online-sales/177041bf-9290-4d5f-b92c-fca9b79e8df5/experience-calendar/1288589?partialView=1'
 
 const flowStages = [
   {
@@ -185,7 +185,7 @@ function HeroSection({ ctaRef }: { ctaRef: React.RefObject<HTMLButtonElement> })
               <p className="mt-2 text-[11px] font-semibold tracking-[0.08em] text-halloween-ivory">First 30 presale spots only</p>
             </div>
           </div>
-          <BokunButton ref={ctaRef} id="bokun_3c213048_91ca_403b_967a_d44876423137" className="halloween-cta mt-7 w-full sm:w-auto">CLAIM MY PRESALE SPOT <MoveRight className="ml-3 h-4 w-4" /></BokunButton>
+          <BokunButton ref={ctaRef} id="bokun_47c48f42_32e9_430d_9557_4fd9efe21c68" className="halloween-cta mt-7 w-full sm:w-auto">CLAIM MY PRESALE SPOT <MoveRight className="ml-3 h-4 w-4" /></BokunButton>
           <p className="mt-4 text-[13px] leading-relaxed text-halloween-muted">Come solo or bring your friends. Either way, your Halloween night is sorted.</p>
           <a href="#the-night" className="mt-5 inline-flex items-center gap-2 text-[11px] font-semibold tracking-[0.12em] text-halloween-ivory">See how the night works <ArrowDown className="h-3.5 w-3.5 text-crimson" /></a>
         </div>
