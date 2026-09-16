@@ -34,6 +34,9 @@ const HOSTS = [
   { name: 'Guide', role: 'Founder & Host', photo: '/images/host-guide.jpg', objectPosition: 'center top' },
 ]
 
+const WA_URL = 'https://wa.me/66660399569?text=' + encodeURIComponent("Hi! I'd like to ask about the Bangkok Club Crawl")
+const IG_URL = 'https://instagram.com/bkkclubcrawl'
+
 const WHO_WE_ARE =
   "We're a crew of Bangkok locals — born here, raised on the music, and happiest when a room of strangers turns into a group of friends. The venues, the doors, the timing: we handle all of it. But the real work is reading the room and introducing the right people, so the night feels warm, easy, and genuinely connected — never a crowd of phones. Effortless on the surface, carefully put together underneath, and always a safe, quality night out. That's a Friday or Saturday done right."
 
@@ -406,7 +409,7 @@ const styles = `
       height: 72px; z-index: 500;
       background: var(--gradient);
       display: flex; align-items: center; justify-content: space-between;
-      padding: 0 20px;
+      padding: 0 14px;
       box-shadow: 0 -4px 32px rgba(234,0,58,0.25);
     }
     .weekends-page .sticky-bar .bar-inner {
@@ -414,18 +417,34 @@ const styles = `
       margin: 0 auto; width: 100%;
       display: flex; align-items: center; justify-content: space-between;
     }
-    .weekends-page .bar-price { display: flex; align-items: baseline; gap: 4px; }
-    .weekends-page .bar-amount { font-size: 24px; font-weight: 800; }
-    .weekends-page .bar-unit   { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; opacity: 0.8; }
-    .weekends-page .bar-member { font-size: 11px; opacity: 0.7; margin-top: 1px; }
+    .weekends-page .bar-contact { display: flex; align-items: center; gap: 6px; }
+    .weekends-page .bar-icon-btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 30px; height: 30px; min-width: 30px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.10);
+      border: 1px solid rgba(255,255,255,0.14);
+      text-decoration: none;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .weekends-page .bar-icon-btn svg { width: 16px; height: 16px; }
+    .weekends-page .bar-icon-btn:hover { background: rgba(255,255,255,0.18); }
+    .weekends-page .bar-divider { width: 1px; height: 24px; background: rgba(255,255,255,0.18); flex-shrink: 0; margin: 0 2px; }
+    .weekends-page .bar-price { display: flex; align-items: baseline; gap: 4px; flex-wrap: nowrap; white-space: nowrap; }
+    .weekends-page .bar-amount { font-size: 18px; font-weight: 800; white-space: nowrap; }
+    .weekends-page .bar-unit   { font-size: 10px; font-weight: 600; letter-spacing: 0.04em; opacity: 0.8; white-space: nowrap; }
+    .weekends-page .bar-member { font-size: 10px; opacity: 0.7; margin-top: 1px; white-space: nowrap; }
     .weekends-page .btn-book {
       background: #fff; color: #0D0008;
       border: none; border-radius: 8px;
-      padding: 12px 22px;
-      font-size: 13px; font-weight: 800; letter-spacing: 0.06em;
+      padding: 10px 14px;
+      font-size: 12px; font-weight: 800; letter-spacing: 0.06em;
       cursor: pointer; white-space: nowrap;
       transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
+    .weekends-page .btn-book-full { display: none; }
+    .weekends-page .btn-book-short { display: inline; }
     .weekends-page .btn-book:hover {
       transform: translateY(-1px);
       box-shadow: 0 6px 20px rgba(0,0,0,0.25);
@@ -544,6 +563,15 @@ const styles = `
       .weekends-page .foryou-inner { padding: 52px 32px; }
 
       .weekends-page .sticky-bar { padding: 0 32px; }
+      .weekends-page .bar-icon-btn { width: 36px; height: 36px; min-width: 36px; border-radius: 9px; }
+      .weekends-page .bar-icon-btn svg { width: 19px; height: 19px; }
+      .weekends-page .bar-contact { gap: 10px; }
+      .weekends-page .bar-divider { height: 30px; margin: 0; }
+      .weekends-page .bar-amount { font-size: 24px; }
+      .weekends-page .bar-unit, .weekends-page .bar-member { font-size: 11px; }
+      .weekends-page .btn-book { font-size: 13px; padding: 12px 22px; }
+      .weekends-page .btn-book-full { display: inline; }
+      .weekends-page .btn-book-short { display: none; }
     }
 
     /* ═══════════════════════════════════════
@@ -1026,16 +1054,35 @@ export default function WeekendsPage() {
       {/* ─── STICKY BAR ─── */}
       <div className="sticky-bar">
         <div className="bar-inner">
-          <div>
-            <div className="bar-price">
-              <span className="bar-amount">฿1,200</span>
-              <span className="bar-unit">/ PERSON</span>
+          <div className="bar-contact">
+            <a className="bar-icon-btn" href={WA_URL} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
+                <path d="M20.5 3.5A11.5 11.5 0 003.5 18.5L2 22l3.6-1.4A11.5 11.5 0 1020.5 3.5z" stroke="#25D366" strokeWidth="1.8" strokeLinejoin="round" />
+                <path d="M9 10.5c0 3 4.5 6 6 4.5" stroke="#25D366" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+            </a>
+            <a className="bar-icon-btn" href={IG_URL} target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
+                <rect x="2" y="2" width="20" height="20" rx="5.5" stroke="#fff" strokeWidth="1.8" />
+                <circle cx="12" cy="12" r="4.5" stroke="#fff" strokeWidth="1.8" />
+                <circle cx="17.5" cy="6.5" r="1.1" fill="#fff" />
+              </svg>
+            </a>
+            <div className="bar-divider" />
+            <div>
+              <div className="bar-price">
+                <span className="bar-amount">฿1,200</span>
+                <span className="bar-unit">/ PERSON</span>
+              </div>
+              <div className="bar-member">฿1,000 for members</div>
             </div>
-            <div className="bar-member">฿1,000 for members</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <span style={{ fontSize: 11, opacity: 0.6, display: showSecure ? 'block' : 'none' }} id="secureLabel">🔒 Secure booking · Limited spots</span>
-            <button className="btn-book" onClick={bookNow}>BOOK YOUR SPOT →</button>
+            <button className="btn-book" onClick={bookNow}>
+              <span className="btn-book-full">BOOK YOUR SPOT →</span>
+              <span className="btn-book-short">BOOK →</span>
+            </button>
           </div>
         </div>
       </div>

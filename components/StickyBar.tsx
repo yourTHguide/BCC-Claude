@@ -2,15 +2,36 @@
 
 import { useRouter } from 'next/navigation'
 
+const WA_URL = 'https://wa.me/66660399569?text=' + encodeURIComponent("Hi! I'd like to ask about the Bangkok Club Crawl")
+const IG_URL = 'https://instagram.com/bkkclubcrawl'
+
+function WhatsAppIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <path d="M20.5 3.5A11.5 11.5 0 003.5 18.5L2 22l3.6-1.4A11.5 11.5 0 1020.5 3.5z" stroke="#25D366" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M9 10.5c0 3 4.5 6 6 4.5" stroke="#25D366" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function InstagramIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <rect x="2" y="2" width="20" height="20" rx="5.5" stroke="#FFFFFF" strokeWidth="1.8" />
+      <circle cx="12" cy="12" r="4.5" stroke="#FFFFFF" strokeWidth="1.8" />
+      <circle cx="17.5" cy="6.5" r="1.1" fill="#FFFFFF" />
+    </svg>
+  )
+}
+
 export default function StickyBar() {
   const router = useRouter()
 
   return (
     <>
-      {/* Mobile sticky bar — unchanged, approved treatment */}
+      {/* Mobile sticky bar — approved "Book This Weekend" CTA, now with WhatsApp + Instagram quick-contact icons */}
       <div
         className="sticky-bar"
-        onClick={() => router.push('/book')}
         style={{
           position: 'fixed',
           bottom: 0,
@@ -20,29 +41,59 @@ export default function StickyBar() {
           height: '56px',
           background: 'linear-gradient(135deg, #EA003A 0%, #820065 100%)',
           alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
+          gap: '8px',
+          padding: '0 12px',
           paddingBottom: 'env(safe-area-inset-bottom)',
         }}
       >
-        <span
+        <a href={WA_URL} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp" className="sticky-icon-btn">
+          <WhatsAppIcon />
+        </a>
+        <a href={IG_URL} target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="sticky-icon-btn">
+          <InstagramIcon />
+        </a>
+        <div style={{ width: '1px', height: '26px', background: 'rgba(255,255,255,0.25)', flexShrink: 0 }} />
+        <div
+          onClick={() => router.push('/book')}
           style={{
-            fontFamily: 'Inter, sans-serif',
-            fontWeight: 600,
-            fontSize: '15px',
-            color: '#FFFFFF',
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100%',
+            cursor: 'pointer',
           }}
         >
-          Book This Weekend — From ฿1,200 →
-        </span>
+          <span
+            style={{
+              fontFamily: 'Inter, sans-serif',
+              fontWeight: 600,
+              fontSize: '14px',
+              color: '#FFFFFF',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Book This Weekend →
+          </span>
+        </div>
       </div>
 
       {/* Desktop sticky bar — restrained, does not dominate the page */}
       <div className="sticky-bar-desktop">
         <div className="sticky-bar-desktop-inner">
-          <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', color: 'rgba(255,255,255,0.70)' }}>
-            Bangkok Club Crawl · Friday &amp; Saturday · ฿1,200/person
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <a href={WA_URL} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp" className="sticky-icon-btn">
+              <WhatsAppIcon size={19} />
+            </a>
+            <a href={IG_URL} target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="sticky-icon-btn">
+              <InstagramIcon size={19} />
+            </a>
+            <div style={{ width: '1px', height: '26px', background: 'rgba(255,255,255,0.15)', flexShrink: 0 }} />
+            <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', color: 'rgba(255,255,255,0.70)' }}>
+              Bangkok Club Crawl · Friday &amp; Saturday · ฿1,200/person
+            </span>
+          </div>
           <button
             onClick={() => router.push('/book')}
             style={{
@@ -69,6 +120,22 @@ export default function StickyBar() {
         }
         .sticky-bar-desktop {
           display: none;
+        }
+        .sticky-icon-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 34px;
+          height: 34px;
+          min-width: 34px;
+          border-radius: 9px;
+          background: rgba(255,255,255,0.16);
+          text-decoration: none;
+          flex-shrink: 0;
+          transition: background 0.15s;
+        }
+        .sticky-icon-btn:hover {
+          background: rgba(255,255,255,0.26);
         }
         @media (max-width: 768px) {
           .sticky-bar {
