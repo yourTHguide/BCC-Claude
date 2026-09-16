@@ -185,7 +185,7 @@ function HeroSection({ ctaRef }: { ctaRef: React.RefObject<HTMLButtonElement> })
               <p className="mt-2 text-[11px] font-semibold tracking-[0.08em] text-halloween-ivory">First 30 presale spots only</p>
             </div>
           </div>
-          <BokunButton ref={ctaRef} id="bokun_b2f3a815_7c4e_4d9b_8f23_6e8a9b3d2c41" className="halloween-cta mt-7 w-full sm:w-auto">CLAIM MY PRESALE SPOT <MoveRight className="ml-3 h-4 w-4" /></BokunButton>
+          <BokunButton ref={ctaRef} id="bokun_3c213048_91ca_403b_967a_d44876423137" className="halloween-cta mt-7 w-full sm:w-auto">CLAIM MY PRESALE SPOT <MoveRight className="ml-3 h-4 w-4" /></BokunButton>
           <p className="mt-4 text-[13px] leading-relaxed text-halloween-muted">Come solo or bring your friends. Either way, your Halloween night is sorted.</p>
           <a href="#the-night" className="mt-5 inline-flex items-center gap-2 text-[11px] font-semibold tracking-[0.12em] text-halloween-ivory">See how the night works <ArrowDown className="h-3.5 w-3.5 text-crimson" /></a>
         </div>
