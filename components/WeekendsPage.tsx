@@ -428,7 +428,7 @@ const styles = `
       flex-shrink: 0;
       transition: background 0.15s;
     }
-    .weekends-page .bar-icon-btn svg { width: 16px; height: 16px; }
+    .weekends-page .bar-icon-btn svg { width: 16px; height: 16px; overflow: visible; }
     .weekends-page .bar-icon-btn:hover { background: rgba(255,255,255,0.18); }
     .weekends-page .bar-divider { width: 1px; height: 24px; background: rgba(255,255,255,0.18); flex-shrink: 0; margin: 0 2px; }
     .weekends-page .bar-price { display: flex; align-items: baseline; gap: 4px; flex-wrap: nowrap; white-space: nowrap; }

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 
 export default function FinalCTA() {
-  const facts = ['Friday & Saturday nights', 'Meet up 9:30 PM', 'Groups capped', '700+ five-star reviews']
+  const facts = ['Friday & Saturday nights', 'Meet up 9:30 PM', 'Groups capped', '800+ five-star reviews']
 
   return (
     <section
@@ -76,7 +76,7 @@ export default function FinalCTA() {
           ))}
         </ul>
 
-        <Link className="btn-primary" href="/book" style={{ display: 'inline-block' }}>
+        <Link className="btn-primary" href="/weekends" style={{ display: 'inline-block' }}>
           See This Weekend&apos;s Crawl →
         </Link>
 

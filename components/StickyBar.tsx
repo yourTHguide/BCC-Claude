@@ -54,7 +54,7 @@ export default function StickyBar() {
         </a>
         <div style={{ width: '1px', height: '26px', background: 'rgba(255,255,255,0.25)', flexShrink: 0 }} />
         <div
-          onClick={() => router.push('/book')}
+          onClick={() => router.push('/weekends')}
           style={{
             flex: 1,
             minWidth: 0,
@@ -95,7 +95,7 @@ export default function StickyBar() {
             </span>
           </div>
           <button
-            onClick={() => router.push('/book')}
+            onClick={() => router.push('/weekends')}
             style={{
               fontFamily: 'Inter, sans-serif',
               fontWeight: 600,
@@ -136,6 +136,9 @@ export default function StickyBar() {
         }
         .sticky-icon-btn:hover {
           background: rgba(255,255,255,0.26);
+        }
+        .sticky-icon-btn svg {
+          overflow: visible;
         }
         @media (max-width: 768px) {
           .sticky-bar {

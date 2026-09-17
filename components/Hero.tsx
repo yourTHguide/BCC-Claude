@@ -93,7 +93,7 @@ export default function Hero() {
         {/* CTA — single button */}
         <div>
           <Link
-            href="/book"
+            href="/weekends"
             className="btn-primary hero-cta-btn"
             style={{ width: 'fit-content', display: 'inline-block' }}
           >
@@ -105,7 +105,7 @@ export default function Hero() {
               Friday &amp; Saturday · <span className="hero-proof-from">From </span>฿1,200/person
             </p>
             <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', color: 'rgba(255,255,255,0.65)' }}>
-              <span style={{ color: '#EA003A' }}>★★★★★</span> 700+ five-star reviews
+              <span style={{ color: '#EA003A' }}>★★★★★</span> 800+ five-star reviews
             </p>
           </div>
         </div>

@@ -62,7 +62,7 @@ export default function Navigation() {
             <>
               <button onClick={() => scrollTo('how-it-works')} style={linkStyle}>How It Works</button>
               <Link href="/weekends" style={linkStyle}>The Crawl</Link>
-              <Link href="/book" style={linkStyle}>Book</Link>
+              <Link href="/weekends" style={linkStyle}>Book</Link>
             </>
           )
         })()}

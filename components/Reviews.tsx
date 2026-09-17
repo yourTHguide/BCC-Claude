@@ -3,7 +3,7 @@ export default function Reviews() {
     <section id="reviews" className="section-pad" style={{ background: '#120009' }}>
       <div className="reviews-intro">
         <p className="eyebrow" style={{ marginBottom: '12px' }}>
-          700+ FIVE-STAR REVIEWS
+          800+ FIVE-STAR REVIEWS
         </p>
         <h2
           style={{
