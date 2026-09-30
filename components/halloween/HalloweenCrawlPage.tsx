@@ -25,47 +25,22 @@ const flowStages = [
   {
     number: '01',
     title: 'ARRIVE & MEET',
-    copy: (
-      <>
-        <p>Start at our first nightlife venue in Bangkok.</p>
-        <p>Check in, meet your hosts, grab your welcome shot, and start meeting the people you'll be spending the night with.</p>
-        <p>No awkward standing around wondering who knows who.</p>
-      </>
-    ),
+    copy: <p>Check in, meet your hosts, grab your welcome shot and meet the people you'll be spending the night with.</p>,
   },
   {
     number: '02',
     title: 'TRICK OR DRINK',
-    copy: (
-      <>
-        <p>Before the crawl begins, we break the ice properly.</p>
-        <p>Our Halloween edition of Trick or Drink gets strangers talking, laughing and mixing before the energy goes up.</p>
-        <p>It's social by design — without turning the night into a forced networking event.</p>
-      </>
-    ),
+    copy: <p>A Halloween social game designed to get strangers talking before the night builds.</p>,
   },
   {
     number: '03',
     title: 'CRAWL BANGKOK',
-    copy: (
-      <>
-        <p>Once the group is moving, your hosts lead the night through a curated Bangkok nightlife route.</p>
-        <p>Transport is arranged between selected stops so you're not spending Halloween negotiating taxis, splitting groups or deciding where everyone should go next.</p>
-        <p className="border-l border-crimson pl-4 text-halloween-ivory">On Halloween, entry gets unpredictable fast. We plan the route and access in advance so you're not figuring it out on the street.</p>
-      </>
-    ),
+    copy: <p>Hosts lead the group through curated nightlife stops, with transport handled between selected venues.</p>,
   },
   {
     number: '04',
     title: 'FINISH TOGETHER',
-    copy: (
-      <>
-        <p>The energy builds toward the final Halloween stop.</p>
-        <p>Music up. Costumes out. Drinks flowing.</p>
-        <p>By this point, you're no longer walking into a club with a group of strangers.</p>
-        <p>You're arriving with your crew.</p>
-      </>
-    ),
+    copy: <p>The energy builds toward the Halloween finale. By then, you're arriving with your crew.</p>,
   },
 ]
 
@@ -136,7 +111,7 @@ export default function HalloweenCrawlPage() {
 function EventHeader() {
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-halloween-ivory/10 bg-halloween-bg/80 backdrop-blur-xl">
-      <div className="mx-auto grid max-w-[1240px] grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-5 py-3 sm:px-6 lg:flex lg:justify-between">
+      <div className="mx-auto grid max-w-[1240px] grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-5 py-2.5 sm:px-6 lg:flex lg:justify-between">
         <Link href="/" className="shrink-0">
           <Image src="/images/Nightlife Thailand LOGO.png" alt="Nightlife Thailand" width={144} height={144} className="h-9 w-9 object-contain sm:h-10 sm:w-10" />
         </Link>
@@ -176,23 +151,23 @@ function HeroSection({ ctaRef }: { ctaRef: React.RefObject<HTMLButtonElement> })
               width={2173}
               height={724}
               priority
-              className="h-auto w-full max-w-[360px] sm:max-w-[460px] lg:max-w-[580px] xl:max-w-[660px]"
+              className="h-auto w-full max-w-[360px] sm:max-w-[460px] lg:max-w-[650px] xl:max-w-[740px]"
             />
           </h1>
           <p className="mt-6 max-w-xl font-display text-[24px] leading-tight text-halloween-ivory sm:text-[28px]">Come in costume. Meet the crew. We'll handle the night.</p>
-          <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-halloween-muted sm:text-[17px]">A hosted Halloween route through Bangkok with social games, curated venues, transport and a final party stop — built so strangers become a group before the night really gets going.</p>
+          <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-halloween-muted sm:text-[17px] sm:leading-[1.7]">A hosted Halloween route through Bangkok with social games, curated venues, transport and a final party stop — built so strangers become a group before the night really gets going.</p>
           <p className="mt-6 border-y border-halloween-ivory/10 py-4 text-[12px] font-medium tracking-[0.08em] text-halloween-ivory sm:text-[13px]">Back for Year Three · Saturday, October 31 · Bangkok</p>
-          <div className="mt-7 sm:flex sm:items-end sm:gap-8">
+          <div className="mt-6 sm:mt-7 sm:flex sm:items-end sm:gap-8">
             <div>
-              <p className="text-[10px] font-semibold tracking-[0.22em] text-crimson">PRESALE</p>
-              <p className="font-display text-[64px] leading-none text-halloween-ivory sm:text-[76px]">฿990</p>
+              <p className="text-[10px] font-semibold tracking-[0.22em] text-crimson">EARLY BIRD</p>
+              <p className="font-display text-[64px] leading-none text-halloween-ivory sm:text-[76px]">฿1,200</p>
             </div>
             <div className="mt-3 pb-1 sm:mt-0">
-              <p className="text-[12px] text-halloween-muted sm:text-sm">Early Bird ฿1,200 · General Admission ฿1,500</p>
-              <p className="mt-2 text-[11px] font-semibold tracking-[0.08em] text-halloween-ivory">First 30 presale spots only</p>
+              <p className="text-[12px] text-halloween-muted sm:text-sm">Ends October 15</p>
+              <p className="mt-2 text-[11px] font-semibold tracking-[0.08em] text-halloween-ivory">Final Release ฿1,500 · From October 16</p>
             </div>
           </div>
-          <BokunButton ref={ctaRef} id="bokun_47c48f42_32e9_430d_9557_4fd9efe21c68" className="halloween-cta mt-7 w-full sm:w-auto">CLAIM MY PRESALE SPOT <MoveRight className="ml-3 h-4 w-4" /></BokunButton>
+          <BokunButton ref={ctaRef} id="bokun_47c48f42_32e9_430d_9557_4fd9efe21c68" className="halloween-cta mt-7 w-full sm:w-auto lg:!min-h-[56px] lg:!px-8 lg:!text-[13px]">GET EARLY BIRD <MoveRight className="ml-3 h-4 w-4" /></BokunButton>
           <p className="mt-4 text-[13px] leading-relaxed text-halloween-muted">Come solo or bring your friends. Either way, your Halloween night is sorted.</p>
           <a href="#the-night" className="mt-5 inline-flex items-center gap-2 text-[11px] font-semibold tracking-[0.12em] text-halloween-ivory">See how the night works <ArrowDown className="h-3.5 w-3.5 text-crimson" /></a>
         </div>
@@ -231,7 +206,7 @@ function ProblemSection() {
     <PageSection className="bg-halloween-surface/45" innerClassName="grid gap-10 lg:grid-cols-2 lg:gap-20">
       <div>
         <Eyebrow>WHY THIS EXISTS</Eyebrow>
-        <h2 className="mt-4 font-display text-[40px] leading-[0.98] sm:text-5xl lg:text-[62px]">HALLOWEEN IN BANGKOK GETS BUSY FAST.</h2>
+        <h2 className="mt-4 text-[clamp(28px,8.5vw,40px)] font-display leading-[0.98] sm:text-5xl lg:text-[62px]">HALLOWEEN IN BANGKOK GETS BUSY FAST.</h2>
         <div className="mt-7 space-y-4 text-[16px] leading-relaxed text-halloween-muted lg:max-w-lg">
           <p>The city fills up.</p>
           <p>Venues get packed. Entry gets unpredictable. Groups split. And half the night can disappear deciding where to go next.</p>
@@ -239,7 +214,7 @@ function ProblemSection() {
         </div>
       </div>
       <div className="lg:pt-20">
-        <p className="border-l-2 border-crimson pl-5 font-display text-[30px] leading-tight text-halloween-ivory sm:text-[38px]">A hosted Halloween night through Bangkok — curated, social, and handled from start to finish.</p>
+        <p className="border-l-2 border-crimson pl-5 text-[17px] font-semibold leading-snug text-halloween-ivory sm:text-[19px]">A hosted Halloween night through Bangkok — curated, social, and handled from start to finish.</p>
         <div className="mt-8 space-y-4 text-[16px] leading-relaxed text-halloween-muted">
           <p>We plan the route and access in advance.</p>
           <p>Your hosts keep the group moving together.</p>
@@ -256,7 +231,7 @@ function NightFlowTimeline() {
   return (
     <PageSection id="the-night">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-        <div><Eyebrow>THE NIGHT</Eyebrow><h2 className="mt-4 font-display text-[40px] leading-none sm:text-5xl lg:text-[64px]">ONE NIGHT. BUILT TO FLOW.</h2></div>
+        <div><Eyebrow>THE NIGHT</Eyebrow><h2 className="mt-4 text-[clamp(30px,8.5vw,40px)] font-display leading-none sm:text-5xl lg:text-[64px]">ONE NIGHT. BUILT TO FLOW.</h2></div>
         <p className="text-[11px] font-semibold tracking-[0.18em] text-crimson sm:text-xs">MEET → CONNECT → CRAWL → FINALE</p>
       </div>
       <ol className="relative mt-14 grid gap-0 border-l border-crimson/50 pl-7 lg:grid-cols-4 lg:border-l-0 lg:border-t lg:pl-0">
@@ -269,7 +244,8 @@ function NightFlowTimeline() {
           </li>
         ))}
       </ol>
-      <div className="mt-14 grid grid-cols-2 gap-2 lg:mt-20 lg:h-[320px] lg:grid-cols-[1.3fr_0.7fr]">
+      <p className="mt-14 flex items-center gap-3 text-[10px] font-semibold tracking-[0.22em] text-crimson lg:mt-20"><span className="h-px w-8 bg-crimson" />REAL HALLOWEEN · BANGKOK</p>
+      <div className="mt-4 grid grid-cols-2 gap-2 lg:h-[320px] lg:grid-cols-[1.3fr_0.7fr]">
         <EditorialImage src="/halloween/halloween-night-1.jpg" alt="Entry wristband stamp at a Halloween Crawl venue" className="aspect-[4/3] lg:aspect-auto lg:h-full" lightbox />
         <EditorialImage src="/halloween/halloween-night-2.jpg" alt="Bottle service at a Halloween Crawl venue" className="aspect-[4/3] lg:aspect-auto lg:h-full" lightbox />
       </div>
@@ -283,7 +259,7 @@ function SoloSection() {
       <EditorialImage src="/halloween/halloween-come-solo.jpg" alt="Solo guests connecting with the Halloween group" className="aspect-[4/5] sm:aspect-[4/3] lg:aspect-[4/5]" position="object-center" />
       <div>
         <Eyebrow>COME SOLO</Eyebrow>
-        <h2 className="mt-4 font-display text-[40px] leading-[0.98] sm:text-5xl lg:text-[60px]">COMING ALONE? THAT'S NORMAL HERE.</h2>
+        <h2 className="mt-4 text-[clamp(28px,8.5vw,40px)] font-display leading-[0.98] sm:text-5xl lg:text-[60px]">COMING ALONE? THAT'S NORMAL HERE.</h2>
         <div className="mt-7 space-y-4 text-[16px] leading-relaxed text-halloween-muted">
           <p>A lot of our guests show up solo.</p>
           <p>You're not walking into a room where everybody already knows each other.</p>
@@ -293,7 +269,7 @@ function SoloSection() {
           {['Travelling Bangkok alone', 'New to the city', 'Living here and looking for a different crowd', 'Coming with one friend', 'Bringing your own group'].map((item) => <li key={item} className="flex items-center gap-3 py-3"><span className="h-1 w-1 rounded-full bg-crimson" />{item}</li>)}
         </ul>
         <p className="mt-6 text-[15px] text-halloween-muted">You're joining the same night together.</p>
-        <p className="mt-8 font-display text-[38px] leading-[1.02] text-halloween-ivory sm:text-[48px]">Come alone. Leave with people you actually know.</p>
+        <p className="mt-8 font-display text-[38px] leading-[1.02] text-halloween-ivory sm:text-[48px]"><span className="text-crimson">COME ALONE.</span><br />Leave with people you actually know.</p>
       </div>
     </PageSection>
   )
@@ -301,10 +277,10 @@ function SoloSection() {
 
 function InclusionsSection() {
   return (
-    <PageSection id="included" innerClassName="grid gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:gap-20">
+    <PageSection id="included" innerClassName="grid gap-12 lg:grid-cols-[1fr_1fr] lg:items-center lg:gap-20">
       <div>
         <Eyebrow>WHAT'S INCLUDED</Eyebrow>
-        <h2 className="mt-4 font-display text-[40px] leading-none sm:text-5xl lg:text-[62px]">YOUR HALLOWEEN NIGHT, HANDLED.</h2>
+        <h2 className="mt-4 text-[clamp(28px,8.5vw,40px)] font-display leading-none sm:text-5xl lg:text-[62px]">YOUR HALLOWEEN NIGHT, HANDLED.</h2>
         <p className="mt-6 text-[16px] text-halloween-muted">Your ticket includes:</p>
         <ul className="mt-7 grid gap-x-8 sm:grid-cols-2">
           {inclusions.map((item) => <li key={item} className="flex gap-3 border-t border-halloween-ivory/10 py-4 text-[14px] leading-relaxed text-halloween-ivory"><Check className="mt-0.5 h-4 w-4 shrink-0 text-crimson" />{item}</li>)}
@@ -324,8 +300,8 @@ function YearThreeSection() {
   return (
     <PageSection className="relative overflow-hidden border-y border-halloween-ivory/10 bg-halloween-surface/45">
       <div className="pointer-events-none absolute -right-5 top-1/2 -translate-y-1/2 font-display text-[240px] leading-none text-crimson/5 sm:text-[380px]">03</div>
-      <Eyebrow>ESTABLISHED IN BANGKOK</Eyebrow>
-      <h2 className="mt-4 font-display text-[44px] leading-none sm:text-6xl lg:text-[72px]">BACK FOR YEAR THREE.</h2>
+      <Eyebrow>YEAR THREE · BANGKOK</Eyebrow>
+      <h2 className="mt-4 text-[clamp(32px,9vw,44px)] font-display leading-none sm:text-6xl lg:text-[72px]">BACK FOR YEAR THREE.</h2>
       <ol className="relative mt-12 grid gap-8 md:grid-cols-3 md:gap-0">
         {[['2024', 'The first Bangkok Halloween Crawl.'], ['2025', '60+ guests joined us for one of our biggest nights of the year.'], ['2026', "We're back on Saturday, October 31."]].map(([year, copy]) => <li key={year} className="border-l border-crimson pl-5 md:border-l-0 md:border-t md:px-6 md:pt-6"><p className="font-display text-[42px] text-crimson">{year}</p><p className="mt-2 max-w-xs text-[15px] leading-relaxed text-halloween-muted">{copy}</p></li>)}
       </ol>
@@ -339,21 +315,21 @@ function PricingSection() {
     <PageSection id="tickets" className="bg-crimson/[0.035]" innerClassName="grid overflow-hidden border border-crimson/30 bg-halloween-surface lg:grid-cols-[1.08fr_0.92fr]">
       <div className="p-6 sm:p-10 lg:p-14">
         <Eyebrow>TICKET RELEASES</Eyebrow>
-        <h2 className="mt-4 font-display text-[40px] leading-none sm:text-5xl lg:text-[60px]">LOCK IN HALLOWEEN EARLY.</h2>
+        <h2 className="mt-4 text-[clamp(28px,8.5vw,40px)] font-display leading-none sm:text-5xl lg:text-[60px]">EARLY BIRD IS LIVE.</h2>
         <div className="mt-9 border-y border-crimson/35 py-7">
-          <p className="text-[11px] font-bold tracking-[0.2em] text-crimson">PRESALE</p>
-          <p className="mt-1 font-display text-[82px] leading-none text-halloween-ivory sm:text-[96px]">฿990</p>
-          <p className="mt-3 text-[13px] font-semibold text-halloween-ivory">First 30 spots only</p>
+          <p className="text-[11px] font-bold tracking-[0.2em] text-crimson">EARLY BIRD</p>
+          <p className="mt-1 font-display text-[82px] leading-none text-halloween-ivory sm:text-[96px]">฿1,200</p>
+          <p className="mt-3 text-[13px] font-semibold text-halloween-ivory">Ends October 15</p>
         </div>
         <dl className="grid grid-cols-2 divide-x divide-halloween-ivory/10 border-b border-halloween-ivory/10">
-          <div className="py-5 pr-5"><dt className="text-[10px] font-semibold tracking-[0.16em] text-halloween-muted">EARLY BIRD</dt><dd className="mt-2 font-display text-3xl text-halloween-ivory">฿1,200</dd></div>
-          <div className="py-5 pl-5"><dt className="text-[10px] font-semibold tracking-[0.16em] text-halloween-muted">GENERAL ADMISSION</dt><dd className="mt-2 font-display text-3xl text-halloween-ivory">฿1,500</dd></div>
+          <div className="py-5 pr-5"><dt className="text-[10px] font-semibold tracking-[0.16em] text-halloween-muted/70">PRESALE · CLOSED</dt><dd className="mt-2 font-display text-3xl text-halloween-muted/50 line-through">฿990</dd></div>
+          <div className="py-5 pl-5"><dt className="text-[10px] font-semibold tracking-[0.16em] text-halloween-muted">FINAL RELEASE · FROM OCT 16</dt><dd className="mt-2 font-display text-3xl text-halloween-ivory">฿1,500</dd></div>
         </dl>
         <div className="mt-6 grid grid-cols-2 gap-x-6 gap-y-3 text-[12px] text-halloween-muted sm:grid-cols-3">
           <span>Saturday, October 31</span><span>9:30 PM</span><span>Bangkok</span><span>Age 20+</span><span>Reservation only</span>
         </div>
-        <BokunButton id="bokun_c3048926_8d5f_4eac_9034_7f9bac4e3d52" className="halloween-cta mt-8 w-full sm:w-auto">CLAIM MY PRESALE SPOT <MoveRight className="ml-3 h-4 w-4" /></BokunButton>
-        <p className="mt-4 text-[12px] text-halloween-muted">Presale closes when the first 30 spots are taken.</p>
+        <BokunButton id="bokun_c3048926_8d5f_4eac_9034_7f9bac4e3d52" className="halloween-cta mt-8 w-full sm:w-auto">GET EARLY BIRD <MoveRight className="ml-3 h-4 w-4" /></BokunButton>
+        <p className="mt-4 text-[12px] text-halloween-muted">Early Bird pricing ends October 15.</p>
       </div>
       <div className="relative min-h-[420px] lg:min-h-0">
         <Image src="/halloween/halloween-ticket-releases.jpg" alt="Guests lining up for entry at the Halloween Crawl" fill quality={IMAGE_QUALITY} sizes="(min-width: 1024px) 40vw, 100vw" className="object-cover" />
@@ -369,18 +345,18 @@ function BookingReasonsSection() {
     <PageSection innerClassName="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-20">
       <div>
         <Eyebrow>WHY BOOK NOW</Eyebrow>
-        <h2 className="mt-4 font-display text-[40px] leading-[0.98] sm:text-5xl lg:text-[58px]">DON'T WAIT UNTIL HALLOWEEN WEEK TO FIGURE OUT HALLOWEEN.</h2>
+        <h2 className="mt-4 text-[clamp(26px,7.5vw,40px)] font-display leading-[0.98] sm:text-5xl lg:text-[58px]">DON'T WAIT UNTIL HALLOWEEN WEEK TO FIGURE OUT HALLOWEEN.</h2>
         <div className="mt-6 space-y-4 text-[16px] leading-relaxed text-halloween-muted">
           <p>October 31 is one of Bangkok nightlife's busiest nights of the year.</p>
-          <p>Venues get busy. Transport gets harder to arrange. And the presale tier disappears the moment the first 30 spots are gone.</p>
-          <p>Booking early isn't about beating a deadline. It's how you guarantee the easy version of the night — sorted before you even show up.</p>
+          <p>Venues get busy, access gets less predictable, and getting a group from place to place becomes harder.</p>
+          <p>Booking now means your Halloween plan is already handled before the night arrives.</p>
         </div>
       </div>
       <div>
-        <p className="text-[14px] font-semibold tracking-[0.08em] text-halloween-ivory">Book early and:</p>
-        <ul className="mt-4 divide-y divide-halloween-ivory/10 border-y border-halloween-ivory/10">{['Lock in the lowest ticket price', 'Secure your place before capacity fills', 'Join the confirmed guest group', 'Receive route and event updates directly', "Stop worrying about what you're doing on Halloween"].map((item) => <li key={item} className="flex gap-3 py-4 text-[15px] text-halloween-muted"><Check className="h-4 w-4 shrink-0 text-crimson" />{item}</li>)}</ul>
+        <p className="text-[14px] font-semibold tracking-[0.08em] text-halloween-ivory">Book now and:</p>
+        <ul className="mt-4 divide-y divide-halloween-ivory/10 border-y border-halloween-ivory/10">{['Lock in the current ฿1,200 rate', 'Secure your place before the final release', 'Join the confirmed guest group', 'Receive route and event updates directly', "Stop worrying about what you're doing on Halloween"].map((item) => <li key={item} className="flex gap-3 py-4 text-[15px] text-halloween-muted"><Check className="h-4 w-4 shrink-0 text-crimson" />{item}</li>)}</ul>
         <h3 className="mt-8 font-display text-[34px] leading-tight text-halloween-ivory">Book it now. Sort the costume later.</h3>
-        <BokunButton id="bokun_d4159a37_9e60_4fbd_a145_8a0bcd5f4e63" className="halloween-cta mt-6 w-full sm:w-auto">RESERVE MY PLACE</BokunButton>
+        <BokunButton id="bokun_d4159a37_9e60_4fbd_a145_8a0bcd5f4e63" className="halloween-cta mt-6 w-full sm:w-auto">GET EARLY BIRD <MoveRight className="ml-3 h-4 w-4" /></BokunButton>
       </div>
     </PageSection>
   )
@@ -391,7 +367,7 @@ function FAQSection() {
     <PageSection id="faq" className="border-y border-halloween-ivory/10 bg-halloween-surface/35">
       <div className="mx-auto max-w-[900px]">
         <Eyebrow>FAQ</Eyebrow>
-        <h2 className="mt-4 font-display text-[40px] leading-none sm:text-5xl lg:text-[58px]">FREQUENTLY ASKED QUESTIONS</h2>
+        <h2 className="mt-4 text-[clamp(28px,8.5vw,40px)] font-display leading-none sm:text-5xl lg:text-[58px]">FREQUENTLY ASKED QUESTIONS</h2>
         <div className="mt-10 border-t border-halloween-ivory/15">
           {faqs.map(([question, answer]) => (
             <details key={question as string} className="group border-b border-halloween-ivory/15">
@@ -415,16 +391,16 @@ function FinalCTA() {
       <div className="mx-auto w-full max-w-[1240px]">
         <div className="max-w-2xl">
           <Eyebrow>OCTOBER 31 · BANGKOK</Eyebrow>
-          <h2 className="mt-4 font-display text-[46px] leading-[0.93] text-halloween-ivory sm:text-6xl lg:text-[76px]">YOUR HALLOWEEN NIGHT IS SORTED.</h2>
+          <h2 className="mt-4 text-[clamp(30px,8.5vw,46px)] font-display leading-[0.93] text-halloween-ivory sm:text-6xl lg:text-[76px]">YOUR HALLOWEEN NIGHT IS SORTED.</h2>
           <p className="mt-6 font-display text-[24px] leading-tight text-halloween-ivory">Costume: your problem.<br />Everything else: we've got it.</p>
           <div className="mt-8 border-y border-halloween-ivory/15 py-6">
             <p className="text-[13px] font-semibold tracking-[0.15em] text-halloween-ivory">BANGKOK HALLOWEEN CRAWL 2026</p>
             <p className="mt-2 text-[14px] text-halloween-muted">Saturday, October 31 · 9:30 PM</p>
-            <p className="mt-5 font-display text-[52px] leading-none text-halloween-ivory">PRESALE ฿990</p>
-            <p className="mt-2 text-[12px] font-semibold text-crimson">First 30 spots</p>
-            <p className="mt-3 text-[13px] text-halloween-muted">Early Bird ฿1,200 · General Admission ฿1,500</p>
+            <p className="mt-5 font-display text-[52px] leading-none text-halloween-ivory">EARLY BIRD ฿1,200</p>
+            <p className="mt-2 text-[12px] font-semibold text-crimson">Ends October 15</p>
+            <p className="mt-3 text-[13px] text-halloween-muted">Final Release ฿1,500 · From October 16</p>
           </div>
-          <BokunButton id="bokun_e526ab48_af71_40ce_b256_9b1cde6a5f74" className="halloween-cta mt-7 w-full sm:w-auto">CLAIM MY PRESALE SPOT <MoveRight className="ml-3 h-4 w-4" /></BokunButton>
+          <BokunButton id="bokun_e526ab48_af71_40ce_b256_9b1cde6a5f74" className="halloween-cta mt-7 w-full sm:w-auto">GET EARLY BIRD <MoveRight className="ml-3 h-4 w-4" /></BokunButton>
           <p className="mt-7 text-[11px] font-semibold tracking-[0.12em] text-halloween-muted">Presented by BEST Nightlife Thailand<br /><span className="mt-2 inline-block">From the team behind Bangkok Club Crawl</span></p>
         </div>
       </div>
@@ -446,7 +422,7 @@ function EventFooter() {
 function MobileStickyCTA({ show }: { show: boolean }) {
   return (
     <div className={`fixed inset-x-0 bottom-0 z-50 border-t border-halloween-ivory/10 bg-halloween-bg/95 p-3 backdrop-blur-xl transition-transform duration-300 lg:hidden ${show ? 'translate-y-0' : 'translate-y-full'}`}>
-      <BokunButton id="bokun_f637bc59_ba82_41df_c367_ac2def7b6085" className="halloween-cta w-full !min-h-12">PRESALE ฿990 · CLAIM MY SPOT</BokunButton>
+      <BokunButton id="bokun_f637bc59_ba82_41df_c367_ac2def7b6085" className="halloween-cta w-full !min-h-12">EARLY BIRD ฿1,200 · GET TICKETS</BokunButton>
     </div>
   )
 }
