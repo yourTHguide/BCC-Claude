@@ -157,7 +157,7 @@ function HeroSection({ ctaRef }: { ctaRef: React.RefObject<HTMLButtonElement> })
       <div className="absolute inset-x-0 top-0 h-[430px] sm:h-[520px] lg:inset-y-0 lg:left-auto lg:h-auto lg:w-[56%]">
         <Image
           src="/halloween/halloween-header.jpg"
-          alt="Costumed guests celebrating together at Bangkok Halloween Crawl"
+          alt="Three costumed women walking through Bangkok's nightlife streets on Halloween"
           fill
           priority
           quality={IMAGE_QUALITY}
@@ -167,10 +167,17 @@ function HeroSection({ ctaRef }: { ctaRef: React.RefObject<HTMLButtonElement> })
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-halloween-bg lg:bg-gradient-to-r lg:from-halloween-bg lg:via-halloween-bg/25 lg:to-transparent" />
       </div>
       <div className="relative mx-auto flex max-w-[1240px] px-5 pb-14 sm:px-6 lg:h-full lg:items-center lg:pb-0">
-        <div className="w-full pt-5 lg:max-w-[650px] lg:py-28">
+        <div className="w-full pt-5 lg:max-w-[650px] lg:py-[92px]">
           <p className="mb-5 flex items-center gap-3 text-[10px] font-semibold tracking-[0.24em] text-halloween-muted sm:text-[11px]"><span className="h-px w-9 bg-crimson" />BEST NIGHTLIFE THAILAND PRESENTS</p>
-          <h1 className="font-display text-[48px] leading-[0.88] text-halloween-ivory sm:text-[62px] lg:text-[92px] xl:text-[104px]">
-            BANGKOK<br />HALLOWEEN<br /><span className="italic text-crimson">CRAWL</span> 2026
+          <h1>
+            <Image
+              src="/halloween/halloween-logo.png"
+              alt="Bangkok Halloween Crawl 2026"
+              width={2173}
+              height={724}
+              priority
+              className="h-auto w-full max-w-[360px] sm:max-w-[460px] lg:max-w-[580px] xl:max-w-[660px]"
+            />
           </h1>
           <p className="mt-6 max-w-xl font-display text-[24px] leading-tight text-halloween-ivory sm:text-[28px]">Come in costume. Meet the crew. We'll handle the night.</p>
           <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-halloween-muted sm:text-[17px]">A hosted Halloween route through Bangkok with social games, curated venues, transport and a final party stop — built so strangers become a group before the night really gets going.</p>
@@ -208,11 +215,11 @@ function SocialProofGallery() {
         <p className="mt-7 text-[11px] font-semibold tracking-[0.13em] text-halloween-ivory">See what last Halloween looked like ↓</p>
       </div>
       <div className="relative grid h-[560px] grid-cols-12 grid-rows-12 gap-2 sm:h-[680px] lg:h-[610px]">
-        <GalleryImage src="/halloween/halloween-last-1.jpg" alt="Halloween guests smiling together in Bangkok" className="col-span-8 row-span-7" />
-        <GalleryImage src="/halloween/halloween-last-2.jpg" alt="Costumed guests seated together at the event" className="col-span-4 row-span-5" />
-        <GalleryImage src="/halloween/halloween-last-3.jpg" alt="Halloween guests gathering around a table" className="col-span-4 row-span-7" />
+        <GalleryImage src="/halloween/halloween-last-1.jpg" alt="Guests dressed as Disney princesses at the Halloween Crawl" className="col-span-8 row-span-7" />
+        <GalleryImage src="/halloween/halloween-last-2.jpg" alt="Two friends taking a shot together at the Halloween Crawl" className="col-span-4 row-span-5" />
+        <GalleryImage src="/halloween/halloween-last-3.jpg" alt="A trio of friends in Halloween costumes" className="col-span-4 row-span-7" />
         <GalleryImage src="/halloween/halloween-last-4.jpg" alt="A group of guests in Halloween face paint" className="col-span-5 row-span-5" />
-        <GalleryImage src="/halloween/halloween-last-5.jpg" alt="Friends enjoying last year's Halloween crawl" className="col-span-3 row-span-5" />
+        <GalleryImage src="/halloween/halloween-last-5.jpg" alt="A guest singing into a microphone during the Halloween Crawl" className="col-span-3 row-span-5" />
         <p className="pointer-events-none absolute bottom-4 left-4 bg-halloween-bg/80 px-3 py-2 text-[9px] font-semibold tracking-[0.18em] text-halloween-ivory">BANGKOK · HALLOWEEN 2025</p>
       </div>
     </PageSection>
@@ -262,9 +269,9 @@ function NightFlowTimeline() {
           </li>
         ))}
       </ol>
-      <div className="mt-14 grid grid-cols-2 gap-2 lg:mt-24 lg:grid-cols-[1.3fr_0.7fr]">
-        <EditorialImage src="/halloween/halloween-night-1.jpg" alt="Guests checking in at the first Halloween venue" className="aspect-[4/3] lg:aspect-[16/6]" lightbox />
-        <EditorialImage src="/halloween/halloween-night-2.jpg" alt="The Halloween group celebrating together under red lights" className="aspect-[4/3] lg:aspect-[16/6]" lightbox />
+      <div className="mt-14 grid grid-cols-2 gap-2 lg:mt-20 lg:h-[320px] lg:grid-cols-[1.3fr_0.7fr]">
+        <EditorialImage src="/halloween/halloween-night-1.jpg" alt="Entry wristband stamp at a Halloween Crawl venue" className="aspect-[4/3] lg:aspect-auto lg:h-full" lightbox />
+        <EditorialImage src="/halloween/halloween-night-2.jpg" alt="Bottle service at a Halloween Crawl venue" className="aspect-[4/3] lg:aspect-auto lg:h-full" lightbox />
       </div>
     </PageSection>
   )
@@ -305,7 +312,10 @@ function InclusionsSection() {
         <p className="mt-7 text-[15px] leading-relaxed text-halloween-muted">Confirmed guests join the event group for updates, introductions and final night details.</p>
         <p className="mt-4 text-[12px] leading-relaxed text-halloween-muted/80">Exact venue lineup and final meeting point will be shared with confirmed guests before the event.</p>
       </div>
-      <EditorialImage src="/halloween/halloween-whats-included.jpg" alt="A host serving welcome shots at the Halloween event" className="aspect-[4/5]" />
+      <div className="grid grid-rows-2 gap-2 aspect-[4/5]">
+        <EditorialImage src="/halloween/halloween-trick-or-drink.jpg" alt="Guests playing Trick or Drink at the Halloween Crawl" className="h-full" />
+        <EditorialImage src="/halloween/halloween-transportation.jpg" alt="Group transport between Halloween Crawl venues" className="h-full" />
+      </div>
     </PageSection>
   )
 }
@@ -346,7 +356,7 @@ function PricingSection() {
         <p className="mt-4 text-[12px] text-halloween-muted">Presale closes when the first 30 spots are taken.</p>
       </div>
       <div className="relative min-h-[420px] lg:min-h-0">
-        <Image src="/halloween/halloween-ticket-releases.jpg" alt="Large hosted nightlife gathering overlooking the Bangkok skyline" fill quality={IMAGE_QUALITY} sizes="(min-width: 1024px) 40vw, 100vw" className="object-cover" />
+        <Image src="/halloween/halloween-ticket-releases.jpg" alt="Guests lining up for entry at the Halloween Crawl" fill quality={IMAGE_QUALITY} sizes="(min-width: 1024px) 40vw, 100vw" className="object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-halloween-surface via-transparent to-transparent lg:bg-gradient-to-r lg:from-halloween-surface/70 lg:to-transparent" />
         <div className="absolute bottom-6 left-6 flex items-center gap-2 text-[10px] font-semibold tracking-[0.16em] text-halloween-ivory"><MapPin className="h-3.5 w-3.5 text-crimson" />BANGKOK · OCTOBER 31</div>
       </div>
@@ -399,8 +409,8 @@ function FAQSection() {
 
 function FinalCTA() {
   return (
-    <section className="relative isolate flex min-h-[760px] items-end overflow-hidden px-5 py-20 sm:px-6 sm:py-24 lg:min-h-[820px] lg:items-center">
-      <Image src="/halloween/halloween-final-cta.jpg" alt="Bangkok nightlife crowd at the final party stop" fill quality={IMAGE_QUALITY} sizes="100vw" className="-z-20 object-cover" />
+    <section className="relative isolate flex min-h-[760px] items-end overflow-hidden px-5 py-16 sm:px-6 sm:py-20 lg:min-h-[820px] lg:items-center lg:py-[106px]">
+      <Image src="/halloween/halloween-final-cta.jpg" alt="Neon lights reflecting on a rainy Bangkok Soi 11 street at night" fill quality={IMAGE_QUALITY} sizes="100vw" className="-z-20 object-cover" />
       <div className="absolute inset-0 -z-10 bg-gradient-to-b from-halloween-bg/55 via-halloween-bg/75 to-halloween-bg lg:bg-gradient-to-r lg:from-halloween-bg lg:via-halloween-bg/85 lg:to-halloween-bg/40" />
       <div className="mx-auto w-full max-w-[1240px]">
         <div className="max-w-2xl">
@@ -442,7 +452,7 @@ function MobileStickyCTA({ show }: { show: boolean }) {
 }
 
 function PageSection({ children, className = '', innerClassName = '', id }: { children: ReactNode; className?: string; innerClassName?: string; id?: string }) {
-  return <section id={id} className={`px-5 py-20 sm:px-6 sm:py-24 lg:py-32 ${className}`}><div className={`relative mx-auto max-w-[1240px] ${innerClassName}`}>{children}</div></section>
+  return <section id={id} className={`px-5 py-16 sm:px-6 sm:py-20 lg:py-[106px] ${className}`}><div className={`relative mx-auto max-w-[1240px] ${innerClassName}`}>{children}</div></section>
 }
 
 function Eyebrow({ children }: { children: ReactNode }) {

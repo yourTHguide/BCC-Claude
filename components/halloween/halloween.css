@@ -6,21 +6,21 @@
  * BCC-Claude's global design tokens in app/globals.css.
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Anton&display=swap');
 
 .halloween-page {
-  --crimson: oklch(0.58 0.25 16); /* ~#EA003A */
-  --halloween-bg: oklch(0.145 0.022 349);
-  --halloween-surface: oklch(0.19 0.025 350);
-  --halloween-ivory: oklch(0.92 0.035 78);
-  --halloween-muted: oklch(0.76 0.018 45);
-  --halloween-bright: oklch(0.64 0.26 18);
+  --crimson: #ff1818;
+  --halloween-bg: #11070c;
+  --halloween-surface: #1c0f15;
+  --halloween-ivory: #f2e2cb;
+  --halloween-muted: #bbaea8;
+  --halloween-bright: #ff4d4d;
 }
 
 .halloween-page .font-display {
-  font-family: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;
-  font-weight: 500;
-  letter-spacing: -0.015em;
+  font-family: 'Anton', 'Arial Narrow', sans-serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
 }
 
 .halloween-grain {
