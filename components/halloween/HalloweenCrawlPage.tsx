@@ -25,44 +25,45 @@ const flowStages = [
   {
     number: '01',
     title: 'ARRIVE & MEET',
-    copy: <p>Check in, meet your hosts, grab your welcome shot and meet the people you'll be spending the night with.</p>,
+    copy: <p>Venue 1 — check in, meet your hosts, grab your first welcome Halloween shot and meet the people you'll be spending the night with.</p>,
   },
   {
     number: '02',
     title: 'TRICK OR DRINK',
-    copy: <p>A Halloween social game designed to get strangers talking before the night builds.</p>,
+    copy: <p>Still at the first stop — Halloween social games, introductions and the social warm-up before the crawl begins.</p>,
   },
   {
     number: '03',
     title: 'CRAWL BANGKOK',
-    copy: <p>Hosts lead the group through curated nightlife stops, with transport handled between selected venues.</p>,
+    copy: <p>Move through Venues 2 and 3 with your hosts, with group transport handled between stops.</p>,
   },
   {
     number: '04',
     title: 'FINISH TOGETHER',
-    copy: <p>The energy builds toward the Halloween finale. By then, you're arriving with your crew.</p>,
+    copy: <p>The final venue becomes the Halloween finale. By then, you're arriving with your crew.</p>,
   },
 ]
 
 const inclusions = [
   'Hosted Halloween nightlife experience',
-  'Curated multi-venue Bangkok route',
+  '3 curated Bangkok nightlife venues',
   'Halloween social games including Trick or Drink',
-  'Welcome shot at selected stops',
-  'Pre-arranged access to selected nightlife venues',
-  'Group transport between selected crawl stops',
+  'Welcome Halloween shot at every venue',
+  'Pre-arranged access to all 3 venues',
+  'Group transport between venues',
   'Event hosts throughout the night',
   'Official event WhatsApp group',
 ]
 
 const faqs = [
   ['Can I come alone?', <>Absolutely.<br /><br />Solo guests are a big part of the crowd, and the experience is designed to help people connect naturally from the beginning.</>],
+  ['What does my ticket include?', <>Your ticket covers the full hosted experience: 3 curated nightlife venues, one welcome Halloween shot at each venue, pre-arranged venue access, group transport between stops, Halloween social games, event hosts and the official event WhatsApp group.</>],
   ['Do I have to wear a costume?', <>Costumes are strongly encouraged, but not mandatory.<br /><br />Halloween is more fun when everyone commits a little, though.</>],
   ['Where do we meet?', <>The event will begin at a nightlife venue in central Bangkok.<br /><br />The confirmed meeting point and final event instructions will be sent to booked guests before the event.</>],
   ['What time does it start?', <>The experience officially starts at 9:30 PM.<br /><br />We recommend arriving by approximately 9:20 PM for check-in.<br /><br />The group moves together, so arriving on time matters.</>],
   ['How old do I need to be?', <>Guests must be 20 years or older.<br /><br />Valid photo identification may be required by venues.</>],
-  ['Are drinks included?', <>A welcome shot is included at selected stops.<br /><br />Any additional drinks, food or personal purchases are paid individually.</>],
-  ['Is transportation included?', <>Group transportation is arranged between selected crawl stops.<br /><br />Transportation to the first meeting point and home from the final venue is not included.</>],
+  ['Are drinks included?', <>A welcome Halloween shot is included at every venue.<br /><br />Additional drinks are not included.</>],
+  ['Is transportation included?', <>Yes. Group transport between venues is included.<br /><br />Transport to the first meeting point and from the final venue is not included unless otherwise stated.</>],
   ['Do I need to know anyone before coming?', <>No.<br /><br />That is basically the point.<br /><br />Come solo, come with one person, or bring friends — the hosts are there to help turn everyone into one group.</>],
   ['Are walk-ins allowed?', <>No.<br /><br />This is a reservation-only event.<br /><br />You must book before sales close or the event reaches capacity.</>],
   ['When will the venues be announced?', <>Final venue and route details will be shared with confirmed guests once arrangements are finalized.</>],
@@ -155,7 +156,7 @@ function HeroSection({ ctaRef }: { ctaRef: React.RefObject<HTMLButtonElement> })
             />
           </h1>
           <p className="mt-6 max-w-xl font-display text-[24px] leading-tight text-halloween-ivory sm:text-[28px]">Come in costume. Meet the crew. We'll handle the night.</p>
-          <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-halloween-muted sm:text-[17px] sm:leading-[1.7]">A hosted Halloween route through Bangkok with social games, curated venues, transport and a final party stop — built so strangers become a group before the night really gets going.</p>
+          <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-halloween-muted sm:text-[17px] sm:leading-[1.7]">A hosted Halloween night through Bangkok with 3 curated venues, social games, welcome shots, group transport and a final party stop — built so strangers become a group before the night really gets going.</p>
           <p className="mt-6 border-y border-halloween-ivory/10 py-4 text-[12px] font-medium tracking-[0.08em] text-halloween-ivory sm:text-[13px]">Back for Year Three · Saturday, October 31 · Bangkok</p>
           <div className="mt-6 sm:mt-7 sm:flex sm:items-end sm:gap-8">
             <div>
@@ -167,7 +168,8 @@ function HeroSection({ ctaRef }: { ctaRef: React.RefObject<HTMLButtonElement> })
               <p className="mt-2 text-[11px] font-semibold tracking-[0.08em] text-halloween-ivory">Final Release ฿1,500 · From October 16</p>
             </div>
           </div>
-          <BokunButton ref={ctaRef} id="bokun_47c48f42_32e9_430d_9557_4fd9efe21c68" className="halloween-cta mt-7 w-full sm:w-auto lg:!min-h-[56px] lg:!px-8 lg:!text-[13px]">GET EARLY BIRD <MoveRight className="ml-3 h-4 w-4" /></BokunButton>
+          <p className="mt-3 text-[11px] leading-relaxed text-halloween-muted/80 sm:text-[12px]">3 venues · 3 welcome shots · transport · hosts · social games</p>
+          <BokunButton ref={ctaRef} id="bokun_47c48f42_32e9_430d_9557_4fd9efe21c68" className="halloween-cta mt-5 w-full sm:w-auto lg:!min-h-[56px] lg:!px-8 lg:!text-[13px]">GET EARLY BIRD <MoveRight className="ml-3 h-4 w-4" /></BokunButton>
           <p className="mt-4 text-[13px] leading-relaxed text-halloween-muted">Come solo or bring your friends. Either way, your Halloween night is sorted.</p>
           <a href="#the-night" className="mt-5 inline-flex items-center gap-2 text-[11px] font-semibold tracking-[0.12em] text-halloween-ivory">See how the night works <ArrowDown className="h-3.5 w-3.5 text-crimson" /></a>
         </div>
@@ -218,7 +220,7 @@ function ProblemSection() {
         <div className="mt-8 space-y-4 text-[16px] leading-relaxed text-halloween-muted">
           <p>We plan the route and access in advance.</p>
           <p>Your hosts keep the group moving together.</p>
-          <p>Transport between selected stops is arranged.</p>
+          <p>Transport between venues is arranged.</p>
           <p>And the night builds naturally from meeting people into actually going out together.</p>
         </div>
         <p className="mt-8 font-display text-[26px] italic text-halloween-ivory">You bring the costume. We handle the flow.</p>
@@ -281,7 +283,7 @@ function InclusionsSection() {
       <div>
         <Eyebrow>WHAT'S INCLUDED</Eyebrow>
         <h2 className="mt-4 text-[clamp(28px,8.5vw,40px)] font-display leading-none sm:text-5xl lg:text-[62px]">YOUR HALLOWEEN NIGHT, HANDLED.</h2>
-        <p className="mt-6 text-[16px] text-halloween-muted">Your ticket includes:</p>
+        <p className="mt-6 text-[16px] text-halloween-muted">One ticket covers the full hosted experience:</p>
         <ul className="mt-7 grid gap-x-8 sm:grid-cols-2">
           {inclusions.map((item) => <li key={item} className="flex gap-3 border-t border-halloween-ivory/10 py-4 text-[14px] leading-relaxed text-halloween-ivory"><Check className="mt-0.5 h-4 w-4 shrink-0 text-crimson" />{item}</li>)}
         </ul>
@@ -320,6 +322,7 @@ function PricingSection() {
           <p className="text-[11px] font-bold tracking-[0.2em] text-crimson">EARLY BIRD</p>
           <p className="mt-1 font-display text-[82px] leading-none text-halloween-ivory sm:text-[96px]">฿1,200</p>
           <p className="mt-3 text-[13px] font-semibold text-halloween-ivory">Ends October 15</p>
+          <p className="mt-3 text-[12px] leading-relaxed text-halloween-muted">3 venues · 3 welcome shots · transport · hosts · social games</p>
         </div>
         <dl className="grid grid-cols-2 divide-x divide-halloween-ivory/10 border-b border-halloween-ivory/10">
           <div className="py-5 pr-5"><dt className="text-[10px] font-semibold tracking-[0.16em] text-halloween-muted/70">PRESALE · CLOSED</dt><dd className="mt-2 font-display text-3xl text-halloween-muted/50 line-through">฿990</dd></div>
@@ -357,6 +360,7 @@ function BookingReasonsSection() {
         <ul className="mt-4 divide-y divide-halloween-ivory/10 border-y border-halloween-ivory/10">{['Lock in the current ฿1,200 rate', 'Secure your place before the final release', 'Join the confirmed guest group', 'Receive route and event updates directly', "Stop worrying about what you're doing on Halloween"].map((item) => <li key={item} className="flex gap-3 py-4 text-[15px] text-halloween-muted"><Check className="h-4 w-4 shrink-0 text-crimson" />{item}</li>)}</ul>
         <h3 className="mt-8 font-display text-[34px] leading-tight text-halloween-ivory">Book it now. Sort the costume later.</h3>
         <BokunButton id="bokun_d4159a37_9e60_4fbd_a145_8a0bcd5f4e63" className="halloween-cta mt-6 w-full sm:w-auto">GET EARLY BIRD <MoveRight className="ml-3 h-4 w-4" /></BokunButton>
+        <p className="mt-4 text-[12px] text-halloween-muted">One booking covers the full hosted Halloween crawl.</p>
       </div>
     </PageSection>
   )
