@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
@@ -107,8 +108,13 @@ function ConfirmModal({ title, message, confirmLabel, onConfirm, onCancel }: {
     }
   }
 
-  return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.60)', zIndex:500, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'Inter, sans-serif' }}>
+  // Portaled to <body>: this used to render inside DayPanel, which is itself
+  // a position:fixed + overflowY:auto scroller. A fixed overlay nested in a
+  // scrolling fixed parent can paint in one place and hit-test in another
+  // (notably iOS Safari once the panel is scrolled), leaving a dimmed screen
+  // whose buttons don't respond — the "froze, status never saved" report.
+  return createPortal(
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.60)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:'16px', fontFamily:'Inter, sans-serif' }}>
       <div style={{ ...S.card, width:'100%', maxWidth:'380px', background:'#1A0015', border:'1px solid rgba(234,0,58,0.25)' }}>
         <h3 style={{ fontWeight:600, fontSize:'16px', color:'#fff', margin:'0 0 10px' }}>{title}</h3>
         <p style={{ fontSize:'13px', color:'rgba(255,255,255,0.65)', lineHeight:1.6, margin:'0 0 20px' }}>{message}</p>
@@ -117,7 +123,8 @@ function ConfirmModal({ title, message, confirmLabel, onConfirm, onCancel }: {
           <button onClick={handleConfirm} disabled={busy} style={{ ...S.btn, ...S.btnRed, opacity: busy ? 0.7 : 1 }}>{busy ? 'Working…' : confirmLabel}</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -294,11 +301,16 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
     if ('special_notes' in patch) body.specialNotes = patch.special_notes
     if ('host_fee_final' in patch) body.hostFeeFinal = patch.host_fee_final
     if ('host_payment_status' in patch) body.hostPaymentStatus = patch.host_payment_status
+    // Hard timeout so a stalled request can never leave the confirm modal
+    // stuck on "Working…" with no way out.
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 15000)
     try {
       const res = await fetch(`/api/admin/dashboard/events/${localEvent.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
+        signal: controller.signal,
       })
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({} as any))
@@ -306,8 +318,12 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
         return false
       }
     } catch (err: any) {
-      alert(`Couldn't save: ${err?.message || 'network error, please try again'}`)
+      alert(err?.name === 'AbortError'
+        ? "Couldn't save: the request timed out. Please try again."
+        : `Couldn't save: ${err?.message || 'network error, please try again'}`)
       return false
+    } finally {
+      clearTimeout(timer)
     }
     setLocalEvent(e => ({ ...e, ...patch }))
     onUpdate()
@@ -714,7 +730,7 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px' }}>
             {[
               { label:'Website', val:`฿${webRev.toLocaleString()}`, sub:`${webGuests} guests` },
-              { label:'OTA', val:`฿${otaRev.toLocaleString()}`, sub:`${otaGuests} guests` },
+              { label:'OTA / Direct', val:`฿${otaRev.toLocaleString()}`, sub:`${otaGuests} guests` },
               { label:'Total Revenue', val:`฿${totalRev.toLocaleString()}`, sub:`${totalGuests} total` },
               { label:'Gross Profit', val:`฿${profit.toLocaleString()}`, sub:'after expenses', color: profit>=0?'#22c55e':'#EA003A' },
             ].map(item => (
@@ -750,7 +766,7 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
         {/* OTA bookings */}
         <div style={{ ...S.card, marginBottom:'16px' }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'16px' }}>
-            <p style={{ ...S.label, margin:0 }}>OTA BOOKINGS ({otaGuests} guests)</p>
+            <p style={{ ...S.label, margin:0 }}>OTA / DIRECT BOOKINGS ({otaGuests} guests)</p>
             <button onClick={() => setAddingOTA(true)} style={{ ...S.btn, ...S.btnDanger, height:'30px', padding:'0 12px' }}>+ Add</button>
           </div>
           {addingOTA && (
@@ -759,7 +775,7 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
                 <div>
                   <label style={S.label}>SOURCE</label>
                   <select value={otaForm.source} onChange={e => setOtaForm(f=>({...f,source:e.target.value}))} style={S.input}>
-                    {['klook','airbnb','getyourguide','viator','eventbrite'].map(s=><option key={s} value={s}>{s}</option>)}
+                    {['klook','airbnb','getyourguide','viator','eventbrite','direct'].map(s=><option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 <div>
@@ -785,7 +801,7 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
               </div>
             </div>
           )}
-          {otaBookings.length===0 && !addingOTA && <p style={{ fontSize:'13px', color:'rgba(255,255,255,0.35)' }}>No OTA bookings added.</p>}
+          {otaBookings.length===0 && !addingOTA && <p style={{ fontSize:'13px', color:'rgba(255,255,255,0.35)' }}>No OTA or direct bookings added.</p>}
           {otaBookings.map(b => (
             <div key={b.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:'8px', borderBottom:'1px solid rgba(255,255,255,0.06)', paddingBottom:'10px', marginBottom:'10px' }}>
               <div>
