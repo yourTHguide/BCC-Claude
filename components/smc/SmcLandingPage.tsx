@@ -137,18 +137,19 @@ export default function SmcLandingPage() {
 
             <ul className="smc-strip" aria-label="Event details">
               <li>
-                <CalendarDays aria-hidden size={26} strokeWidth={1.6} />
+                <CalendarDays aria-hidden size={20} strokeWidth={1.7} />
                 <span>{shortDate}</span>
               </li>
               <li>
-                <Clock aria-hidden size={26} strokeWidth={1.6} />
+                <Clock aria-hidden size={20} strokeWidth={1.7} />
                 <span>{startTime} onwards</span>
               </li>
               <li>
-                <MapPin aria-hidden size={26} strokeWidth={1.6} />
+                <MapPin aria-hidden size={20} strokeWidth={1.7} />
                 <span>
                   {edition.venueShortName}
-                  <small>{edition.venueArea}</small>
+                  {/* keep a trailing number (e.g. "Soi 11") with its word */}
+                  <small>{edition.venueArea.replace(/ (\d+)$/, '\u00a0$1')}</small>
                 </span>
               </li>
             </ul>
@@ -196,7 +197,7 @@ export default function SmcLandingPage() {
                 return (
                   <li key={item.key}>
                     <span className="smc-expect-icon">
-                      <Icon aria-hidden size={30} strokeWidth={1.5} />
+                      <Icon aria-hidden size={22} strokeWidth={1.6} />
                     </span>
                     <span className="smc-expect-label">{item.label}</span>
                   </li>
@@ -224,11 +225,11 @@ export default function SmcLandingPage() {
               </h2>
               <ul className="smc-ticket-list">
                 <li>
-                  <Clock aria-hidden size={24} strokeWidth={1.6} />
+                  <Clock aria-hidden size={20} strokeWidth={1.7} />
                   <span>{startTime} onwards</span>
                 </li>
                 <li className="smc-ticket-venue">
-                  <MapPin aria-hidden size={24} strokeWidth={1.6} />
+                  <MapPin aria-hidden size={20} strokeWidth={1.7} />
                   <span>
                     {edition.venueName}
                     <br />
@@ -239,17 +240,17 @@ export default function SmcLandingPage() {
                   </a>
                 </li>
                 <li>
-                  <Ticket aria-hidden size={24} strokeWidth={1.6} />
+                  <Ticket aria-hidden size={20} strokeWidth={1.7} />
                   <span>
                     {price} · {edition.inclusion}
                   </span>
                 </li>
                 <li>
-                  <Users aria-hidden size={24} strokeWidth={1.6} />
+                  <Users aria-hidden size={20} strokeWidth={1.7} />
                   <span>Limited to {edition.capacity} guests</span>
                 </li>
                 <li>
-                  <CalendarDays aria-hidden size={24} strokeWidth={1.6} />
+                  <CalendarDays aria-hidden size={20} strokeWidth={1.7} />
                   <span>{SMC_FREQUENCY_LABEL}</span>
                 </li>
               </ul>
@@ -291,7 +292,7 @@ export default function SmcLandingPage() {
                 <details key={item.q}>
                   <summary>
                     <span>{item.q}</span>
-                    <Plus aria-hidden size={20} strokeWidth={1.8} className="smc-faq-icon" />
+                    <Plus aria-hidden size={18} strokeWidth={1.8} className="smc-faq-icon" />
                   </summary>
                   <p>
                     {item.draft && <span className="smc-draft-tag">Draft</span>}
