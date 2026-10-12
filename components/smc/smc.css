@@ -1,0 +1,800 @@
+/*
+ * Single Meet Club — scoped design tokens + styles. Everything lives under
+ * `.smc-page` (or an `smc-`-prefixed class) so nothing leaks into BCC or BNT
+ * pages. Tokens follow the SMC Digital Brand Kit v1.0; the approved mobile
+ * mockup supersedes the kit's decorative treatments (no torn paper, no script).
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&display=swap');
+
+.smc-page {
+  --smc-wine: #8b1a2b;
+  --smc-night: #200e14;
+  --smc-night-deep: #170a0f;
+  --smc-panel: #371923;
+  --smc-coral: #e8503a;
+  --smc-cta: #f0444b;
+  --smc-cta-hover: #e0353c;
+  --smc-cream: #f5eee7;
+  --smc-white: #ffffff;
+  --smc-ink: #21171b;
+  --smc-ink-soft: #4a3b40;
+  --smc-text-soft: rgba(255, 255, 255, 0.78);
+  --smc-text-muted: rgba(255, 255, 255, 0.6);
+  --smc-line: rgba(255, 255, 255, 0.12);
+  --smc-radius: 16px;
+  --smc-radius-sm: 12px;
+  --smc-gutter: 20px;
+  --smc-display: 'Anton', Impact, 'Arial Narrow', sans-serif;
+  --smc-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  background:
+    radial-gradient(120% 60% at 50% 0%, #3a1220 0%, transparent 60%),
+    linear-gradient(180deg, var(--smc-night) 0%, #2a0f18 50%, var(--smc-night) 100%);
+  color: var(--smc-white);
+  font-family: var(--smc-sans);
+  font-size: 16px;
+  line-height: 1.55;
+  min-height: 100vh;
+}
+
+.smc-page a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.smc-page :focus-visible {
+  outline: 3px solid var(--smc-coral);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+.smc-container {
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 var(--smc-gutter);
+}
+
+/* ── Typography ── */
+
+.smc-eyebrow {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--smc-coral);
+  margin-bottom: 10px;
+}
+
+.smc-eyebrow-dark {
+  color: #c2362a; /* coral darkened for AA contrast on cream */
+}
+
+.smc-h2 {
+  font-family: var(--smc-display);
+  font-weight: 400;
+  font-size: clamp(32px, 9vw, 52px);
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.005em;
+  color: var(--smc-white);
+}
+
+.smc-h2 span {
+  display: block;
+}
+
+.smc-h2-dark {
+  color: var(--smc-ink);
+}
+
+.smc-body {
+  color: var(--smc-text-soft);
+  font-size: 16px;
+}
+
+.smc-body-dark {
+  color: var(--smc-ink-soft);
+  font-size: 16px;
+  margin-top: 14px;
+}
+
+.smc-accent {
+  color: var(--smc-cta);
+}
+
+/* ── Buttons ── */
+
+.smc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 0 28px;
+  border-radius: 999px;
+  background: var(--smc-cta);
+  color: var(--smc-white) !important;
+  font-weight: 600;
+  font-size: 16px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: 0 10px 30px -10px rgba(240, 68, 75, 0.6);
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.smc-btn:hover {
+  background: var(--smc-cta-hover);
+}
+
+.smc-btn:active {
+  transform: translateY(1px);
+}
+
+.smc-btn-block {
+  width: 100%;
+}
+
+.smc-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: rgba(139, 26, 43, 0.1);
+  color: var(--smc-wine) !important;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.smc-chip:hover {
+  background: rgba(139, 26, 43, 0.18);
+}
+
+/* ── Placeholder / draft tags (review only) ── */
+
+.smc-placeholder-tag {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px dashed rgba(255, 255, 255, 0.55);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.smc-draft-tag {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 1px 7px;
+  border-radius: 4px;
+  border: 1px dashed var(--smc-coral);
+  color: var(--smc-coral);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  vertical-align: 2px;
+}
+
+/* ── Photos ── */
+
+.smc-photo {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--smc-radius);
+  background: var(--smc-panel);
+}
+
+.smc-photo img {
+  object-fit: cover;
+}
+
+/* ── Header ── */
+
+.smc-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  padding-top: env(safe-area-inset-top);
+}
+
+.smc-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 72px;
+}
+
+.smc-wordmark {
+  display: inline-flex;
+  flex-direction: column;
+  font-family: var(--smc-display);
+  font-size: 22px;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  color: var(--smc-white);
+}
+
+.smc-wordmark-accent {
+  color: var(--smc-cta);
+  padding-bottom: 3px;
+  border-bottom: 3px solid var(--smc-cta);
+  align-self: flex-start;
+}
+
+.smc-header-nav {
+  display: none;
+  gap: 28px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--smc-text-soft);
+}
+
+.smc-header-nav a:hover {
+  color: var(--smc-white);
+}
+
+.smc-header-cta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(6px);
+}
+
+.smc-header-cta:hover {
+  background: var(--smc-cta);
+  border-color: var(--smc-cta);
+}
+
+/* ── 1. Hero ── */
+
+.smc-hero {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  min-height: 100svh;
+  padding: 120px 0 36px;
+  overflow: hidden;
+}
+
+.smc-hero-photo {
+  position: absolute !important;
+  inset: 0;
+  border-radius: 0;
+}
+
+.smc-hero-photo .smc-placeholder-tag {
+  top: auto;
+  bottom: 12px;
+  left: auto;
+  right: 12px;
+}
+
+.smc-hero-photo img {
+  object-position: center 30%;
+}
+
+.smc-hero-scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(23, 10, 15, 0.55) 0%, rgba(23, 10, 15, 0) 22%),
+    linear-gradient(180deg, rgba(32, 14, 20, 0) 25%, rgba(32, 14, 20, 0.82) 52%, var(--smc-night) 82%);
+}
+
+.smc-hero-content {
+  position: relative;
+  z-index: 1;
+}
+
+.smc-hero-title {
+  font-family: var(--smc-display);
+  font-weight: 400;
+  font-size: clamp(56px, 17vw, 112px);
+  line-height: 0.92;
+  text-transform: uppercase;
+  letter-spacing: 0.005em;
+}
+
+.smc-hero-title span {
+  display: block;
+}
+
+.smc-hero-tagline {
+  margin-top: 16px;
+  font-size: clamp(15px, 4.3vw, 20px);
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.smc-hero-body {
+  margin-top: 14px;
+  max-width: 34em;
+  color: var(--smc-text-soft);
+  font-size: 16px;
+}
+
+.smc-strip {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 24px 0 20px;
+  padding: 14px 6px;
+  border: 1px solid var(--smc-line);
+  border-radius: var(--smc-radius);
+  background: rgba(23, 10, 15, 0.6);
+  backdrop-filter: blur(8px);
+}
+
+.smc-strip li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+.smc-strip li + li {
+  border-left: 1px solid var(--smc-line);
+}
+
+.smc-strip svg {
+  flex-shrink: 0;
+  color: var(--smc-cta);
+}
+
+.smc-strip small {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: none;
+  color: var(--smc-text-muted);
+}
+
+.smc-hero-note {
+  margin-top: 14px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--smc-text-muted);
+}
+
+/* ── Sections ── */
+
+.smc-section {
+  padding: 56px 0;
+}
+
+/* ── 2. About ── */
+
+.smc-about-wrap {
+  padding-top: 24px;
+}
+
+.smc-about {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  padding: 28px 24px;
+  border-radius: var(--smc-radius);
+  background: var(--smc-cream);
+  color: var(--smc-ink);
+}
+
+.smc-about-photo {
+  aspect-ratio: 4 / 3;
+}
+
+/* ── 3. What to expect ── */
+
+.smc-expect {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px 12px;
+  margin-top: 28px;
+}
+
+.smc-expect li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+}
+
+.smc-expect-icon {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: rgba(139, 26, 43, 0.55);
+  border: 1px solid rgba(232, 80, 58, 0.35);
+  color: var(--smc-cta);
+}
+
+.smc-expect-label {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.smc-band-photo {
+  margin-top: 40px;
+  aspect-ratio: 16 / 10;
+}
+
+/* ── 4. Next edition ── */
+
+.smc-ticket {
+  padding: 28px 22px 24px;
+  border-radius: var(--smc-radius);
+  background: var(--smc-cream);
+  color: var(--smc-ink);
+}
+
+.smc-ticket-date {
+  font-family: var(--smc-display);
+  font-weight: 400;
+  font-size: clamp(32px, 9.5vw, 56px);
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--smc-ink);
+}
+
+.smc-ticket-list {
+  list-style: none;
+  display: grid;
+  gap: 16px;
+  margin: 24px 0 28px;
+  font-size: 16px;
+}
+
+.smc-ticket-list li {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  align-items: center;
+  column-gap: 14px;
+  row-gap: 10px;
+}
+
+.smc-ticket-list svg {
+  color: var(--smc-cta);
+}
+
+.smc-ticket-venue {
+  grid-template-columns: 28px 1fr !important;
+}
+
+.smc-ticket-venue svg {
+  align-self: start;
+  margin-top: 2px;
+}
+
+.smc-ticket-venue .smc-chip {
+  grid-column: 2;
+  justify-self: start;
+}
+
+/* ── 5. Real moments ── */
+
+.smc-moments-intro {
+  margin-top: 12px;
+  max-width: 34em;
+}
+
+.smc-gallery {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.smc-gallery-main {
+  grid-column: 1 / -1;
+  aspect-ratio: 16 / 10;
+}
+
+.smc-gallery-item {
+  aspect-ratio: 3 / 4;
+  border-radius: var(--smc-radius-sm);
+}
+
+.smc-gallery-item .smc-placeholder-tag {
+  font-size: 8px;
+  padding: 3px 5px;
+  top: 6px;
+  left: 6px;
+}
+
+/* ── 6. FAQ ── */
+
+.smc-faq {
+  display: grid;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.smc-faq details {
+  border: 1px solid var(--smc-line);
+  border-radius: var(--smc-radius-sm);
+  background: rgba(55, 25, 35, 0.6);
+}
+
+.smc-faq summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 56px;
+  padding: 14px 18px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  list-style: none;
+}
+
+.smc-faq summary::-webkit-details-marker {
+  display: none;
+}
+
+.smc-faq-icon {
+  flex-shrink: 0;
+  color: var(--smc-text-soft);
+  transition: transform 0.2s ease;
+}
+
+.smc-faq details[open] .smc-faq-icon {
+  transform: rotate(45deg);
+  color: var(--smc-cta);
+}
+
+.smc-faq details p {
+  padding: 0 18px 18px;
+  color: var(--smc-text-soft);
+  font-size: 15px;
+}
+
+/* ── 7. Footer ── */
+
+.smc-footer {
+  margin-top: 24px;
+  padding: 40px 0 calc(32px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--smc-line);
+  background: var(--smc-night-deep);
+}
+
+.smc-footer-brands {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px 24px;
+}
+
+.smc-footer-divider {
+  display: none;
+  width: 1px;
+  height: 48px;
+  background: var(--smc-line);
+}
+
+.smc-footer-partner {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.smc-footer-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--smc-text-muted);
+}
+
+.smc-footer-best {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.smc-footer-best img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+}
+
+.smc-footer-venue {
+  font-size: 14px;
+  font-weight: 600;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.smc-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin-top: 28px;
+  font-size: 14px;
+  color: var(--smc-text-soft);
+}
+
+.smc-footer-links a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.smc-footer-links a:hover {
+  color: var(--smc-white);
+}
+
+.smc-footer-legal {
+  margin-top: 16px;
+  font-size: 12px;
+  color: var(--smc-text-muted);
+}
+
+/* ── Small phones ── */
+
+@media (max-width: 380px) {
+  .smc-page {
+    --smc-gutter: 16px;
+  }
+
+  .smc-strip li {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 12px;
+  }
+}
+
+/* ── Tablet + desktop ── */
+
+@media (min-width: 600px) {
+  .smc-page {
+    --smc-gutter: 32px;
+  }
+
+  .smc-expect {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .smc-about {
+    grid-template-columns: 1.3fr 1fr;
+    align-items: center;
+    padding: 40px;
+  }
+
+  .smc-about-photo {
+    aspect-ratio: 4 / 5;
+  }
+
+  .smc-footer-divider {
+    display: block;
+  }
+}
+
+@media (min-width: 900px) {
+  .smc-header-nav {
+    display: flex;
+  }
+
+  .smc-hero {
+    min-height: 92vh;
+    padding-bottom: 64px;
+  }
+
+  .smc-hero-scrim {
+    background:
+      linear-gradient(180deg, rgba(23, 10, 15, 0.55) 0%, rgba(23, 10, 15, 0) 20%),
+      linear-gradient(90deg, var(--smc-night) 0%, rgba(32, 14, 20, 0.85) 38%, rgba(32, 14, 20, 0.1) 75%),
+      linear-gradient(180deg, rgba(32, 14, 20, 0) 70%, var(--smc-night) 100%);
+  }
+
+  .smc-hero-content > * {
+    max-width: 560px;
+  }
+
+  .smc-hero-content .smc-btn-block {
+    width: auto;
+    min-width: 280px;
+  }
+
+  .smc-hero-note {
+    text-align: left;
+  }
+
+  .smc-section {
+    padding: 88px 0;
+  }
+
+  .smc-band-photo {
+    aspect-ratio: 21 / 8;
+  }
+
+  .smc-ticket {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 48px;
+    padding: 48px;
+  }
+
+  .smc-ticket .smc-eyebrow,
+  .smc-ticket-date {
+    grid-column: 1;
+  }
+
+  .smc-ticket-list {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    margin: 0;
+  }
+
+  .smc-ticket .smc-btn {
+    grid-column: 1;
+    align-self: end;
+    margin-top: 32px;
+  }
+
+  .smc-gallery {
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 12px;
+  }
+
+  .smc-gallery-main {
+    grid-column: auto;
+    aspect-ratio: auto;
+  }
+
+  .smc-faq-wrap {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 48px;
+  }
+
+  .smc-faq {
+    margin-top: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .smc-page *,
+  .smc-page *::before,
+  .smc-page *::after {
+    transition: none !important;
+  }
+}
