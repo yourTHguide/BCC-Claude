@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe'
 import { getServiceSupabase } from '@/lib/supabase'
-import { generateTicketToken } from '@/lib/tickets'
 import { smcEnvironmentIssues } from '@/lib/smc/env'
+import { fulfilVerifiedSmcSession, loadRegistrationBySession, smcSessionProblem } from '@/lib/smc/fulfilment'
 import { dispatchSmcOutbox } from '@/lib/smc/outbox'
 
 export const dynamic = 'force-dynamic'
@@ -31,6 +31,7 @@ const HANDLED = new Set([
 
 // Errors that will never succeed on retry: log and acknowledge.
 const PERMANENT = new Set(['smc_registration_not_found', 'smc_amount_mismatch'])
+const isPermanent = (m: string) => PERMANENT.has(m) || m.startsWith('smc_session_rejected:')
 
 function ok(extra: Record<string, unknown> = {}) {
   return NextResponse.json({ received: true, ...extra })
@@ -94,16 +95,13 @@ export async function POST(req: NextRequest) {
 
     if (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') {
       if (session.payment_status === 'paid') {
-        const { data, error } = await supabase.rpc('smc_fulfill_registration', {
-          p_session_id: sessionId,
-          p_payment_intent: paymentIntent,
-          p_amount_total: session.amount_total,
-          p_livemode: event.livemode,
-          p_ticket_token: generateTicketToken(),
-          p_admin_recipient: process.env.ADMIN_NOTIFY_EMAIL ?? null,
-        })
-        if (error) throw new Error(error.message)
-        outcome = String((data as any)?.outcome ?? 'fulfilled')
+        // Same checks as the confirmation page's server-side verification:
+        // this exact registration, THB, exact amount, complete and paid.
+        const reg = await loadRegistrationBySession(sessionId)
+        if (!reg) throw new Error('smc_registration_not_found')
+        const problem = smcSessionProblem(session, reg, event.livemode)
+        if (problem) throw new Error(`smc_session_rejected:${problem}`)
+        outcome = await fulfilVerifiedSmcSession(session)
       } else {
         // Checkout finished but the money has not arrived (PromptPay processing).
         // Keep the seats held; no booking, no ticket.
@@ -151,7 +149,7 @@ export async function POST(req: NextRequest) {
     const message = String(err?.message ?? err)
     await supabase.from('stripe_webhook_events').update({ last_error: message.slice(0, 500) }).eq('event_id', event.id)
 
-    if (PERMANENT.has(message)) {
+    if (isPermanent(message)) {
       console.error(`SMC webhook: permanent error for ${event.id} (${sessionId}): ${message}`)
       await supabase
         .from('stripe_webhook_events')

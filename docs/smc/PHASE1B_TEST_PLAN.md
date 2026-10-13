@@ -73,3 +73,16 @@ Run on the same preview against staging, with the Stripe Sandbox and a forwarder
 
 All test rows are on staging and marked `is_test=true` (SMC). Staging can be reset by
 truncation or by rebuilding from `supabase/staging/` (no production impact).
+
+## G. Server-side payment verification (fallback to the webhook)
+
+The confirmation page's status check asks Stripe directly while a registration is unconfirmed and,
+only if Stripe reports this exact registration complete + paid in THB for the exact amount, calls the
+same idempotent booking function as the webhook (`lib/smc/fulfilment.ts`). The webhook stays primary.
+
+| # | Scenario | Expected |
+|---|---|---|
+| G1 | Card payment with webhook forwarding **stopped** | Confirmation page still reaches "You're in" via the fallback; one booking; emails sent. Starting forwarding afterwards: webhook replies `already_fulfilled`, no second booking. |
+| G2 | Webhook and page confirm at the same moment | One booking (registration row lock). |
+| G3 | Tampered `session_id` of another registration / BCC session | 404 `not_found`; nothing created; mismatch logged server-side. |
+| G4 | Database briefly unavailable | Webhook returns 500 (Stripe retries); status route returns `confirming` (page keeps polling). |
