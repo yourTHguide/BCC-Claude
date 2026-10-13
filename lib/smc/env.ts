@@ -5,29 +5,13 @@ import { SMC_PAGE_PUBLISHED } from '@/lib/smc/config'
 // Production Supabase project ref. A non-production deployment must never
 // write SMC data here, whatever its environment variables say.
 const PRODUCTION_SUPABASE_REF = 'oomhftxgvikzxlvqdcmr'
-// Staging Supabase project ref ("BCC - Claude Staging").
-const STAGING_SUPABASE_REF = 'jyhtznpethgzypblppnt'
-
-// The separate Vercel project "bcc-claude-staging" deploys this branch as its
-// own production. Vercel reports VERCEL_ENV=production there, so it declares
-// itself with SMC_DEPLOYMENT_TIER=staging. That setting is only honoured
-// together with the staging database and a Stripe test key (see
-// smcEnvironmentIssues), so it can never turn a real production deployment
-// into a test one.
-export function isStagingTier(): boolean {
-  return process.env.SMC_DEPLOYMENT_TIER === 'staging'
-}
 
 export function isProductionDeployment(): boolean {
-  return process.env.VERCEL_ENV === 'production' && !isStagingTier()
+  return process.env.VERCEL_ENV === 'production'
 }
 
 export function isPreviewOrDev(): boolean {
-  return (
-    process.env.VERCEL_ENV === 'preview' ||
-    process.env.NODE_ENV === 'development' ||
-    isStagingTier()
-  )
+  return process.env.VERCEL_ENV === 'preview' || process.env.NODE_ENV === 'development'
 }
 
 // SMC pages render on Vercel Preview / local dev, and on production only on
@@ -58,9 +42,6 @@ export function smcEnvironmentIssues(): string[] {
     // separate launch change removes this branch.
     reasons.push('live SMC payments are not enabled on production')
   } else {
-    if (isStagingTier() && !supabaseUrl.includes(STAGING_SUPABASE_REF)) {
-      reasons.push('staging tier is not pointed at the staging Supabase project')
-    }
     if (supabaseUrl.includes(PRODUCTION_SUPABASE_REF)) {
       reasons.push('non-production deployment is pointed at the production Supabase project')
     }
