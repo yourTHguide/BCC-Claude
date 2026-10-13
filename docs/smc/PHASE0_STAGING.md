@@ -113,3 +113,40 @@ The token travels only as a request header. The CLI prints its own test signing 
 into `STRIPE_SMC_WEBHOOK_SECRET` (Preview). It must run on a machine that holds the test credentials:
 either yours, or this session's sandbox if you place the test key and token there through a
 secure channel instead of chat.
+
+## Environment isolation — verification log (13 Oct 2026)
+
+Configured in Vercel by the owner (values never shared in chat):
+
+| Variable | Production | Preview · `feature/single-meet-club` |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | production (unchanged) | staging `jyhtznpethgzypblppnt` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | production (unchanged) | staging anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | production (unchanged; Preview target removed) | staging service_role key |
+| `STRIPE_SECRET_KEY` | live (unchanged; Preview target removed) | Stripe Sandbox `sk_test_…` |
+| `SMC_CHECKOUT_ENABLED` | not set (production checkout always refused in code) | `true` |
+
+Checks completed:
+
+1. **Preview → staging Supabase:** loading `/single-meet-club/book` on the preview produced
+   `products`, `event_dates` and `rpc/smc_event_availability` requests on staging (all 200).
+   The availability function is not executable by `anon`, so a 200 proves the staging
+   service-role key is in use. Production logs showed no SMC requests in the same window.
+2. **Stripe test/live separation:** Sandbox has no webhook endpoints. Live has one endpoint,
+   "BCC Booking completed" → `https://www.bkkclubcrawl.com/api/…` (1 event). No test-mode
+   endpoint can reach the production database.
+3. **PromptPay eligibility:** account country Thailand; PromptPay **Enabled** in the account's
+   Default payment method configuration in both Sandbox and Live (alongside Cards, Apple Pay,
+   Google Pay, Link). Owner decision: keep PromptPay for all products; SMC checkout requests the
+   guest's chosen method explicitly (`payment_method_types`).
+4. **Staging reproducibility:** see `supabase/staging/README.md` (10/10 migrations match).
+
+Open items found during checks (not changed):
+
+- BCC/BNT checkouts already offer PromptPay (Default configuration). The shared webhook
+  (`app/api/webhook/route.ts`) handles only `checkout.session.completed` and does not check
+  `payment_status`; a reviewed fix is planned after SMC testing.
+- A Preview (all branches) `SUPABASE_SERVICE_ROLE_KEY` entry exists alongside the branch entry;
+  it does not affect `feature/single-meet-club`. Recommended for removal later.
+- Live SMC launch requires: SMC skip guard in the shared webhook, an SMC live webhook endpoint,
+  and the SMC_CHECKOUT production gate lifted in a separate approved change.
