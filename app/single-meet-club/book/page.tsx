@@ -58,7 +58,10 @@ export default async function SmcBookPage({ searchParams }: { searchParams: { ca
         </div>
       </header>
 
-      <main className="smc-container smc-book-main">
+      {/* data-event-source: 'database' only when the SMC event exists in the
+          connected Supabase project (staging today). Non-sensitive; used to
+          verify environment isolation on Preview. */}
+      <main className="smc-container smc-book-main" data-event-source={event.source}>
         <p className="smc-eyebrow">Reserve your spot</p>
         <h1 className="smc-h2">Single Meet Club</h1>
 
