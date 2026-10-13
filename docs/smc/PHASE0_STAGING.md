@@ -125,6 +125,12 @@ Configured in Vercel by the owner (values never shared in chat):
 | `SUPABASE_SERVICE_ROLE_KEY` | production (unchanged; Preview target removed) | staging service_role key |
 | `STRIPE_SECRET_KEY` | live (unchanged; Preview target removed) | Stripe Sandbox `sk_test_…` |
 | `SMC_CHECKOUT_ENABLED` | not set (production checkout always refused in code) | `true` |
+| `SMC_TEST_EMAIL_ALLOWLIST` | not set | owner's test inbox (non-production SMC email recipients) |
+| `ADMIN_NOTIFY_EMAIL` | unchanged (shared Production and Preview entry) | test inbox (branch entry overrides) |
+| `RESEND_API_KEY` | live key (unchanged; Preview target removed) | separate staging key, Sending access |
+| `SMC_EMAIL_RETRY_SECRET` | not set | random 32-byte secret (owner keeps a copy for staging Vault) |
+| `STRIPE_SMC_WEBHOOK_SECRET` | not set | Stripe CLI signing secret, Sandbox `acct_1P4SN0CJiIAY18yY` |
+| `STRIPE_WEBHOOK_SECRET` | live (unchanged) | Stripe CLI signing secret (branch entry overrides the Preview one) |
 
 Checks completed:
 
@@ -146,7 +152,9 @@ Open items found during checks (not changed):
 - BCC/BNT checkouts already offer PromptPay (Default configuration). The shared webhook
   (`app/api/webhook/route.ts`) handles only `checkout.session.completed` and does not check
   `payment_status`; a reviewed fix is planned after SMC testing.
-- A Preview (all branches) `SUPABASE_SERVICE_ROLE_KEY` entry exists alongside the branch entry;
-  it does not affect `feature/single-meet-club`. Recommended for removal later.
+- Preview (all branches) `SUPABASE_SERVICE_ROLE_KEY` and `STRIPE_SECRET_KEY` entries exist
+  alongside the branch entries; they do not affect `feature/single-meet-club`. Review and remove
+  later. (Vercel's add dialog can silently create an all-branches copy when a branch is picked;
+  three such copies made during Step 1 were removed.)
 - Live SMC launch requires: SMC skip guard in the shared webhook, an SMC live webhook endpoint,
   and the SMC_CHECKOUT production gate lifted in a separate approved change.
