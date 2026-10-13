@@ -1,24 +1,14 @@
-import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import SmcLandingPage from '@/components/smc/SmcLandingPage'
-import { resolveStorefront } from '@/lib/storefront'
 import { SMC_PAGE_PUBLISHED } from '@/lib/smc/config'
+import { canRenderSmcPage } from '@/lib/smc/env'
 
 export const dynamic = 'force-dynamic'
 
-// Single Meet Club landing page — BNT storefront only (same host gate as
-// /new-in-bangkok), and additionally held behind SMC_PAGE_PUBLISHED so it
-// 404s on production until launch. Vercel Preview and local dev always
-// render it, because preview hosts resolve to the 'bcc' storefront and the
-// page would otherwise be unreviewable before merge. This gate is local to
-// this route — lib/storefront.ts is deliberately left untouched.
-function canRender(): boolean {
-  if (process.env.VERCEL_ENV === 'preview' || process.env.NODE_ENV === 'development') {
-    return true
-  }
-  return SMC_PAGE_PUBLISHED && resolveStorefront(headers().get('host')) === 'bnt'
-}
+// Single Meet Club landing page — BNT storefront only, held behind
+// SMC_PAGE_PUBLISHED on production; always renders on Preview / local dev.
+// The rule lives in lib/smc/env.ts so every SMC page applies the same gate.
 
 const TITLE = 'Single Meet Club | Bangkok Singles Social Night'
 const DESCRIPTION =
@@ -39,6 +29,6 @@ export const metadata: Metadata = {
 }
 
 export default function SingleMeetClubPage() {
-  if (!canRender()) notFound()
+  if (!canRenderSmcPage()) notFound()
   return <SmcLandingPage />
 }
