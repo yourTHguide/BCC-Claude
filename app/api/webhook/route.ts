@@ -41,6 +41,14 @@ export async function POST(req: NextRequest) {
   const session = event.data.object as any
   const meta = session.metadata
 
+  // Single Meet Club checkouts are fulfilled only by /api/smc/webhook
+  // (verified payment status, seat holds, attendee names, SMC email). Skip
+  // them here so they can never create a second booking or a generic email.
+  // BCC / New in Bangkok sessions never carry this label.
+  if (meta?.flow === 'smc') {
+    return NextResponse.json({ received: true, ignored: 'smc' })
+  }
+
   try {
     const supabase = getServiceSupabase()
 

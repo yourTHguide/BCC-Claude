@@ -1208,3 +1208,65 @@
     padding: 22px 24px;
   }
 }
+
+/* ============================================================
+ * Confirmation page (/single-meet-club/confirmation)
+ * ============================================================ */
+
+.smc-confirm {
+  display: grid;
+  gap: 14px;
+  justify-items: start;
+  padding-top: 12px;
+}
+
+.smc-confirm-icon {
+  color: var(--smc-cta);
+}
+
+.smc-confirm-ok .smc-confirm-icon {
+  color: #6fd08c;
+}
+
+.smc-confirm-ticket {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 20px 18px;
+  border-radius: var(--smc-radius);
+  background: var(--smc-cream);
+}
+
+.smc-confirm-ticket img {
+  width: 200px;
+  height: 200px;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.smc-confirm-note {
+  font-size: 14px;
+  color: var(--smc-text-muted);
+}
+
+.smc-confirm .smc-btn {
+  margin-top: 4px;
+}
+
+.smc-spin {
+  animation: smc-spin 1s linear infinite;
+}
+
+@keyframes smc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .smc-spin {
+    animation: none;
+  }
+}

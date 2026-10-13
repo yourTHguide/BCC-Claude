@@ -29,21 +29,17 @@ export interface SmcCheckoutReadiness {
   internalReasons: string[]
 }
 
-// Every condition that must hold before SMC checkout may create a
-// registration or a Stripe session. Checked on every request.
-export function smcCheckoutReadiness(): SmcCheckoutReadiness {
+// Environment isolation rules shared by every SMC payment route (checkout,
+// webhook, email retry): never production for now, and away from production
+// only the staging database and a Stripe test-mode key.
+export function smcEnvironmentIssues(): string[] {
   const reasons: string[] = []
-
-  if (process.env.SMC_CHECKOUT_ENABLED !== 'true') {
-    reasons.push('SMC_CHECKOUT_ENABLED is not "true"')
-  }
-
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
   const stripeKey = process.env.STRIPE_SECRET_KEY ?? ''
 
   if (isProductionDeployment()) {
-    // Live payments are not approved. Production checkout stays closed until
-    // a separate launch change removes this branch.
+    // Live payments are not approved. Production stays closed until a
+    // separate launch change removes this branch.
     reasons.push('live SMC payments are not enabled on production')
   } else {
     if (supabaseUrl.includes(PRODUCTION_SUPABASE_REF)) {
@@ -53,6 +49,19 @@ export function smcCheckoutReadiness(): SmcCheckoutReadiness {
       reasons.push('non-production deployment does not have a Stripe test-mode secret key')
     }
   }
+  return reasons
+}
+
+// Every condition that must hold before SMC checkout may create a
+// registration or a Stripe session. Checked on every request. The webhook
+// and email retry use smcEnvironmentIssues() only, so payments already in
+// progress still complete if new checkouts are switched off.
+export function smcCheckoutReadiness(): SmcCheckoutReadiness {
+  const reasons: string[] = []
+  if (process.env.SMC_CHECKOUT_ENABLED !== 'true') {
+    reasons.push('SMC_CHECKOUT_ENABLED is not "true"')
+  }
+  reasons.push(...smcEnvironmentIssues())
 
   return {
     ready: reasons.length === 0,
