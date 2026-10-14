@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
 import { VISIBILITY_COLUMN } from '@/lib/storefront'
 import { resolveEventPricing } from '@/lib/pricing'
+import { isDedicatedFlowProduct } from '@/lib/smc/config'
 
 // Canonical event-availability layer (Phase 3).
 //
@@ -84,6 +85,9 @@ export async function GET(req: NextRequest) {
   const events = rows.flatMap((row) => {
     // Supabase returns a to-one embed as an object; normalize defensively.
     const product = Array.isArray(row.products) ? row.products[0] : row.products
+
+    // Single Meet Club has its own booking flow; never list it in the generic calendar.
+    if (isDedicatedFlowProduct(product?.slug)) return []
 
     // Regular price mirrors checkout's resolution (price_override ??
     // default_price). Drop any event whose price is missing / non-integer /

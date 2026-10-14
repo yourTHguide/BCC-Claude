@@ -3,7 +3,7 @@ import { stripe } from '@/lib/stripe'
 import { getServiceSupabase } from '@/lib/supabase'
 import { getAppUrl } from '@/lib/appUrl'
 import { resolveStorefront } from '@/lib/storefront'
-import { isPreviewOrDev, isProductionDeployment, smcCheckoutReadiness } from '@/lib/smc/env'
+import { isPreviewOrDev, isProductionDeployment, smcCheckoutAudienceAllowed, smcCheckoutReadiness } from '@/lib/smc/env'
 import { SMC_MAX_TICKETS_PER_BOOKING, SMC_TERMS_VERSION } from '@/lib/smc/terms'
 
 export const dynamic = 'force-dynamic'
@@ -47,6 +47,12 @@ export async function POST(req: NextRequest) {
 
   // 2. BNT storefront only (Preview hosts resolve to 'bcc', so they are allowed explicitly).
   if (!isPreviewOrDev() && resolveStorefront(req.headers.get('host')) !== 'bnt') {
+    return fail('not_found', 404)
+  }
+
+  // 2b. Before publishing, production checkout is limited to a browser that
+  //     entered the private access code. Every rule below still applies.
+  if (!smcCheckoutAudienceAllowed()) {
     return fail('not_found', 404)
   }
 

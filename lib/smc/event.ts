@@ -1,6 +1,6 @@
 import { getServiceSupabase } from '@/lib/supabase'
 import { bangkokToday } from '@/lib/dates'
-import { SMC_NEXT_EDITION } from '@/lib/smc/config'
+import { SMC_NEXT_EDITION, SMC_PRODUCT_SLUG } from '@/lib/smc/config'
 
 export interface SmcBookableEvent {
   // null when the event could not be loaded from the database; the page then
@@ -37,7 +37,7 @@ export async function loadNextSmcEvent(): Promise<SmcBookableEvent> {
     const { data: product } = await supabase
       .from('products')
       .select('id, default_price, default_start_time')
-      .eq('slug', 'smc')
+      .eq('slug', SMC_PRODUCT_SLUG)
       .maybeSingle()
     if (!product) return configFallback()
 

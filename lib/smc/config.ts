@@ -5,7 +5,15 @@
 // values move to the Supabase `products` / `event_dates` rows for slug
 // SMC_PRODUCT_SLUG and this object becomes the fallback/presentation layer.
 
-export const SMC_PRODUCT_SLUG = 'single-meet-club'
+// products.slug of Single Meet Club. SMC is sold ONLY through its own flow
+// (/single-meet-club/book → /api/smc/checkout: attendee names, 20+ confirmation,
+// seat holds, verified payment). The generic storefront listing, product pages
+// and /api/create-checkout exclude it via isDedicatedFlowProduct().
+export const SMC_PRODUCT_SLUG = 'smc'
+
+export function isDedicatedFlowProduct(slug: string | null | undefined): boolean {
+  return slug === SMC_PRODUCT_SLUG
+}
 
 // The public launch switch is the SMC_PAGE_PUBLISHED environment variable,
 // read at request time in lib/smc/env.ts (unset = hidden on production).

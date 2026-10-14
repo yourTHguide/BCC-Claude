@@ -1,5 +1,6 @@
 import { headers } from 'next/headers'
 import { resolveStorefront } from '@/lib/storefront'
+import { hasPreviewAccess } from '@/lib/smc/previewAccess'
 
 // Production Supabase project ref. A non-production deployment must never
 // write SMC data here, whatever its environment variables say.
@@ -20,10 +21,18 @@ export function isSmcPagePublished(): boolean {
 }
 
 // SMC pages render on Vercel Preview / local dev, and on production only on
-// the BNT host once published. Same rule for every SMC page.
+// the BNT host: publicly once published, or before that only for a browser
+// holding a valid private-access cookie (lib/smc/previewAccess.ts).
 export function canRenderSmcPage(): boolean {
   if (isPreviewOrDev()) return true
-  return isSmcPagePublished() && resolveStorefront(headers().get('host')) === 'bnt'
+  if (resolveStorefront(headers().get('host')) !== 'bnt') return false
+  return isSmcPagePublished() || hasPreviewAccess()
+}
+
+// May this request start an SMC checkout? Same audience as the page.
+export function smcCheckoutAudienceAllowed(): boolean {
+  if (!isProductionDeployment()) return true
+  return isSmcPagePublished() || hasPreviewAccess()
 }
 
 // Search engines may index the landing page only on a published production site.

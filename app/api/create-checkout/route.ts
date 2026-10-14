@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { stripe, getPriceId, NIGHT_NAMES } from '@/lib/stripe'
+import { isDedicatedFlowProduct } from '@/lib/smc/config'
 import { getServiceSupabase } from '@/lib/supabase'
 import { getAppUrl } from '@/lib/appUrl'
 import { resolveStorefront, VISIBILITY_COLUMN } from '@/lib/storefront'
@@ -171,6 +172,15 @@ async function createDynamicCheckout({
   // 3. Linked product exists
   if (!product) {
     return NextResponse.json({ error: 'Event not found' }, { status: 404 })
+  }
+
+  // 3b. Single Meet Club is sold only through /api/smc/checkout (attendee
+  //     names, 20+ confirmation, seat holds, verified payment).
+  if (isDedicatedFlowProduct(product.slug)) {
+    return NextResponse.json(
+      { error: 'This experience is not available' },
+      { status: 409 }
+    )
   }
 
   // 4. Product is active
