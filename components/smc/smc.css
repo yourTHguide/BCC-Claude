@@ -766,6 +766,67 @@
   color: var(--smc-text-muted);
 }
 
+/* ── Phones + tablets: fit the whole hero on the first screen ── */
+
+@media (max-width: 899px) {
+  .smc-header {
+    padding-top: calc(env(safe-area-inset-top) + 12px);
+  }
+
+  .smc-header-inner {
+    height: 52px;
+  }
+
+  .smc-wordmark img {
+    height: 34px;
+  }
+
+  .smc-header-cta {
+    min-height: 36px;
+    padding: 0 16px;
+    font-size: 12px;
+  }
+
+  /* fills the screen exactly; text sits at the bottom, photo above it */
+  .smc-hero {
+    min-height: 100svh;
+    padding-top: min(60vw, 300px);
+    padding-bottom: 16px;
+  }
+
+  .smc-hero-photo,
+  .smc-hero-scrim {
+    top: -6vw;
+    height: min(125vw, 640px);
+  }
+
+  .smc-hero-photo img {
+    object-position: center 20%;
+  }
+
+  .smc-hero-title {
+    font-size: clamp(46px, 13vw, 96px);
+  }
+
+  .smc-hero-tagline {
+    margin-top: 8px;
+  }
+
+  .smc-hero-body {
+    margin-top: 6px;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .smc-strip {
+    margin: 12px 0;
+  }
+
+  .smc-hero-note {
+    margin-top: 8px;
+  }
+}
+
 /* ── Sticky Reserve bar (phones + tablets) ── */
 
 .smc-sticky-cta {
