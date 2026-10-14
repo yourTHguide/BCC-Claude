@@ -454,6 +454,10 @@ section {
   .event-card:nth-child(1) { height: 600px; transform: translateY(60px); }
   .event-card:nth-child(2) { height: 500px; transform: translateY(0); }
   .event-card:nth-child(3) { height: 550px; transform: translateY(120px); }
+  .events-grid--four { grid-template-columns: repeat(4, 1fr); gap: 24px; }
+  .events-grid--four .event-card:nth-child(4) { height: 520px; transform: translateY(40px); }
+  .events-grid--four .event-info { padding: 24px; }
+  .events-grid--four .event-info h3 { font-size: 1.5rem; }
   
   .pillars-grid { grid-template-columns: repeat(3, 1fr); border-top: none; }
   .pillar { border-top: none; border-left: 1px solid rgba(255,255,255,0.1); padding-left: 40px; padding-top: 0; }
