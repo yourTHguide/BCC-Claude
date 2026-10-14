@@ -103,7 +103,13 @@ export async function GET(req: NextRequest) {
     try {
       const outcome = await fulfilVerifiedSmcSession(session)
       if (outcome === 'fulfilled' || outcome === 'over_capacity') {
-        dispatchSmcOutbox(5).catch((err) => console.error('SMC status: email dispatch error (will retry):', err))
+        // Awaited: a serverless function can be frozen as soon as the response
+        // is sent, which would leave a claimed email stuck until its lease ends.
+        try {
+          await dispatchSmcOutbox(5)
+        } catch (err: any) {
+          console.error('SMC status: email dispatch error (will retry):', err?.message ?? err)
+        }
       }
     } catch (err: any) {
       console.error(`SMC status: fallback fulfilment failed for ${sessionId}: ${err?.message ?? err}`)
