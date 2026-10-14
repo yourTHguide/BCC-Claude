@@ -25,17 +25,35 @@ import {
 } from '@/lib/smc/config'
 import { SMC_COPY as copy } from '@/lib/smc/content'
 import type { SmcBookableEvent } from '@/lib/smc/event'
+import SmcGallery, { type SmcGalleryPhoto } from './SmcGallery'
+import SmcStickyCta from './SmcStickyCta'
 import './smc.css'
 
 const IMAGE_QUALITY = 90
 
-// BEST Nightlife Thailand event photography. A "Real moments" gallery of
-// genuine SMC photos can return once suitable photos exist.
-const PHOTOS = {
-  hero: { src: '/images/gallery/g3.jpg', alt: 'Guests talking and laughing at a warmly lit Bangkok bar' },
-  about: { src: '/images/30plus-night.jpg', alt: 'Guests mingling over drinks' },
-  band: { src: '/images/gallery/g12.jpg', alt: 'A group gathered around a table in a red-lit lounge' },
+// Photos from SMC nights at Tony's. The hero is also the homepage card
+// (components/bnt/BntLandingPage.tsx).
+const HERO_PHOTO = {
+  src: '/smc/hero.jpg',
+  alt: "Guests talking and laughing around a table under the Tony's sign",
 }
+
+const CONVERSATION_PHOTOS: SmcGalleryPhoto[] = [
+  { src: '/smc/conv-1.jpg', alt: 'Two guests chatting at a small marble table', position: 'center 40%' },
+  { src: '/smc/conv-2.jpg', alt: 'Three guests talking over drinks at a candlelit table', position: 'center 55%' },
+  { src: '/smc/conv-3.jpg', alt: 'Two guests sharing a laugh across the table', position: 'center 55%' },
+  { src: '/smc/conv-4.jpg', alt: "A small group talking by the Tony's sign", position: 'center 45%' },
+  { src: '/smc/conv-5.jpg', alt: 'Two guests in conversation at the bar', position: 'center 45%' },
+]
+
+const ACTIVITY_PHOTOS: SmcGalleryPhoto[] = [
+  { src: '/smc/act-1.jpg', alt: 'A table of guests smiling during the red flag, green flag game', position: 'center 55%' },
+  { src: '/smc/act-laughing.jpg', alt: 'A guest laughing with new friends at the table', position: '30% 40%' },
+  { src: '/smc/act-3.jpg', alt: 'Guests playing a group game around the tables', position: 'center 60%' },
+  { src: '/smc/act-4.jpg', alt: 'A game prompt on screen while guests vote with flags', position: 'center 50%' },
+  { src: '/smc/act-5.jpg', alt: 'A guest filling in a Connection Bingo card', position: 'center 45%' },
+  { src: '/smc/act-6.jpg', alt: 'Single Meet Club conversation prompt cards on the table', position: 'center 60%' },
+]
 
 const EXPECT_ICONS: Record<string, LucideIcon> = {
   drink: Martini,
@@ -64,9 +82,9 @@ function Photo({
   )
 }
 
-function ReserveButton({ label, className }: { label: string; className?: string }) {
+function ReserveButton({ label, className, id }: { label: string; className?: string; id?: string }) {
   return (
-    <a href={SMC_BOOKING_HREF} className={`smc-btn ${className ?? ''}`}>
+    <a id={id} href={SMC_BOOKING_HREF} className={`smc-btn ${className ?? ''}`}>
       {label}
       <ArrowRight aria-hidden size={20} strokeWidth={2} />
     </a>
@@ -115,8 +133,8 @@ export default function SmcLandingPage({ next }: { next: SmcBookableEvent }) {
         {/* ── 1. Hero ── */}
         <section className="smc-hero" aria-labelledby="smc-hero-title">
           <Photo
-            src={PHOTOS.hero.src}
-            alt={PHOTOS.hero.alt}
+            src={HERO_PHOTO.src}
+            alt={HERO_PHOTO.alt}
             sizes="100vw"
             priority
             className="smc-hero-photo"
@@ -157,7 +175,7 @@ export default function SmcLandingPage({ next }: { next: SmcBookableEvent }) {
               </li>
             </ul>
 
-            <ReserveButton label={copy.hero.cta} className="smc-btn-block" />
+            <ReserveButton id="smc-hero-reserve" label={copy.hero.cta} className="smc-btn-block" />
             <p className="smc-hero-note">
               {price} · {edition.inclusion} · Limited to {edition.capacity} guests
             </p>
@@ -176,11 +194,11 @@ export default function SmcLandingPage({ next }: { next: SmcBookableEvent }) {
                 </h2>
                 <p className="smc-body-dark">{copy.about.body}</p>
               </div>
-              <Photo
-                src={PHOTOS.about.src}
-                alt={PHOTOS.about.alt}
-                sizes="(min-width: 900px) 360px, 40vw"
-                className="smc-about-photo"
+              <SmcGallery
+                photos={CONVERSATION_PHOTOS}
+                label="Conversations at Single Meet Club"
+                variant="wide"
+                className="smc-about-gallery"
               />
             </div>
           </div>
@@ -209,11 +227,11 @@ export default function SmcLandingPage({ next }: { next: SmcBookableEvent }) {
             </ul>
           </div>
           <div className="smc-container">
-            <Photo
-              src={PHOTOS.band.src}
-              alt={PHOTOS.band.alt}
-              sizes="(min-width: 1120px) 1080px, 100vw"
-              className="smc-band-photo"
+            <SmcGallery
+              photos={ACTIVITY_PHOTOS}
+              label="Games and activities at Single Meet Club"
+              variant="compact"
+              className="smc-expect-gallery"
             />
           </div>
         </section>
@@ -331,6 +349,8 @@ export default function SmcLandingPage({ next }: { next: SmcBookableEvent }) {
           </p>
         </div>
       </footer>
+
+      <SmcStickyCta href={SMC_BOOKING_HREF} label={copy.hero.cta} watchId="smc-hero-reserve" />
     </div>
   )
 }

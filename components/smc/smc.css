@@ -249,13 +249,17 @@
   position: relative;
   display: flex;
   align-items: flex-end;
-  padding: 210px 0 24px;
+  /* phones: the photo sits in the top part so faces stay clear of the text */
+  padding: min(96vw, 520px) 0 24px;
   overflow: hidden;
 }
 
 .smc-hero-photo {
   position: absolute !important;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: min(135vw, 720px);
   border-radius: 0;
 }
 
@@ -265,10 +269,13 @@
 
 .smc-hero-scrim {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: min(135vw, 720px);
   background:
-    linear-gradient(180deg, rgba(23, 10, 15, 0.6) 0%, rgba(23, 10, 15, 0) 16%),
-    linear-gradient(180deg, rgba(32, 14, 20, 0) 18%, rgba(32, 14, 20, 0.7) 38%, rgba(32, 14, 20, 0.92) 58%, var(--smc-night) 86%);
+    linear-gradient(180deg, rgba(23, 10, 15, 0.55) 0%, rgba(23, 10, 15, 0) 14%),
+    linear-gradient(180deg, rgba(32, 14, 20, 0) 50%, rgba(32, 14, 20, 0.75) 72%, var(--smc-night) 100%);
 }
 
 .smc-hero-content {
@@ -400,8 +407,8 @@
   color: var(--smc-ink);
 }
 
-.smc-about-photo {
-  aspect-ratio: 4 / 3;
+.smc-about-gallery {
+  margin-top: 4px;
 }
 
 /* ── 3. What to expect ── */
@@ -441,9 +448,125 @@
   text-transform: uppercase;
 }
 
-.smc-band-photo {
+.smc-expect-gallery {
   margin-top: 24px;
-  aspect-ratio: 16 / 9;
+}
+
+/* ── Photo collages + viewer ── */
+
+.smc-gallery {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.smc-gallery-item {
+  aspect-ratio: 1;
+}
+
+/* the feature photo spans the full row on phones */
+.smc-gallery-item:first-child {
+  grid-column: span 2;
+  aspect-ratio: 4 / 3;
+}
+
+/* an odd tile left over at the end fills its row */
+.smc-gallery-item:last-child:nth-child(even) {
+  grid-column: span 2;
+  aspect-ratio: 2 / 1;
+}
+
+.smc-gallery-tile {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  border-radius: var(--smc-radius-sm);
+  background: var(--smc-panel);
+  cursor: zoom-in;
+}
+
+.smc-gallery-tile img {
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.smc-gallery-tile:hover img {
+  transform: scale(1.04);
+}
+
+.smc-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 56px 16px 24px;
+  background: rgba(23, 10, 15, 0.94);
+}
+
+.smc-lightbox-figure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 100%;
+}
+
+.smc-lightbox-image {
+  position: relative;
+  flex: 1;
+  width: 100%;
+}
+
+.smc-lightbox-image img {
+  object-fit: contain;
+}
+
+.smc-lightbox figcaption {
+  font-size: 13px;
+  color: var(--smc-text-muted);
+}
+
+.smc-lightbox-btn {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--smc-line);
+  border-radius: 50%;
+  background: rgba(55, 25, 35, 0.85);
+  color: var(--smc-white);
+  cursor: pointer;
+}
+
+.smc-lightbox-btn:hover {
+  background: var(--smc-wine);
+}
+
+.smc-lightbox-close {
+  top: 12px;
+  right: 12px;
+}
+
+.smc-lightbox-prev,
+.smc-lightbox-next {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.smc-lightbox-prev {
+  left: 12px;
+}
+
+.smc-lightbox-next {
+  right: 12px;
 }
 
 /* ── 4. Next edition ── */
@@ -559,7 +682,8 @@
 
 .smc-footer {
   margin-top: 12px;
-  padding: 24px 0 calc(20px + env(safe-area-inset-bottom));
+  /* room for the sticky Reserve bar */
+  padding: 24px 0 calc(96px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--smc-line);
   background: var(--smc-night-deep);
 }
@@ -642,43 +766,98 @@
   color: var(--smc-text-muted);
 }
 
+/* ── Phones + tablets: fit the whole hero on the first screen ── */
+
+@media (max-width: 899px) {
+  .smc-header {
+    padding-top: calc(env(safe-area-inset-top) + 12px);
+  }
+
+  .smc-header-inner {
+    height: 52px;
+  }
+
+  .smc-wordmark img {
+    height: 34px;
+  }
+
+  .smc-header-cta {
+    min-height: 36px;
+    padding: 0 16px;
+    font-size: 12px;
+  }
+
+  /* fills the screen exactly; text sits at the bottom, photo above it */
+  .smc-hero {
+    min-height: 100svh;
+    padding-top: min(60vw, 300px);
+    padding-bottom: 16px;
+  }
+
+  .smc-hero-photo,
+  .smc-hero-scrim {
+    top: -6vw;
+    height: min(125vw, 640px);
+  }
+
+  .smc-hero-photo img {
+    object-position: center 20%;
+  }
+
+  .smc-hero-title {
+    font-size: clamp(46px, 13vw, 96px);
+  }
+
+  .smc-hero-tagline {
+    margin-top: 8px;
+  }
+
+  .smc-hero-body {
+    margin-top: 6px;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .smc-strip {
+    margin: 12px 0;
+  }
+
+  .smc-hero-note {
+    margin-top: 8px;
+  }
+}
+
+/* ── Sticky Reserve bar (phones + tablets) ── */
+
+.smc-sticky-cta {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  padding: 12px var(--smc-gutter) calc(12px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(23, 10, 15, 0) 0%, rgba(23, 10, 15, 0.92) 40%);
+  transform: translateY(110%);
+  transition: transform 0.25s ease;
+}
+
+.smc-sticky-cta.is-visible {
+  transform: translateY(0);
+}
+
 /* ── Mobile About: heading full width, then body beside photo (mockup layout) ── */
 
 @media (max-width: 599px) {
   .smc-about {
-    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
-    grid-template-areas:
-      'eyebrow eyebrow'
-      'title title'
-      'body photo';
-    column-gap: 14px;
-    row-gap: 0;
-  }
-
-  .smc-about-text {
-    display: contents;
-  }
-
-  .smc-about .smc-eyebrow {
-    grid-area: eyebrow;
+    gap: 14px;
   }
 
   .smc-about .smc-h2 {
-    grid-area: title;
     font-size: clamp(28px, 8vw, 36px);
   }
 
   .smc-about .smc-body-dark {
-    grid-area: body;
     font-size: 15px;
-  }
-
-  .smc-about-photo {
-    grid-area: photo;
-    margin-top: 12px;
-    aspect-ratio: auto;
-    min-height: 100%;
-    border-radius: var(--smc-radius-sm);
   }
 }
 
@@ -707,13 +886,40 @@
   }
 
   .smc-about {
-    grid-template-columns: 1.3fr 1fr;
-    align-items: center;
+    gap: 24px;
     padding: 40px;
   }
 
-  .smc-about-photo {
-    aspect-ratio: 4 / 5;
+  .smc-about-text {
+    max-width: 720px;
+  }
+
+  /* desktop collages: feature photo is a 2x2 block beside the smaller ones */
+  .smc-gallery {
+    gap: 10px;
+  }
+
+  .smc-gallery--wide {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .smc-gallery--compact {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .smc-gallery--compact .smc-gallery-item {
+    aspect-ratio: 4 / 3;
+  }
+
+  .smc-gallery-item:first-child {
+    grid-row: span 2;
+    aspect-ratio: auto;
+  }
+
+  /* sized by the other tiles in its row */
+  .smc-gallery-item:last-child:nth-child(even) {
+    grid-column: auto;
+    aspect-ratio: auto;
   }
 
   .smc-footer-divider {
@@ -728,7 +934,21 @@
 
   .smc-hero {
     min-height: 92vh;
-    padding-bottom: 64px;
+    padding: 210px 0 64px;
+  }
+
+  .smc-hero-photo,
+  .smc-hero-scrim {
+    height: auto;
+    bottom: 0;
+  }
+
+  .smc-sticky-cta {
+    display: none;
+  }
+
+  .smc-footer {
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
   }
 
   .smc-hero-scrim {
@@ -753,10 +973,6 @@
 
   .smc-section {
     padding: 72px 0;
-  }
-
-  .smc-band-photo {
-    aspect-ratio: 21 / 8;
   }
 
   .smc-ticket {
@@ -1077,11 +1293,40 @@
 }
 
 .smc-terms {
+  margin: 0 0 16px;
+  color: var(--smc-text-muted);
+}
+
+.smc-terms summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  list-style: none;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.smc-terms summary::-webkit-details-marker {
+  display: none;
+}
+
+.smc-terms-icon {
+  transition: transform 0.2s ease;
+}
+
+.smc-terms[open] .smc-terms-icon {
+  transform: rotate(180deg);
+}
+
+.smc-terms ul {
   display: grid;
-  gap: 8px;
-  margin: 0 0 16px 18px;
-  font-size: 15px;
-  color: var(--smc-text-soft);
+  gap: 6px;
+  margin: 10px 0 0 16px;
+  font-size: 12.5px;
+  line-height: 1.5;
 }
 
 .smc-check {

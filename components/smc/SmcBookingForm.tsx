@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState, type FormEvent } from 'react'
-import { ArrowRight, CreditCard, Landmark, Minus, Plus, QrCode } from 'lucide-react'
+import { ArrowRight, ChevronDown, CreditCard, Landmark, Minus, Plus, QrCode } from 'lucide-react'
 import { SMC_MAX_TICKETS_PER_BOOKING, SMC_MIN_AGE, SMC_TERMS } from '@/lib/smc/terms'
 
 type PaymentMethod = 'promptpay' | 'card'
@@ -293,11 +293,17 @@ export default function SmcBookingForm({
         <h2 id="smc-step-terms" className="smc-step-title">
           <span className="smc-step-num">4</span> Booking terms
         </h2>
-        <ul className="smc-terms">
-          {SMC_TERMS.map((t) => (
-            <li key={t}>{t}</li>
-          ))}
-        </ul>
+        <details className="smc-terms">
+          <summary>
+            Read the full booking terms
+            <ChevronDown aria-hidden size={16} strokeWidth={2} className="smc-terms-icon" />
+          </summary>
+          <ul>
+            {SMC_TERMS.map((t) => (
+              <li key={t}>{t}</li>
+            ))}
+          </ul>
+        </details>
         <label className="smc-check">
           <input type="checkbox" checked={ageConfirmed} onChange={(e) => setAgeConfirmed(e.target.checked)} {...fieldProps('ageConfirmed')} />
           <span>I confirm every guest on this booking is {SMC_MIN_AGE} or older.</span>
