@@ -33,13 +33,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
-  // Only handle successful payments
-  if (event.type !== 'checkout.session.completed') {
+  // A booking is created only once Stripe reports the money as received:
+  // checkout.session.completed with payment_status 'paid' (cards, and
+  // PromptPay when it confirms instantly), or
+  // checkout.session.async_payment_succeeded (PromptPay confirmed later).
+  // Every other event, including async_payment_failed and expired, creates nothing.
+  if (event.type !== 'checkout.session.completed' && event.type !== 'checkout.session.async_payment_succeeded') {
     return NextResponse.json({ received: true })
   }
 
   const session = event.data.object as any
   const meta = session.metadata
+
+  // Single Meet Club checkouts are fulfilled only by /api/smc/webhook
+  // (verified payment status, seat holds, attendee names, SMC email). Skip
+  // them here so they can never create a second booking or a generic email.
+  // BCC / New in Bangkok sessions never carry this label.
+  if (meta?.flow === 'smc') {
+    return NextResponse.json({ received: true, ignored: 'smc' })
+  }
+
+  if (session.payment_status !== 'paid') {
+    // Checkout finished but payment is still processing (e.g. PromptPay).
+    // async_payment_succeeded will arrive when it is paid.
+    return NextResponse.json({ received: true, pending: session.payment_status })
+  }
 
   try {
     const supabase = getServiceSupabase()
@@ -114,6 +132,13 @@ export async function POST(req: NextRequest) {
         ticket_token: ticketToken,
       })
       .select('id')
+
+    // stripe_session_id is unique: a repeated delivery of the same payment
+    // (Stripe retry, or both completed and async_payment_succeeded) finds the
+    // booking already saved. Acknowledge without a second booking or email.
+    if (dbError?.code === '23505' && /stripe_session_id/.test(`${dbError.message} ${dbError.details ?? ''}`)) {
+      return NextResponse.json({ received: true, duplicate: true })
+    }
 
     if (dbError) {
       console.error('Supabase insert error:', dbError)

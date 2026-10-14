@@ -1,4 +1,5 @@
 import { getServiceSupabase } from '@/lib/supabase'
+import { isDedicatedFlowProduct } from '@/lib/smc/config'
 import { productMediaPublicUrl } from '@/lib/media'
 import { bangkokToday } from '@/lib/dates'
 import { VISIBILITY_COLUMN, type Storefront } from '@/lib/storefront'
@@ -32,6 +33,8 @@ export async function loadPublicProductPage(
   if (!product || product.status !== 'active' || (product as any)[visColumn] !== true) {
     return null
   }
+  // Single Meet Club has its own page and booking flow (/single-meet-club).
+  if (isDedicatedFlowProduct(product.slug)) return null
 
   const [{ data: content }, { data: mediaRows }, { data: eventRows }] = await Promise.all([
     supabase

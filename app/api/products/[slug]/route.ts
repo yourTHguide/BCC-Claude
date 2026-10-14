@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
+import { isDedicatedFlowProduct } from '@/lib/smc/config'
 import { productMediaPublicUrl } from '@/lib/media'
 import { bangkokToday } from '@/lib/dates'
 import { VISIBILITY_COLUMN } from '@/lib/storefront'
@@ -82,7 +83,12 @@ export async function GET(req: NextRequest, { params }: { params: { slug: string
     )
   }
 
-  const gated = !product || product.status !== 'active' || (product as any)[visColumn] !== true
+  const gated =
+    !product ||
+    product.status !== 'active' ||
+    (product as any)[visColumn] !== true ||
+    // Single Meet Club has its own page and booking flow.
+    isDedicatedFlowProduct(product.slug)
   if (gated) {
     // Deliberately identical response whether the slug doesn't exist, is
     // Draft, or isn't visible on this storefront — never lets a caller

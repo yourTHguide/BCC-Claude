@@ -28,6 +28,11 @@ export interface ResolvedBooking {
   // matching every other storefront default in this codebase
   // (resolveStorefront(), getAppUrl()).
   storefront: string | null
+  // The event's own name (e.g. "Single Meet Club — Halloween Edition").
+  nightName: string | null
+  // Every named guest on the booking, lead first (booking_attendees; only
+  // Single Meet Club records them today). Empty when none are recorded.
+  attendeeNames: string[]
   productName: string
   productSlug: string | null
   startTime: string | null
@@ -70,6 +75,13 @@ export async function resolveBookingByToken(
     .maybeSingle()
 
   if (!booking) return null
+
+  const { data: attendeeRows } = await supabase
+    .from('booking_attendees')
+    .select('full_name, position')
+    .eq('booking_id', booking.id)
+    .order('position')
+  const attendeeNames: string[] = (attendeeRows ?? []).map((a: any) => a.full_name)
 
   let productName = booking.night_name
   let productSlug: string | null = null
@@ -117,6 +129,8 @@ export async function resolveBookingByToken(
     eventDate: booking.event_date,
     ticketToken: booking.ticket_token,
     storefront: booking.storefront,
+    nightName: booking.night_name ?? null,
+    attendeeNames,
     productName,
     productSlug,
     startTime,
