@@ -17,13 +17,14 @@ import {
 import {
   SMC_BOOKING_HREF,
   SMC_FREQUENCY_LABEL,
-  SMC_NEXT_EDITION as edition,
+  SMC_NEXT_EDITION as baseEdition,
   formatLongDate,
   formatPrice,
   formatShortDate,
   formatStartTime,
 } from '@/lib/smc/config'
 import { SMC_COPY as copy } from '@/lib/smc/content'
+import type { SmcBookableEvent } from '@/lib/smc/event'
 import './smc.css'
 
 const IMAGE_QUALITY = 90
@@ -82,7 +83,16 @@ function Wordmark() {
   )
 }
 
-export default function SmcLandingPage() {
+// `next` is the next SMC event from the database (lib/smc/event.ts), so the
+// date rolls forward on its own after each edition.
+export default function SmcLandingPage({ next }: { next: SmcBookableEvent }) {
+  const edition = {
+    ...baseEdition,
+    date: next.date,
+    startTime: next.startTime,
+    priceThb: next.priceThb,
+    capacity: next.capacity ?? baseEdition.capacity,
+  }
   const shortDate = formatShortDate(edition)
   const startTime = formatStartTime(edition)
   const price = formatPrice(edition)
