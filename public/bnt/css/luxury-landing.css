@@ -221,6 +221,21 @@ section {
   z-index: 2;
 }
 .event-info h3 { font-size: 1.75rem; margin-bottom: 10px; }
+.event-cta {
+  display: inline-block;
+  margin-top: 14px;
+  padding: 7px 16px;
+  border: 1px solid rgba(255,255,255,0.55);
+  border-radius: 50px;
+  background: rgba(255,255,255,0.08);
+  color: #FFFFFF;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+.event-card:hover .event-cta { background: rgba(255,255,255,0.18); border-color: #FFFFFF; }
 
 .event-card::before {
   content: '';
@@ -455,7 +470,7 @@ section {
   .event-card:nth-child(2) { height: 500px; transform: translateY(0); }
   .event-card:nth-child(3) { height: 550px; transform: translateY(120px); }
   .events-grid--four { grid-template-columns: repeat(4, 1fr); gap: 24px; }
-  .events-grid--four .event-card:nth-child(4) { height: 520px; transform: translateY(40px); }
+  .events-grid--four .event-card:nth-child(n) { height: 520px; transform: none; }
   .events-grid--four .event-info { padding: 24px; }
   .events-grid--four .event-info h3 { font-size: 1.5rem; }
   

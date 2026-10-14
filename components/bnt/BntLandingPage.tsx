@@ -82,19 +82,7 @@ export default function BntLandingPage() {
               <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
                 The ultimate Bangkok nightlife tour.
               </p>
-            </div>
-          </a>
-
-          <a
-            href="/new-in-bangkok"
-            className="event-card"
-            style={{ backgroundImage: "url('/images/nomad-nights.jpg')" }}
-          >
-            <div className="event-info">
-              <h3>New in Bangkok</h3>
-              <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
-                A hosted night for anyone new to Bangkok.
-              </p>
+              {showSmc && <span className="event-cta">See details →</span>}
             </div>
           </a>
 
@@ -109,9 +97,24 @@ export default function BntLandingPage() {
                 <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
                   A hosted night for singles. {SMC_NEXT_EDITION.editionName} · {smcDay}.
                 </p>
+                <span className="event-cta">See details →</span>
               </div>
             </a>
           )}
+
+          <a
+            href="/new-in-bangkok"
+            className="event-card"
+            style={{ backgroundImage: "url('/images/nomad-nights.jpg')" }}
+          >
+            <div className="event-info">
+              <h3>New in Bangkok</h3>
+              <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
+                A hosted night for anyone new to Bangkok.
+              </p>
+              {showSmc && <span className="event-cta">See details →</span>}
+            </div>
+          </a>
 
           <div className="event-card" style={{ backgroundImage: "url('/bnt/images/bangkok-masquerade-218.jpg')" }}>
             <div className="event-info">
