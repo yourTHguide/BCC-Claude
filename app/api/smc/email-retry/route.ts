@@ -5,8 +5,8 @@ import { dispatchSmcOutbox } from '@/lib/smc/outbox'
 
 export const dynamic = 'force-dynamic'
 
-// Scheduled email retry (called every few minutes by pg_cron on the staging
-// database — see supabase/staging/cron_email_retry.sql). Sends any SMC email
+// Scheduled email retry (called every few minutes by pg_cron — see
+// supabase/production/cron_email_retry.sql and supabase/staging/). Sends any SMC email
 // still pending. It never creates or changes bookings.
 // Auth: "Authorization: Bearer <SMC_EMAIL_RETRY_SECRET>".
 
