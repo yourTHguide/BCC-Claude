@@ -249,13 +249,17 @@
   position: relative;
   display: flex;
   align-items: flex-end;
-  padding: 210px 0 24px;
+  /* phones: the photo sits in the top part so faces stay clear of the text */
+  padding: min(96vw, 520px) 0 24px;
   overflow: hidden;
 }
 
 .smc-hero-photo {
   position: absolute !important;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: min(135vw, 720px);
   border-radius: 0;
 }
 
@@ -265,10 +269,13 @@
 
 .smc-hero-scrim {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: min(135vw, 720px);
   background:
-    linear-gradient(180deg, rgba(23, 10, 15, 0.6) 0%, rgba(23, 10, 15, 0) 16%),
-    linear-gradient(180deg, rgba(32, 14, 20, 0) 18%, rgba(32, 14, 20, 0.7) 38%, rgba(32, 14, 20, 0.92) 58%, var(--smc-night) 86%);
+    linear-gradient(180deg, rgba(23, 10, 15, 0.55) 0%, rgba(23, 10, 15, 0) 14%),
+    linear-gradient(180deg, rgba(32, 14, 20, 0) 50%, rgba(32, 14, 20, 0.75) 72%, var(--smc-night) 100%);
 }
 
 .smc-hero-content {
@@ -675,7 +682,8 @@
 
 .smc-footer {
   margin-top: 12px;
-  padding: 24px 0 calc(20px + env(safe-area-inset-bottom));
+  /* room for the sticky Reserve bar */
+  padding: 24px 0 calc(96px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--smc-line);
   background: var(--smc-night-deep);
 }
@@ -756,6 +764,24 @@
   margin-top: 4px;
   font-size: 12px;
   color: var(--smc-text-muted);
+}
+
+/* ── Sticky Reserve bar (phones + tablets) ── */
+
+.smc-sticky-cta {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  padding: 12px var(--smc-gutter) calc(12px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(23, 10, 15, 0) 0%, rgba(23, 10, 15, 0.92) 40%);
+  transform: translateY(110%);
+  transition: transform 0.25s ease;
+}
+
+.smc-sticky-cta.is-visible {
+  transform: translateY(0);
 }
 
 /* ── Mobile About: heading full width, then body beside photo (mockup layout) ── */
@@ -847,7 +873,21 @@
 
   .smc-hero {
     min-height: 92vh;
-    padding-bottom: 64px;
+    padding: 210px 0 64px;
+  }
+
+  .smc-hero-photo,
+  .smc-hero-scrim {
+    height: auto;
+    bottom: 0;
+  }
+
+  .smc-sticky-cta {
+    display: none;
+  }
+
+  .smc-footer {
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
   }
 
   .smc-hero-scrim {

@@ -26,6 +26,7 @@ import {
 import { SMC_COPY as copy } from '@/lib/smc/content'
 import type { SmcBookableEvent } from '@/lib/smc/event'
 import SmcGallery, { type SmcGalleryPhoto } from './SmcGallery'
+import SmcStickyCta from './SmcStickyCta'
 import './smc.css'
 
 const IMAGE_QUALITY = 90
@@ -47,7 +48,7 @@ const CONVERSATION_PHOTOS: SmcGalleryPhoto[] = [
 
 const ACTIVITY_PHOTOS: SmcGalleryPhoto[] = [
   { src: '/smc/act-1.jpg', alt: 'A table of guests smiling during the red flag, green flag game', position: 'center 55%' },
-  { src: '/smc/act-2.jpg', alt: "Guests raising red and green flags under the Tony's sign", position: 'center 65%' },
+  { src: '/smc/act-laughing.jpg', alt: 'A guest laughing with new friends at the table', position: '30% 40%' },
   { src: '/smc/act-3.jpg', alt: 'Guests playing a group game around the tables', position: 'center 60%' },
   { src: '/smc/act-4.jpg', alt: 'A game prompt on screen while guests vote with flags', position: 'center 50%' },
   { src: '/smc/act-5.jpg', alt: 'A guest filling in a Connection Bingo card', position: 'center 45%' },
@@ -81,9 +82,9 @@ function Photo({
   )
 }
 
-function ReserveButton({ label, className }: { label: string; className?: string }) {
+function ReserveButton({ label, className, id }: { label: string; className?: string; id?: string }) {
   return (
-    <a href={SMC_BOOKING_HREF} className={`smc-btn ${className ?? ''}`}>
+    <a id={id} href={SMC_BOOKING_HREF} className={`smc-btn ${className ?? ''}`}>
       {label}
       <ArrowRight aria-hidden size={20} strokeWidth={2} />
     </a>
@@ -174,7 +175,7 @@ export default function SmcLandingPage({ next }: { next: SmcBookableEvent }) {
               </li>
             </ul>
 
-            <ReserveButton label={copy.hero.cta} className="smc-btn-block" />
+            <ReserveButton id="smc-hero-reserve" label={copy.hero.cta} className="smc-btn-block" />
             <p className="smc-hero-note">
               {price} · {edition.inclusion} · Limited to {edition.capacity} guests
             </p>
@@ -348,6 +349,8 @@ export default function SmcLandingPage({ next }: { next: SmcBookableEvent }) {
           </p>
         </div>
       </footer>
+
+      <SmcStickyCta href={SMC_BOOKING_HREF} label={copy.hero.cta} watchId="smc-hero-reserve" />
     </div>
   )
 }
