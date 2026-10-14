@@ -17,13 +17,14 @@ import {
 import {
   SMC_BOOKING_HREF,
   SMC_FREQUENCY_LABEL,
-  SMC_NEXT_EDITION as edition,
+  SMC_NEXT_EDITION as baseEdition,
   formatLongDate,
   formatPrice,
   formatShortDate,
   formatStartTime,
 } from '@/lib/smc/config'
 import { SMC_COPY as copy } from '@/lib/smc/content'
+import type { SmcBookableEvent } from '@/lib/smc/event'
 import './smc.css'
 
 const IMAGE_QUALITY = 90
@@ -73,16 +74,23 @@ function ReserveButton({ label, className }: { label: string; className?: string
 }
 
 function Wordmark() {
-  // Typeset product name, not a logo — replace with approved SMC logo artwork.
   return (
     <a href="#top" className="smc-wordmark" aria-label="Single Meet Club">
-      <span>Single</span>
-      <span className="smc-wordmark-accent">Meet Club</span>
+      <Image src="/smc/smc-logo.png" alt="Single Meet Club" width={640} height={293} priority />
     </a>
   )
 }
 
-export default function SmcLandingPage() {
+// `next` is the next SMC event from the database (lib/smc/event.ts), so the
+// date rolls forward on its own after each edition.
+export default function SmcLandingPage({ next }: { next: SmcBookableEvent }) {
+  const edition = {
+    ...baseEdition,
+    date: next.date,
+    startTime: next.startTime,
+    priceThb: next.priceThb,
+    capacity: next.capacity ?? baseEdition.capacity,
+  }
   const shortDate = formatShortDate(edition)
   const startTime = formatStartTime(edition)
   const price = formatPrice(edition)
@@ -304,8 +312,9 @@ export default function SmcLandingPage() {
             </div>
             <div className="smc-footer-partner">
               <span className="smc-footer-label">{copy.footer.venueLabel}</span>
-              {/* Text until Tony's official logo artwork is supplied. */}
-              <span className="smc-footer-venue">{edition.venueName}</span>
+              <span className="smc-footer-venue">
+                <Image src="/smc/tonys-logo.png" alt={edition.venueName} width={360} height={193} />
+              </span>
             </div>
           </div>
           <nav className="smc-footer-links" aria-label="Contact">

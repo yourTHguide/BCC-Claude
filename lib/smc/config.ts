@@ -39,11 +39,14 @@ export interface SmcEdition {
   capacity: number
 }
 
+// Fixed facts for every edition. The date shown on the site comes from the
+// next SMC event in the database (lib/smc/event.ts); `date` here is only the
+// fallback, computed as the next last Thursday of the month.
 export const SMC_NEXT_EDITION: SmcEdition = {
-  editionName: 'Halloween Edition',
-  editionTagline: 'No Tricks. Just Chemistry.',
-  themeNote: 'Halloween costumes optional',
-  date: '2026-10-29',
+  editionName: '',
+  editionTagline: '',
+  themeNote: '',
+  date: nextLastThursday(),
   startTime: '19:30',
   venueName: "Tony's Restaurant & Bar",
   venueShortName: "Tony's",
@@ -58,6 +61,23 @@ export const SMC_NEXT_EDITION: SmcEdition = {
 }
 
 export const SMC_FREQUENCY_LABEL = 'Last Thursday of every month'
+
+// Last Thursday of the given month (UTC date math), as YYYY-MM-DD.
+export function lastThursdayOf(year: number, monthIndex: number): string {
+  const last = new Date(Date.UTC(year, monthIndex + 1, 0))
+  last.setUTCDate(last.getUTCDate() - ((last.getUTCDay() - 4 + 7) % 7))
+  return last.toISOString().slice(0, 10)
+}
+
+// The next last-Thursday on or after `fromIso` (default: today in Bangkok).
+export function nextLastThursday(fromIso?: string): string {
+  const today =
+    fromIso ??
+    new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+  const [y, m] = today.split('-').map(Number)
+  const thisMonth = lastThursdayOf(y, m - 1)
+  return thisMonth >= today ? thisMonth : lastThursdayOf(m === 12 ? y + 1 : y, m % 12)
+}
 
 // Where every "Reserve your spot" CTA points.
 export const SMC_BOOKING_HREF = '/single-meet-club/book'

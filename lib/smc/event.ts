@@ -1,6 +1,6 @@
 import { getServiceSupabase } from '@/lib/supabase'
 import { bangkokToday } from '@/lib/dates'
-import { SMC_NEXT_EDITION, SMC_PRODUCT_SLUG } from '@/lib/smc/config'
+import { SMC_NEXT_EDITION, SMC_PRODUCT_SLUG, nextLastThursday } from '@/lib/smc/config'
 
 export interface SmcBookableEvent {
   // null when the event could not be loaded from the database; the page then
@@ -18,7 +18,7 @@ export interface SmcBookableEvent {
 function configFallback(): SmcBookableEvent {
   return {
     eventId: null,
-    date: SMC_NEXT_EDITION.date,
+    date: nextLastThursday(bangkokToday()),
     startTime: SMC_NEXT_EDITION.startTime,
     priceThb: SMC_NEXT_EDITION.priceThb,
     capacity: SMC_NEXT_EDITION.capacity,

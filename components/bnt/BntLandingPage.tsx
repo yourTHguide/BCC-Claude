@@ -2,7 +2,6 @@ import Script from 'next/script'
 import BntNav from './BntNav'
 import BntFooter from './BntFooter'
 import { canRenderSmcPage } from '@/lib/smc/env'
-import { SMC_NEXT_EDITION } from '@/lib/smc/config'
 
 // Port of NightlifeAntigravity's landing.html (live BNT homepage). Markup is
 // a direct JSX transcription of the original HTML — the Private Experiences
@@ -17,11 +16,6 @@ export default function BntLandingPage() {
   // this visitor (published, or the owner's private-access cookie), so the
   // card never links to a 404.
   const showSmc = canRenderSmcPage()
-  const smcDay = new Date(`${SMC_NEXT_EDITION.date}T00:00:00Z`).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    timeZone: 'UTC',
-  })
 
   return (
     <>
@@ -95,7 +89,7 @@ export default function BntLandingPage() {
               <div className="event-info">
                 <h3>Single Meet Club</h3>
                 <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
-                  A hosted night for singles. {SMC_NEXT_EDITION.editionName} · {smcDay}.
+                  A monthly social night where singles meet naturally.
                 </p>
                 <span className="event-cta">See details →</span>
               </div>

@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import SmcLandingPage from '@/components/smc/SmcLandingPage'
 import { canRenderSmcPage, smcPageIndexable } from '@/lib/smc/env'
+import { loadNextSmcEvent } from '@/lib/smc/event'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,7 +13,7 @@ export const dynamic = 'force-dynamic'
 
 const TITLE = 'Single Meet Club | Bangkok Singles Social Night'
 const DESCRIPTION =
-  'A monthly social night in Bangkok where everyone happens to be single. Halloween Edition, Thursday 29 October at Tony\'s, Sukhumvit Soi 11. No Tricks. Just Chemistry.'
+  "A monthly social night in Bangkok where everyone happens to be single. The last Thursday of every month at Tony's, Sukhumvit Soi 11."
 const URL = 'https://www.bestnightlifethailand.com/single-meet-club'
 
 // openGraph is set explicitly — otherwise Next.js merges the root layout's
@@ -27,7 +28,7 @@ export function generateMetadata(): Metadata {
   }
 }
 
-export default function SingleMeetClubPage() {
+export default async function SingleMeetClubPage() {
   if (!canRenderSmcPage()) notFound()
-  return <SmcLandingPage />
+  return <SmcLandingPage next={await loadNextSmcEvent()} />
 }
