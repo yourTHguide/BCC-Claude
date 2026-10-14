@@ -897,6 +897,9 @@ export default function Dashboard() {
   const [calMonth, setCalMonth] = useState(new Date().getMonth())
   const [events, setEvents] = useState<EventDate[]>([])
   const [allBookings, setAllBookings] = useState<Booking[]>([])
+  const [bookingEvent, setBookingEvent] = useState('all')
+  const [bookingDate, setBookingDate] = useState('upcoming')
+  const [bookingStatus, setBookingStatus] = useState('all')
   const [selectedEvent, setSelectedEvent] = useState<EventDate|null>(null)
   const [loading, setLoading] = useState(false)
   const [resendState, setResendState] = useState<Record<string,'idle'|'sending'|'sent'|'error'>>({})
@@ -905,6 +908,17 @@ export default function Dashboard() {
   const [cancelConfirm, setCancelConfirm] = useState<Record<string,boolean>>({})
   const [actionState, setActionState] = useState<Record<string,'idle'|'sending'|'done'|'error'>>({})
 
+
+  // Bookings tab filters (client-side; the list is already loaded).
+  const todayIso = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' })
+  const filteredBookings = allBookings.filter(b => {
+    if (bookingEvent !== 'all' && b.night_name !== bookingEvent) return false
+    if (bookingStatus !== 'all' && b.status !== bookingStatus) return false
+    if (bookingDate === 'upcoming') return b.event_date >= todayIso
+    if (bookingDate === 'past') return b.event_date < todayIso
+    if (bookingDate !== 'all') return b.event_date === bookingDate
+    return true
+  })
 
   const loadEvents = useCallback(async () => {
     setLoading(true)
@@ -1240,9 +1254,31 @@ export default function Dashboard() {
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'24px' }}>
             <h1 style={{ fontWeight:600, fontSize:'20px', margin:0 }}>Bookings</h1>
             <p style={{ fontSize:'13px', color:'rgba(255,255,255,0.40)' }}>
-              {allBookings.filter(b => b.status === 'confirmed').length} confirmed · {allBookings.filter(b => b.status === 'cancelled').length} cancelled
+              {filteredBookings.filter(b => b.status === 'confirmed').length} confirmed · {filteredBookings.filter(b => b.status === 'cancelled').length} cancelled
             </p>
           </div>
+
+          {allBookings.length > 0 && (
+            <div style={{ display:'flex', flexWrap:'wrap', gap:'10px', marginBottom:'16px' }}>
+              <select value={bookingEvent} onChange={e => setBookingEvent(e.target.value)} style={{ ...S.input, width:'auto', minWidth:'180px', flex:'1 1 180px' }} aria-label="Filter by event">
+                <option value="all">All events</option>
+                {Array.from(new Set(allBookings.map(b => b.night_name).filter(Boolean))).sort().map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+              <select value={bookingDate} onChange={e => setBookingDate(e.target.value)} style={{ ...S.input, width:'auto', minWidth:'160px', flex:'1 1 160px' }} aria-label="Filter by date">
+                <option value="upcoming">Upcoming dates</option>
+                <option value="past">Past dates</option>
+                <option value="all">All dates</option>
+                {Array.from(new Set(allBookings.map(b => b.event_date))).sort().map(d => (
+                  <option key={d} value={d}>{new Date(d+'T00:00:00').toLocaleDateString('en',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</option>
+                ))}
+              </select>
+              <select value={bookingStatus} onChange={e => setBookingStatus(e.target.value)} style={{ ...S.input, width:'auto', minWidth:'140px', flex:'1 1 140px' }} aria-label="Filter by status">
+                <option value="all">All statuses</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+          )}
 
           {allBookings.length === 0 && (
             <div style={{ ...S.card, textAlign:'center', padding:'48px' }}>
@@ -1250,8 +1286,14 @@ export default function Dashboard() {
             </div>
           )}
 
+          {allBookings.length > 0 && filteredBookings.length === 0 && (
+            <div style={{ ...S.card, textAlign:'center', padding:'32px' }}>
+              <p style={{ color:'rgba(255,255,255,0.40)', margin:0 }}>No bookings match these filters.</p>
+            </div>
+          )}
+
           <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
-            {allBookings.map(b => {
+            {filteredBookings.map(b => {
               const dateObj = new Date(b.event_date+'T00:00:00')
               const formattedDate = dateObj.toLocaleDateString('en',{weekday:'short',day:'numeric',month:'short'})
               const cancelled = b.status === 'cancelled'
