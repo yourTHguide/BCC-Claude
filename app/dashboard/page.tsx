@@ -58,8 +58,14 @@ interface Booking {
   source: string
   status: string
   attendance_status: string
+  notes?: string | null
   // Named guests (Single Meet Club); empty for bookings without them.
   booking_attendees?: { full_name: string; position: number }[]
+}
+
+// "Cancelled & refunded" when /api/cancel-booking recorded a Stripe refund.
+function cancelledLabel(b: Booking): string {
+  return /refunded via Stripe/.test(b.notes ?? '') ? 'Cancelled & refunded' : 'Cancelled'
 }
 
 // "1. Ana, 2. Ben" — only for bookings with more than one named guest.
@@ -1232,8 +1238,10 @@ export default function Dashboard() {
       {activeTab === 'bookings' && (
         <div style={{ padding:'24px', maxWidth:'900px', margin:'0 auto' }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'24px' }}>
-            <h1 style={{ fontWeight:600, fontSize:'20px', margin:0 }}>Confirmed Bookings</h1>
-            <p style={{ fontSize:'13px', color:'rgba(255,255,255,0.40)' }}>{allBookings.length} total</p>
+            <h1 style={{ fontWeight:600, fontSize:'20px', margin:0 }}>Bookings</h1>
+            <p style={{ fontSize:'13px', color:'rgba(255,255,255,0.40)' }}>
+              {allBookings.filter(b => b.status === 'confirmed').length} confirmed · {allBookings.filter(b => b.status === 'cancelled').length} cancelled
+            </p>
           </div>
 
           {allBookings.length === 0 && (
@@ -1246,8 +1254,9 @@ export default function Dashboard() {
             {allBookings.map(b => {
               const dateObj = new Date(b.event_date+'T00:00:00')
               const formattedDate = dateObj.toLocaleDateString('en',{weekday:'short',day:'numeric',month:'short'})
+              const cancelled = b.status === 'cancelled'
               return (
-                <div key={b.id} style={{ ...S.card, display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:'12px' }}>
+                <div key={b.id} style={{ ...S.card, display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:'12px', ...(cancelled ? { opacity:0.55 } : {}) }}>
                   <div style={{ display:'flex', gap:'16px', alignItems:'center' }}>
                     {/* Date badge */}
                     <div style={{ background:'linear-gradient(135deg,#EA003A,#820065)', borderRadius:'8px', padding:'6px 12px', textAlign:'center', flexShrink:0 }}>
@@ -1255,7 +1264,14 @@ export default function Dashboard() {
                       <p style={{ fontWeight:600, fontSize:'9px', color:'rgba(255,255,255,0.80)', margin:0, letterSpacing:'0.1em' }}>{dateObj.toLocaleString('en',{month:'short'}).toUpperCase()}</p>
                     </div>
                     <div>
-                      <p style={{ fontWeight:600, fontSize:'14px', color:'#fff', margin:'0 0 3px' }}>{b.guest_name||b.guest_email}</p>
+                      <p style={{ fontWeight:600, fontSize:'14px', color:'#fff', margin:'0 0 3px' }}>
+                        {b.guest_name||b.guest_email}
+                        {cancelled && (
+                          <span style={{ marginLeft:'8px', fontSize:'10px', fontWeight:700, letterSpacing:'0.06em', textTransform:'uppercase', color:'#EA003A', border:'1px solid rgba(234,0,58,0.5)', borderRadius:'4px', padding:'1px 6px' }}>
+                            {cancelledLabel(b)}
+                          </span>
+                        )}
+                      </p>
                       <p style={{ fontSize:'12px', color:'rgba(255,255,255,0.45)', margin:0 }}>
                         {b.night_name} · {formattedDate}
                       </p>
@@ -1272,6 +1288,8 @@ export default function Dashboard() {
                         {b.promo_code && ` · ${b.promo_code}`}
                       </p>
                     </div>
+                    {!cancelled && (
+                    <>
                     <button
                 onClick={() => resendConfirmation(b.id)}
                 disabled={resendState[b.id]==='sending'}
@@ -1291,7 +1309,9 @@ export default function Dashboard() {
               >
                 Cancel
               </button>
-                    <div style={{ width:'8px', height:'8px', borderRadius:'50%', background:'#22c55e', flexShrink:0 }} />
+                    </>
+                    )}
+                    <div style={{ width:'8px', height:'8px', borderRadius:'50%', background: cancelled ? 'rgba(255,255,255,0.25)' : '#22c55e', flexShrink:0 }} />
                   </div>
 
                   {rescheduleOpen[b.id] && (

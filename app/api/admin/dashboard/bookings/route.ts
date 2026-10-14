@@ -9,6 +9,8 @@ export const dynamic = 'force-dynamic'
 // see PHASE4_CHECKPOINT.md's RLS audit, which flags this table's guest
 // PII/ticket_token exposure as critical). Same query/shape/order as that
 // direct read, just behind requireAdmin() + the service role now.
+// Cancelled bookings are included (shown labelled, without actions) so the
+// tab keeps a full record; totals elsewhere still count confirmed only.
 export async function GET() {
   const auth = await requireAdmin()
   if ('response' in auth) return auth.response
@@ -17,7 +19,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from('bookings')
     .select('*')
-    .eq('status', 'confirmed')
+    .in('status', ['confirmed', 'cancelled'])
     .order('created_at', { ascending: false })
 
   if (error) {
