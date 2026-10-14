@@ -45,3 +45,25 @@ branch alias.
 
 Staging test data: 13 test bookings (SMC marked `is_test`), test BCC dates 6–7 Nov, a
 catalogue-only `new-in-bkk` copy (visible on the BCC storefront in staging only) dated 4 Nov.
+
+## Launch-readiness retest (14 Oct 2026, build e7a72d6)
+
+Changes under test: `f8c8ccc` (shared webhook verified-payment + duplicate handling; SMC
+production gate, publish flag, Halloween content) and `e7a72d6` (final FAQ).
+
+| Test | Method | Result |
+|---|---|---|
+| Environment gate: live/test key × prod/staging DB × enabled flag (8 cases) | Automated | Pass |
+| Indexing only when published on production (3 cases) | Automated | Pass |
+| Shared webhook: unpaid completed → pending, failed/expired → nothing, SMC skipped, bad signature (7 cases) | Automated, signed events, local server | Pass |
+| Page: Halloween details, tagline, costume note, 20+, FAQ, Moments hidden, no placeholder/draft tags | Automated screenshots + owner review | Pass |
+| SMC card, 2 guests (SMC-C56BBA): ฿800, 2 attendees, QR, 2 emails sent | Owner, Sandbox | Pass |
+| SMC PromptPay (SMC-6AA15D): QR, 2 emails sent | Owner, Sandbox | Pass |
+| QR check-in on staging dashboard; second scan shows already checked in | Owner | Pass |
+| BCC card + duplicate event resend: one booking, one confirmation, one admin email | Owner, Sandbox | Pass |
+| BCC PromptPay authorize (Sat 7 Nov) | Owner, Sandbox | Pass |
+| New in Bangkok PromptPay (Wed 4 Nov, ฿390 Early Bird) | Owner, Sandbox | Pass |
+
+Launch-day Stripe change for BCC/NIB: add `checkout.session.async_payment_succeeded` to the
+live "BCC Booking completed" endpoint so delayed PromptPay payments become bookings.
+Staging now has an owner login (staging-only `admin_users` row) for check-in testing.
