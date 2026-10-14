@@ -17,7 +17,8 @@ export const SMC_PREVIEW_TTL_SECONDS = 2 * 60 * 60
 const MIN_CODE_LENGTH = 12
 
 function previewSecret(): string | null {
-  const code = process.env.SMC_PREVIEW_CODE ?? ''
+  // Trimmed: a value pasted into Vercel can carry a trailing newline.
+  const code = (process.env.SMC_PREVIEW_CODE ?? '').trim()
   return code.length >= MIN_CODE_LENGTH ? code : null
 }
 

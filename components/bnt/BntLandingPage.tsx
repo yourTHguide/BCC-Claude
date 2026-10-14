@@ -1,6 +1,8 @@
 import Script from 'next/script'
 import BntNav from './BntNav'
 import BntFooter from './BntFooter'
+import { canRenderSmcPage } from '@/lib/smc/env'
+import { SMC_NEXT_EDITION } from '@/lib/smc/config'
 
 // Port of NightlifeAntigravity's landing.html (live BNT homepage). Markup is
 // a direct JSX transcription of the original HTML — the Private Experiences
@@ -11,6 +13,16 @@ import BntFooter from './BntFooter'
 // same markup/element IDs. Only asset paths inside that file were rewritten
 // (assets/... -> /bnt/images/...) to match where the files now live.
 export default function BntLandingPage() {
+  // Single Meet Club joins the Signature Events once its page is visible to
+  // this visitor (published, or the owner's private-access cookie), so the
+  // card never links to a 404.
+  const showSmc = canRenderSmcPage()
+  const smcDay = new Date(`${SMC_NEXT_EDITION.date}T00:00:00Z`).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  })
+
   return (
     <>
       <link rel="stylesheet" href="/bnt/css/luxury-landing.css" />
@@ -57,7 +69,7 @@ export default function BntLandingPage() {
           </p>
         </div>
 
-        <div className="events-grid">
+        <div className={showSmc ? 'events-grid events-grid--four' : 'events-grid'}>
           <a
             href="https://www.bkkclubcrawl.com"
             target="_blank"
@@ -70,8 +82,25 @@ export default function BntLandingPage() {
               <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
                 The ultimate Bangkok nightlife tour.
               </p>
+              {showSmc && <span className="event-cta">See details →</span>}
             </div>
           </a>
+
+          {showSmc && (
+            <a
+              href="/single-meet-club"
+              className="event-card"
+              style={{ backgroundImage: "url('/images/gallery/g3.jpg')" }}
+            >
+              <div className="event-info">
+                <h3>Single Meet Club</h3>
+                <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
+                  A hosted night for singles. {SMC_NEXT_EDITION.editionName} · {smcDay}.
+                </p>
+                <span className="event-cta">See details →</span>
+              </div>
+            </a>
+          )}
 
           <a
             href="/new-in-bangkok"
@@ -83,6 +112,7 @@ export default function BntLandingPage() {
               <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
                 A hosted night for anyone new to Bangkok.
               </p>
+              {showSmc && <span className="event-cta">See details →</span>}
             </div>
           </a>
 
