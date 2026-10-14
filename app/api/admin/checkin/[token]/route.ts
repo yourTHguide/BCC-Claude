@@ -34,10 +34,12 @@ function toResponseShape(booking: ResolvedBooking, reference: string, alreadyChe
       status: booking.status,
       attendanceStatus: booking.attendanceStatus,
       reference,
+      attendeeNames: booking.attendeeNames,
     },
     event: {
       eventDate: booking.eventDate,
       startTime: booking.startTime,
+      nightName: booking.nightName,
     },
     product: {
       name: booking.productName,

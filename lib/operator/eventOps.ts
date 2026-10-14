@@ -144,6 +144,8 @@ export interface GuestRow {
   id: string
   kind: 'bookings' | 'ota_bookings'
   guestName: string | null
+  // Named guests, lead first (Single Meet Club); empty otherwise.
+  attendeeNames: string[]
   quantity: number
   totalPaid: number
   source: string
@@ -179,7 +181,7 @@ export async function getEventOpsData(eventDate: string, nightSlug: string): Pro
   const [{ data: bookings }, { data: otaBookings }, { data: expenses }] = await Promise.all([
     supabase
       .from('bookings')
-      .select('id, guest_name, quantity, total_paid, source, attendance_status')
+      .select('id, guest_name, quantity, total_paid, source, attendance_status, booking_attendees(full_name, position)')
       .eq('event_date', eventDate)
       .eq('night_slug', nightSlug)
       .eq('status', 'confirmed'),
@@ -198,11 +200,15 @@ export async function getEventOpsData(eventDate: string, nightSlug: string): Pro
 
   const guests: GuestRow[] = [
     ...(bookings ?? []).map((b: any) => ({
-      id: b.id, kind: 'bookings' as const, guestName: b.guest_name, quantity: b.quantity,
+      id: b.id, kind: 'bookings' as const, guestName: b.guest_name,
+      attendeeNames: [...(b.booking_attendees ?? [])]
+        .sort((x: any, y: any) => x.position - y.position)
+        .map((a: any) => a.full_name as string),
+      quantity: b.quantity,
       totalPaid: b.total_paid ?? 0, source: b.source ?? 'website', attendanceStatus: b.attendance_status,
     })),
     ...(otaBookings ?? []).map((o: any) => ({
-      id: o.id, kind: 'ota_bookings' as const, guestName: o.guest_name, quantity: o.quantity,
+      id: o.id, kind: 'ota_bookings' as const, guestName: o.guest_name, attendeeNames: [], quantity: o.quantity,
       totalPaid: o.total_paid ?? 0, source: o.source, attendanceStatus: o.attendance_status,
     })),
   ]

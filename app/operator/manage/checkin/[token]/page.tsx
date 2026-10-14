@@ -11,12 +11,13 @@ interface CheckinResponse {
     guestName: string | null
     guestEmail: string | null
     quantity: number
+    attendeeNames?: string[]
     totalPaid: number
     status: string
     attendanceStatus: string
     reference: string
   }
-  event: { eventDate: string; startTime: string | null }
+  event: { eventDate: string; startTime: string | null; nightName?: string | null }
   product: { name: string; slug: string | null }
   alreadyCheckedIn: boolean
 }
@@ -176,6 +177,9 @@ export default function OperatorCheckinTokenPage({ params }: { params: { token: 
             )}
 
             <p style={eyebrow(T.textFaint)}>{data.product.name}</p>
+            {data.event.nightName && data.event.nightName !== data.product.name && (
+              <p style={{ color: T.text, fontSize: '13px', fontWeight: 600, margin: '0 0 2px' }}>{data.event.nightName}</p>
+            )}
             <p style={{ color: T.text, fontSize: '13px', marginBottom: '18px' }}>
               {data.event.eventDate}{data.event.startTime ? ` · ${data.event.startTime.slice(0, 5)}` : ''}
             </p>
@@ -190,6 +194,15 @@ export default function OperatorCheckinTokenPage({ params }: { params: { token: 
                 <p style={{ color: T.text, fontSize: '15px', fontWeight: 600, margin: 0 }}>{data.booking.quantity}</p>
               </div>
             </div>
+
+            {(data.booking.attendeeNames?.length ?? 0) > 1 && (
+              <div style={{ marginBottom: '10px' }}>
+                <p style={eyebrow(T.textFaint)}>Attendees</p>
+                {data.booking.attendeeNames!.map((name, i) => (
+                  <p key={i} style={{ color: T.text, fontSize: '14px', margin: '2px 0' }}>{i + 1}. {name}</p>
+                ))}
+              </div>
+            )}
 
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '18px', paddingTop: '10px', borderTop: `1px solid ${T.border}` }}>
               <div>

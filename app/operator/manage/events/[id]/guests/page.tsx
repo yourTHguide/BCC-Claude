@@ -51,6 +51,11 @@ export default async function EventGuestsPage({ params }: { params: { id: string
               {g.quantity} guest{g.quantity === 1 ? '' : 's'} · {SOURCE_LABEL[g.source] ?? g.source}
               {g.totalPaid ? ` · ฿${g.totalPaid.toLocaleString()}` : ''}
             </p>
+            {g.attendeeNames.length > 1 && (
+              <p style={{ fontSize: '11.5px', color: T.textMuted, margin: '3px 0 0' }}>
+                {g.attendeeNames.map((n, i) => `${i + 1}. ${n}`).join(', ')}
+              </p>
+            )}
           </div>
           <AttendanceControl table={g.kind} id={g.id} status={g.attendanceStatus} />
         </div>

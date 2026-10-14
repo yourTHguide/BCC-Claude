@@ -58,6 +58,14 @@ interface Booking {
   source: string
   status: string
   attendance_status: string
+  // Named guests (Single Meet Club); empty for bookings without them.
+  booking_attendees?: { full_name: string; position: number }[]
+}
+
+// "1. Ana, 2. Ben" — only for bookings with more than one named guest.
+function attendeeLine(b: Booking): string | null {
+  const names = [...(b.booking_attendees ?? [])].sort((x, y) => x.position - y.position).map(a => a.full_name)
+  return names.length > 1 ? names.map((n, i) => `${i + 1}. ${n}`).join(', ') : null
 }
 
 interface OTABooking {
@@ -673,7 +681,10 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
             )}
             {bookings.map(b => (
               <div key={`b-${b.id}`} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:'8px', borderBottom:'1px solid rgba(255,255,255,0.06)', paddingBottom:'8px', marginBottom:'8px' }}>
-                <p style={{ fontSize:'13px', color:'#fff', margin:0, flex:1 }}>{b.guest_name||b.guest_email}</p>
+                <div style={{ flex:1 }}>
+                  <p style={{ fontSize:'13px', color:'#fff', margin:0 }}>{b.guest_name||b.guest_email}</p>
+                  {attendeeLine(b) && <p style={{ fontSize:'11px', color:'rgba(255,255,255,0.5)', margin:'2px 0 0' }}>{attendeeLine(b)}</p>}
+                </div>
                 <select value={b.attendance_status} onChange={e => updateAttendance('bookings', b.id, e.target.value)} style={{...S.input, height:'30px', fontSize:'12px', width:'130px'}}>
                   <option value="expected">Expected</option>
                   <option value="checked_in">Checked in</option>
@@ -756,6 +767,7 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
                     {b.guest_email} · {b.guest_phone} · {b.quantity} ticket{b.quantity>1?'s':''}
                     {b.promo_code && ` · ${b.promo_code}`}
                   </p>
+                  {attendeeLine(b) && <p style={{ fontSize:'12px', color:'rgba(255,255,255,0.6)', marginTop:'2px' }}>Guests: {attendeeLine(b)}</p>}
                 </div>
                 <p style={{ fontWeight:600, fontSize:'14px', color:'#fff' }}>฿{b.total_paid.toLocaleString()}</p>
               </div>

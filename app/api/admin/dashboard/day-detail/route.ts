@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
   const supabase = getServiceSupabase()
   const [b, o, e] = await Promise.all([
-    supabase.from('bookings').select('*').eq('event_date', eventDate).eq('night_slug', nightSlug).eq('status', 'confirmed'),
+    supabase.from('bookings').select('*, booking_attendees(full_name, position)').eq('event_date', eventDate).eq('night_slug', nightSlug).eq('status', 'confirmed'),
     supabase.from('ota_bookings').select('*').eq('event_date', eventDate).eq('night_slug', nightSlug),
     supabase.from('expenses').select('*').eq('event_date', eventDate).eq('night_slug', nightSlug),
   ])
