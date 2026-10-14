@@ -471,6 +471,10 @@ section {
   .event-card:nth-child(3) { height: 550px; transform: translateY(120px); }
   .events-grid--four { grid-template-columns: repeat(4, 1fr); gap: 24px; }
   .events-grid--four .event-card:nth-child(n) { height: 520px; transform: none; }
+  /* The scroll highlight (active-card, set by luxury-landing.js) is for the
+     mobile swipe row; on desktop it stuck on whichever card was last in view. */
+  .event-card.active-card:not(:hover)::before { opacity: 0; }
+  .event-card.active-card:not(:hover) { filter: none; }
   .events-grid--four .event-info { padding: 24px; }
   .events-grid--four .event-info h3 { font-size: 1.5rem; }
   
