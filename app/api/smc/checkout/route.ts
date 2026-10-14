@@ -118,7 +118,12 @@ export async function POST(req: NextRequest) {
   }
 
   // 5. Create the Stripe Checkout Session — only the chosen payment method.
-  const appUrl = getAppUrl('bnt')
+  // Return the guest to the exact host they booked on (www or apex). The
+  // private-access cookie is host-only, so bouncing between the two would
+  // 404 the confirmation page before launch. Only known BNT hosts qualify.
+  const host = (req.headers.get('host') ?? '').toLowerCase().split(':')[0]
+  const appUrl =
+    isProductionDeployment() && resolveStorefront(host) === 'bnt' ? `https://${host}` : getAppUrl('bnt')
   const expiresAt = Math.floor(Date.now() / 1000) + SESSION_MINUTES * 60
   const metadata = {
     flow: 'smc',
