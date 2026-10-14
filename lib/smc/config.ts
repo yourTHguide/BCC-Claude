@@ -7,12 +7,15 @@
 
 export const SMC_PRODUCT_SLUG = 'single-meet-club'
 
-// Public launch switch. While false, /single-meet-club 404s on production
-// (bestnightlifethailand.com) and only renders on Vercel Preview / local dev.
-// Flip to true only after copy, photography, logos and booking are approved.
-export const SMC_PAGE_PUBLISHED = false
+// The public launch switch is the SMC_PAGE_PUBLISHED environment variable,
+// read at request time in lib/smc/env.ts (unset = hidden on production).
 
 export interface SmcEdition {
+  // e.g. "Halloween Edition"; empty for a standard month
+  editionName: string
+  editionTagline: string
+  // Optional theme note shown with the event details, e.g. costumes
+  themeNote: string
   // YYYY-MM-DD, Asia/Bangkok local date
   date: string
   // HH:MM, 24h, Asia/Bangkok
@@ -22,14 +25,16 @@ export interface SmcEdition {
   venueArea: string
   venueCity: string
   mapUrl: string
-  // THB, whole units — WORKING price, pending final approval
+  // THB, whole units
   priceThb: number
   inclusion: string
-  // WORKING capacity, pending final approval
   capacity: number
 }
 
 export const SMC_NEXT_EDITION: SmcEdition = {
+  editionName: 'Halloween Edition',
+  editionTagline: 'No Tricks. Just Chemistry.',
+  themeNote: 'Halloween costumes optional',
   date: '2026-10-29',
   startTime: '19:30',
   venueName: "Tony's Restaurant & Bar",
@@ -46,14 +51,8 @@ export const SMC_NEXT_EDITION: SmcEdition = {
 
 export const SMC_FREQUENCY_LABEL = 'Last Thursday of every month'
 
-// Where every "Reserve your spot" CTA points. The booking route is Phase 1c
-// and does not exist yet — this will 404 until it is built.
+// Where every "Reserve your spot" CTA points.
 export const SMC_BOOKING_HREF = '/single-meet-club/book'
-
-// Photography currently on the page is existing BEST/BCC event photography
-// standing in for genuine SMC photos. While true, every image carries a
-// visible "Placeholder photo" tag so nothing is mistaken for real SMC content.
-export const SMC_SHOW_PLACEHOLDER_TAGS = true
 
 // ── Formatting helpers (pure; parse as UTC so the server TZ can't shift the day) ──
 

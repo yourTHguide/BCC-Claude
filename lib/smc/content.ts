@@ -1,9 +1,5 @@
-// Single Meet Club — page copy. DRAFT: written from the SMC Digital Brand Kit
-// v1.0 messaging hierarchy and the event details Guide approved. Replace with
-// the final approved website copy; components read only from here.
-//
-// `draft: true` on an FAQ item marks an answer that depends on a business
-// policy not yet confirmed — it renders with a visible "Draft" tag.
+// Single Meet Club — page copy (approved). Components read only from here;
+// event facts (date, venue, price, edition) live in lib/smc/config.ts.
 
 export const SMC_COPY = {
   hero: {
@@ -33,11 +29,6 @@ export const SMC_COPY = {
       { key: 'mingling', label: 'Natural mingling' },
     ],
   },
-  moments: {
-    eyebrow: 'A look inside SMC',
-    title: 'Real moments',
-    body: "From easy first hellos to conversations that run late — here's a glimpse of the night.",
-  },
   nextEdition: {
     eyebrow: 'Next edition',
     cta: 'Reserve your spot',
@@ -49,27 +40,22 @@ export const SMC_COPY = {
       {
         q: 'Is this speed dating?',
         a: "No. There are no rounds, timers or matching. It's a social night where everyone happens to be single — you mingle naturally, at your own pace.",
-        draft: false,
       },
       {
         q: 'Can I come alone?',
         a: 'Yes. The night is designed so arriving solo feels easy — the welcome drink, conversation prompts and icebreakers get everyone talking.',
-        draft: false,
       },
       {
         q: 'What age group comes?',
-        a: 'Single Meet Club is for single adults, mostly aged around 25–45.',
-        draft: true,
+        a: 'Single Meet Club is for single adults aged 20 and over. Please bring ID, as it may be checked at the door.',
       },
       {
         q: "What's included in the ticket?",
-        a: 'Entry to the night and one welcome drink. Further drinks are available from the bar.',
-        draft: true,
+        a: 'Entry to the night and one welcome drink. Further drinks are available from the bar. Halloween costumes are optional.',
       },
       {
         q: 'What happens after I book?',
-        a: 'Booking confirmation details will be added here once online booking is live.',
-        draft: true,
+        a: "You'll receive a confirmation email with your QR ticket straight away. One QR code covers your whole booking, so your group checks in together. Tickets are non-refundable, but you can ask to transfer a ticket to another eligible guest up to 24 hours before the event.",
       },
     ],
   },

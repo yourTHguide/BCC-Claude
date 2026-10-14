@@ -8,6 +8,7 @@ import {
   Martini,
   MessagesSquare,
   Plus,
+  Sparkles,
   Ticket,
   Users,
   UsersRound,
@@ -17,7 +18,6 @@ import {
   SMC_BOOKING_HREF,
   SMC_FREQUENCY_LABEL,
   SMC_NEXT_EDITION as edition,
-  SMC_SHOW_PLACEHOLDER_TAGS,
   formatLongDate,
   formatPrice,
   formatShortDate,
@@ -28,18 +28,12 @@ import './smc.css'
 
 const IMAGE_QUALITY = 90
 
-// Existing BEST/BCC event photography standing in for genuine SMC photos —
-// swap paths here when real SMC photography is supplied (public/smc/...).
+// BEST Nightlife Thailand event photography. A "Real moments" gallery of
+// genuine SMC photos can return once suitable photos exist.
 const PHOTOS = {
   hero: { src: '/images/gallery/g3.jpg', alt: 'Guests talking and laughing at a warmly lit Bangkok bar' },
   about: { src: '/images/30plus-night.jpg', alt: 'Guests mingling over drinks' },
   band: { src: '/images/gallery/g12.jpg', alt: 'A group gathered around a table in a red-lit lounge' },
-  moments: [
-    { src: '/images/gallery/g4.jpg', alt: 'Guests raising a toast together' },
-    { src: '/images/gallery/g5.jpg', alt: 'Two guests laughing together' },
-    { src: '/images/gallery/g1.jpg', alt: 'Live performance in a warmly lit bar' },
-    { src: '/images/gallery/g9.jpg', alt: 'A group of guests posing together' },
-  ],
 }
 
 const EXPECT_ICONS: Record<string, LucideIcon> = {
@@ -47,11 +41,6 @@ const EXPECT_ICONS: Record<string, LucideIcon> = {
   prompts: MessagesSquare,
   games: Dices,
   mingling: UsersRound,
-}
-
-function PlaceholderTag() {
-  if (!SMC_SHOW_PLACEHOLDER_TAGS) return null
-  return <span className="smc-placeholder-tag">Placeholder photo</span>
 }
 
 function Photo({
@@ -70,7 +59,6 @@ function Photo({
   return (
     <div className={`smc-photo ${className ?? ''}`}>
       <Image src={src} alt={alt} fill sizes={sizes} quality={IMAGE_QUALITY} priority={priority} />
-      <PlaceholderTag />
     </div>
   )
 }
@@ -134,6 +122,13 @@ export default function SmcLandingPage() {
             </h1>
             <p className="smc-hero-tagline">{copy.hero.tagline}</p>
             <p className="smc-hero-body">{copy.hero.body}</p>
+
+            {edition.editionName && (
+              <p className="smc-hero-edition">
+                <strong>{edition.editionName}</strong>
+                {edition.editionTagline && <span>{edition.editionTagline}</span>}
+              </p>
+            )}
 
             <ul className="smc-strip" aria-label="Event details">
               <li>
@@ -219,7 +214,10 @@ export default function SmcLandingPage() {
         <section id="next-edition" className="smc-section" aria-labelledby="smc-next-title">
           <div className="smc-container">
             <div className="smc-ticket">
-              <p className="smc-eyebrow smc-eyebrow-dark">{copy.nextEdition.eyebrow}</p>
+              <p className="smc-eyebrow smc-eyebrow-dark">
+                {edition.editionName ? `${copy.nextEdition.eyebrow} · ${edition.editionName}` : copy.nextEdition.eyebrow}
+              </p>
+              {edition.editionTagline && <p className="smc-ticket-tagline">{edition.editionTagline}</p>}
               <h2 id="smc-next-title" className="smc-ticket-date">
                 {formatLongDate(edition)}
               </h2>
@@ -247,8 +245,14 @@ export default function SmcLandingPage() {
                 </li>
                 <li>
                   <Users aria-hidden size={20} strokeWidth={1.7} />
-                  <span>Limited to {edition.capacity} guests</span>
+                  <span>Limited to {edition.capacity} guests · 20+ only</span>
                 </li>
+                {edition.themeNote && (
+                  <li>
+                    <Sparkles aria-hidden size={20} strokeWidth={1.7} />
+                    <span>{edition.themeNote}</span>
+                  </li>
+                )}
                 <li>
                   <CalendarDays aria-hidden size={20} strokeWidth={1.7} />
                   <span>{SMC_FREQUENCY_LABEL}</span>
@@ -259,29 +263,7 @@ export default function SmcLandingPage() {
           </div>
         </section>
 
-        {/* ── 5. Real moments ── */}
-        <section className="smc-section" aria-labelledby="smc-moments-title">
-          <div className="smc-container">
-            <p className="smc-eyebrow">{copy.moments.eyebrow}</p>
-            <h2 id="smc-moments-title" className="smc-h2">
-              {copy.moments.title}
-            </h2>
-            <p className="smc-body smc-moments-intro">{copy.moments.body}</p>
-            <div className="smc-gallery">
-              {PHOTOS.moments.map((p, i) => (
-                <Photo
-                  key={p.src}
-                  src={p.src}
-                  alt={p.alt}
-                  sizes={i === 0 ? '(min-width: 900px) 540px, 100vw' : '(min-width: 900px) 260px, 33vw'}
-                  className={i === 0 ? 'smc-gallery-main' : 'smc-gallery-item'}
-                />
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ── 6. FAQ ── */}
+        {/* ── 5. FAQ ── */}
         <section id="faq" className="smc-section" aria-labelledby="smc-faq-title">
           <div className="smc-container smc-faq-wrap">
             <h2 id="smc-faq-title" className="smc-h2">
@@ -294,10 +276,7 @@ export default function SmcLandingPage() {
                     <span>{item.q}</span>
                     <Plus aria-hidden size={18} strokeWidth={1.8} className="smc-faq-icon" />
                   </summary>
-                  <p>
-                    {item.draft && <span className="smc-draft-tag">Draft</span>}
-                    {item.a}
-                  </p>
+                  <p>{item.a}</p>
                 </details>
               ))}
             </div>
@@ -305,7 +284,7 @@ export default function SmcLandingPage() {
         </section>
       </main>
 
-      {/* ── 7. Footer ── */}
+      {/* ── 6. Footer ── */}
       <footer className="smc-footer">
         <div className="smc-container">
           <div className="smc-footer-brands">

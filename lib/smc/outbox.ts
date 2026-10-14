@@ -205,12 +205,8 @@ export async function dispatchSmcOutbox(limit = 10): Promise<DispatchResult> {
   }
 
   const result: DispatchResult = { claimed: (rows ?? []).length, sent: 0, failed: 0 }
-  const started = Date.now()
-  if (result.claimed) console.log(`SMC outbox: claimed ${result.claimed}`)
 
   for (const row of (rows ?? []) as OutboxRow[]) {
-    const rowStarted = Date.now()
-    console.log(`SMC outbox: ${row.kind} ${row.id.slice(0, 8)} attempt ${row.attempts} start (+${rowStarted - started}ms)`)
     let outcome: { ok: true; id: string | null } | { ok: false; error: string }
     try {
       if (!recipientAllowed(row.recipient)) {
@@ -230,7 +226,6 @@ export async function dispatchSmcOutbox(limit = 10): Promise<DispatchResult> {
       p_error: outcome.ok ? null : outcome.error,
     })
     if (completeError) console.error('smc_complete_outbox failed:', completeError.message)
-    console.log(`SMC outbox: ${row.kind} ${row.id.slice(0, 8)} ${outcome.ok ? 'sent' : 'failed'} in ${Date.now() - rowStarted}ms`)
 
     if (outcome.ok) result.sent++
     else {

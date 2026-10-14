@@ -106,9 +106,7 @@ export async function GET(req: NextRequest) {
         // Awaited: a serverless function can be frozen as soon as the response
         // is sent, which would leave a claimed email stuck until its lease ends.
         try {
-          console.log(`SMC status: fallback ${outcome} for ${sessionId.slice(0, 20)}…, dispatching emails`)
-          const sent = await dispatchSmcOutbox(5)
-          console.log(`SMC status: dispatch done ${JSON.stringify(sent)}`)
+          await dispatchSmcOutbox(5)
         } catch (err: any) {
           console.error('SMC status: email dispatch error (will retry):', err?.message ?? err)
         }

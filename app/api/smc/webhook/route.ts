@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
   if (session?.metadata?.flow !== 'smc') return ok({ ignored: 'not_smc' })
 
   // Environment isolation: test events only with a test key, live only with a live key,
-  // and never against production data until live SMC payments are approved.
+  // and live keys only on production with the production database (lib/smc/env.ts).
   const keyIsLive = (process.env.STRIPE_SECRET_KEY ?? '').startsWith('sk_live_')
   if (event.livemode !== keyIsLive) {
     console.error(`SMC webhook: livemode mismatch (event ${event.livemode}, key live=${keyIsLive})`)

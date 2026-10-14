@@ -155,39 +155,6 @@
   background: rgba(139, 26, 43, 0.18);
 }
 
-/* ── Placeholder / draft tags (review only) ── */
-
-.smc-placeholder-tag {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 2;
-  padding: 4px 8px;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.7);
-  border: 1px dashed rgba(255, 255, 255, 0.55);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  pointer-events: none;
-}
-
-.smc-draft-tag {
-  display: inline-block;
-  margin-right: 8px;
-  padding: 1px 7px;
-  border-radius: 4px;
-  border: 1px dashed var(--smc-coral);
-  color: var(--smc-coral);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  vertical-align: 2px;
-}
-
 /* ── Photos ── */
 
 .smc-photo {
@@ -286,12 +253,6 @@
   border-radius: 0;
 }
 
-.smc-hero-photo .smc-placeholder-tag {
-  top: calc(72px + env(safe-area-inset-top));
-  left: auto;
-  right: var(--smc-gutter);
-}
-
 .smc-hero-photo img {
   object-position: center 30%;
 }
@@ -329,6 +290,31 @@
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
+}
+
+.smc-hero-edition {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin-top: 14px;
+}
+
+.smc-hero-edition strong {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--smc-cta);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.smc-hero-edition span {
+  font-size: 15px;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .smc-hero-body {
@@ -463,6 +449,13 @@
   color: var(--smc-ink);
 }
 
+.smc-ticket-tagline {
+  margin: 4px 0 6px;
+  font-size: 15px;
+  font-style: italic;
+  color: var(--smc-cta);
+}
+
 .smc-ticket-date {
   font-family: var(--smc-display);
   font-weight: 400;
@@ -507,38 +500,7 @@
   min-height: 32px;
 }
 
-/* ── 5. Real moments ── */
-
-.smc-moments-intro {
-  margin-top: 8px;
-  max-width: 34em;
-}
-
-.smc-gallery {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-  margin-top: 16px;
-}
-
-.smc-gallery-main {
-  grid-column: 1 / -1;
-  aspect-ratio: 16 / 10;
-}
-
-.smc-gallery-item {
-  aspect-ratio: 4 / 5;
-  border-radius: var(--smc-radius-sm);
-}
-
-.smc-gallery-item .smc-placeholder-tag {
-  font-size: 8px;
-  padding: 3px 5px;
-  top: 6px;
-  left: 6px;
-}
-
-/* ── 6. FAQ ── */
+/* ── 5. FAQ ── */
 
 .smc-faq {
   display: grid;
@@ -709,13 +671,6 @@
     min-height: 100%;
     border-radius: var(--smc-radius-sm);
   }
-
-  .smc-about-photo .smc-placeholder-tag {
-    font-size: 8px;
-    padding: 3px 5px;
-    top: 6px;
-    left: 6px;
-  }
 }
 
 /* ── Small phones ── */
@@ -803,13 +758,14 @@
   }
 
   .smc-ticket .smc-eyebrow,
+  .smc-ticket-tagline,
   .smc-ticket-date {
     grid-column: 1;
   }
 
   .smc-ticket-list {
     grid-column: 2;
-    grid-row: 1 / span 3;
+    grid-row: 1 / span 4;
     margin: 0;
   }
 
@@ -817,16 +773,6 @@
     grid-column: 1;
     align-self: end;
     margin-top: 32px;
-  }
-
-  .smc-gallery {
-    grid-template-columns: 2fr 1fr 1fr 1fr;
-    gap: 12px;
-  }
-
-  .smc-gallery-main {
-    grid-column: auto;
-    aspect-ratio: auto;
   }
 
   .smc-faq-wrap {
