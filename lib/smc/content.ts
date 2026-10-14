@@ -51,11 +51,11 @@ export const SMC_COPY = {
       },
       {
         q: "What's included in the ticket?",
-        a: 'Entry to the night and one welcome drink. Further drinks are available from the bar. Halloween costumes are optional.',
+        a: 'Your ticket includes entry, one welcome drink, and hosted social activities designed to make meeting new people feel natural. Additional drinks are available at the bar.',
       },
       {
         q: 'What happens after I book?',
-        a: "You'll receive a confirmation email with your QR ticket straight away. One QR code covers your whole booking, so your group checks in together. Tickets are non-refundable, but you can ask to transfer a ticket to another eligible guest up to 24 hours before the event.",
+        a: "You'll receive a confirmation email with your digital ticket and QR code once your payment is confirmed. If you book for friends, one QR code covers the whole booking, so please arrive together. Tickets are non-refundable, but transfers may be requested at least 24 hours before the event, subject to organizer approval.",
       },
     ],
   },
