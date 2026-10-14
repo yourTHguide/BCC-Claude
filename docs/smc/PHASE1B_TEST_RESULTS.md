@@ -67,3 +67,22 @@ production gate, publish flag, Halloween content) and `e7a72d6` (final FAQ).
 Launch-day Stripe change for BCC/NIB: add `checkout.session.async_payment_succeeded` to the
 live "BCC Booking completed" endpoint so delayed PromptPay payments become bookings.
 Staging now has an owner login (staging-only `admin_users` row) for check-in testing.
+
+## Production database preparation (14 Oct 2026, owner-approved Step 1)
+
+Project `oomhftxgvikzxlvqdcmr` (Free plan: no automatic backups). Recovery for this change:
+`supabase/rollback/20261013000001_smc_registration_down.sql` (not applied).
+
+Applied: migration `smc_registration` = `supabase/migrations/20261013000001_smc_registration.sql`
+(sha256 386a0530…023eba). Added:
+- `bookings.payment_method` (nullable) and `bookings.is_test` (default false) + check constraint
+- tables `smc_registrations`, `booking_attendees`, `email_outbox`, `stripe_webhook_events`
+  (RLS on, no policies; service-role only)
+- 9 `smc_*` functions: EXECUTE for service_role only (anon/authenticated: none)
+
+Catalogue rows (inactive): product `smc` status `draft`, visible_bnt; product_content;
+event 2026-10-29 `is_open=false`, capacity 40. No pg_cron/pg_net, no retry job.
+
+Verified unchanged (row count + MD5 over all original columns, before = after):
+bookings 25, products 2, event_dates 120, product_content 2, admin_users 1,
+product_schedules 4. All 25 existing bookings: payment_method NULL, is_test false.
