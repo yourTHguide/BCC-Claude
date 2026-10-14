@@ -1,4 +1,5 @@
--- SMC email retry schedule — STAGING ONLY. Prepared, not yet applied.
+-- SMC email retry schedule — STAGING ONLY. Applied to staging 14 Oct 2026
+-- (Vault secrets added by the owner; values never shared).
 --
 -- Every 5 minutes, staging's database calls the preview's email-retry route,
 -- which sends any SMC email still pending (it never creates or changes bookings).
