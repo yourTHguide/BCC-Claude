@@ -11,9 +11,18 @@ no production data.
    `RESEND_API_KEY` (staging key), `ADMIN_NOTIFY_EMAIL` (test inbox),
    and `STRIPE_WEBHOOK_SECRET` (Sandbox secret, for the BCC/NIB regression).
 2. Vercel "Protection Bypass for Automation" secret (header only, never in a URL).
-3. Stripe CLI forwarding Sandbox events to the preview:
-   `stripe listen --forward-to <preview>/api/smc/webhook -H "x-vercel-protection-bypass: …"`
-   (and a second listener to `/api/webhook` for the regression tests).
+3. Stripe CLI forwarding Sandbox events to the preview (one Terminal window per listener):
+   ```
+   VERCEL_BYPASS=$(pbpaste)   # bypass secret on the clipboard; never typed or shown
+   stripe listen --events checkout.session.completed,checkout.session.async_payment_succeeded,checkout.session.async_payment_failed,checkout.session.expired \
+     --forward-to "<preview>/api/smc/webhook" -H "x-vercel-protection-bypass:$VERCEL_BYPASS"
+   ```
+   and a second listener to `/api/webhook` for the regression tests. Current Stripe CLI requires
+   `--events`. Copy the signing secret for Vercel without its trailing newline:
+   `stripe listen --print-secret | tr -d '\n' | pbcopy` (a newline makes every signature fail).
+   Smoke test: `stripe trigger checkout.session.completed --add checkout_session:metadata.flow=smc`
+   → both listeners `[200]`; SMC logs `smc_registration_not_found` (no booking), shared replies
+   `ignored: smc`.
 4. Staging Vault secrets + `supabase/staging/cron_email_retry.sql` for scheduled email retries.
 5. Staging catalogue rows for the regression: a BCC product/event and a New in Bangkok
    product/event (test data, no personal data).
