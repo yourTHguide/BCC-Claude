@@ -84,7 +84,7 @@ export default function BntLandingPage() {
             <a
               href="/single-meet-club"
               className="event-card"
-              style={{ backgroundImage: "url('/images/gallery/g3.jpg')" }}
+              style={{ backgroundImage: "url('/smc/hero.jpg')" }}
             >
               <div className="event-info">
                 <h3>Single Meet Club</h3>

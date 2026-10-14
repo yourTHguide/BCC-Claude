@@ -400,8 +400,8 @@
   color: var(--smc-ink);
 }
 
-.smc-about-photo {
-  aspect-ratio: 4 / 3;
+.smc-about-gallery {
+  margin-top: 4px;
 }
 
 /* ── 3. What to expect ── */
@@ -441,9 +441,125 @@
   text-transform: uppercase;
 }
 
-.smc-band-photo {
+.smc-expect-gallery {
   margin-top: 24px;
-  aspect-ratio: 16 / 9;
+}
+
+/* ── Photo collages + viewer ── */
+
+.smc-gallery {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.smc-gallery-item {
+  aspect-ratio: 1;
+}
+
+/* the feature photo spans the full row on phones */
+.smc-gallery-item:first-child {
+  grid-column: span 2;
+  aspect-ratio: 4 / 3;
+}
+
+/* an odd tile left over at the end fills its row */
+.smc-gallery-item:last-child:nth-child(even) {
+  grid-column: span 2;
+  aspect-ratio: 2 / 1;
+}
+
+.smc-gallery-tile {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  border-radius: var(--smc-radius-sm);
+  background: var(--smc-panel);
+  cursor: zoom-in;
+}
+
+.smc-gallery-tile img {
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.smc-gallery-tile:hover img {
+  transform: scale(1.04);
+}
+
+.smc-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 56px 16px 24px;
+  background: rgba(23, 10, 15, 0.94);
+}
+
+.smc-lightbox-figure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 100%;
+}
+
+.smc-lightbox-image {
+  position: relative;
+  flex: 1;
+  width: 100%;
+}
+
+.smc-lightbox-image img {
+  object-fit: contain;
+}
+
+.smc-lightbox figcaption {
+  font-size: 13px;
+  color: var(--smc-text-muted);
+}
+
+.smc-lightbox-btn {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--smc-line);
+  border-radius: 50%;
+  background: rgba(55, 25, 35, 0.85);
+  color: var(--smc-white);
+  cursor: pointer;
+}
+
+.smc-lightbox-btn:hover {
+  background: var(--smc-wine);
+}
+
+.smc-lightbox-close {
+  top: 12px;
+  right: 12px;
+}
+
+.smc-lightbox-prev,
+.smc-lightbox-next {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.smc-lightbox-prev {
+  left: 12px;
+}
+
+.smc-lightbox-next {
+  right: 12px;
 }
 
 /* ── 4. Next edition ── */
@@ -646,39 +762,15 @@
 
 @media (max-width: 599px) {
   .smc-about {
-    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
-    grid-template-areas:
-      'eyebrow eyebrow'
-      'title title'
-      'body photo';
-    column-gap: 14px;
-    row-gap: 0;
-  }
-
-  .smc-about-text {
-    display: contents;
-  }
-
-  .smc-about .smc-eyebrow {
-    grid-area: eyebrow;
+    gap: 14px;
   }
 
   .smc-about .smc-h2 {
-    grid-area: title;
     font-size: clamp(28px, 8vw, 36px);
   }
 
   .smc-about .smc-body-dark {
-    grid-area: body;
     font-size: 15px;
-  }
-
-  .smc-about-photo {
-    grid-area: photo;
-    margin-top: 12px;
-    aspect-ratio: auto;
-    min-height: 100%;
-    border-radius: var(--smc-radius-sm);
   }
 }
 
@@ -707,13 +799,40 @@
   }
 
   .smc-about {
-    grid-template-columns: 1.3fr 1fr;
-    align-items: center;
+    gap: 24px;
     padding: 40px;
   }
 
-  .smc-about-photo {
-    aspect-ratio: 4 / 5;
+  .smc-about-text {
+    max-width: 720px;
+  }
+
+  /* desktop collages: feature photo is a 2x2 block beside the smaller ones */
+  .smc-gallery {
+    gap: 10px;
+  }
+
+  .smc-gallery--wide {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .smc-gallery--compact {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .smc-gallery--compact .smc-gallery-item {
+    aspect-ratio: 4 / 3;
+  }
+
+  .smc-gallery-item:first-child {
+    grid-row: span 2;
+    aspect-ratio: auto;
+  }
+
+  /* sized by the other tiles in its row */
+  .smc-gallery-item:last-child:nth-child(even) {
+    grid-column: auto;
+    aspect-ratio: auto;
   }
 
   .smc-footer-divider {
@@ -753,10 +872,6 @@
 
   .smc-section {
     padding: 72px 0;
-  }
-
-  .smc-band-photo {
-    aspect-ratio: 21 / 8;
   }
 
   .smc-ticket {
