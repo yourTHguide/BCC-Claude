@@ -74,11 +74,9 @@ function ReserveButton({ label, className }: { label: string; className?: string
 }
 
 function Wordmark() {
-  // Typeset product name, not a logo — replace with approved SMC logo artwork.
   return (
     <a href="#top" className="smc-wordmark" aria-label="Single Meet Club">
-      <span>Single</span>
-      <span className="smc-wordmark-accent">Meet Club</span>
+      <Image src="/smc/smc-logo.png" alt="Single Meet Club" width={640} height={293} priority />
     </a>
   )
 }
@@ -314,8 +312,9 @@ export default function SmcLandingPage({ next }: { next: SmcBookableEvent }) {
             </div>
             <div className="smc-footer-partner">
               <span className="smc-footer-label">{copy.footer.venueLabel}</span>
-              {/* Text until Tony's official logo artwork is supplied. */}
-              <span className="smc-footer-venue">{edition.venueName}</span>
+              <span className="smc-footer-venue">
+                <Image src="/smc/tonys-logo.png" alt={edition.venueName} width={360} height={193} />
+              </span>
             </div>
           </div>
           <nav className="smc-footer-links" aria-label="Contact">
