@@ -19,7 +19,7 @@ export default function Footer() {
         <div className="footer-top">
           <div>
             <div style={{ height: '32px', display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-              <img src="/images/bcc-logo.png" alt="Bangkok Club Crawl" style={{ height: '32px', width: 'auto', objectFit: 'contain' }} />
+              <img loading="lazy" decoding="async" src="/images/bcc-logo.png" alt="Bangkok Club Crawl" style={{ height: '32px', width: 'auto', objectFit: 'contain' }} />
             </div>
             <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>
               Bangkok Club Crawl · BEST Nightlife Thailand

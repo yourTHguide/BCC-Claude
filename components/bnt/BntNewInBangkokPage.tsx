@@ -76,10 +76,10 @@ const playfairDisplay = Playfair_Display({
 // product_content). ──────────────────────────────────────────────────────
 const VENUE_COUNT = 2
 const IMG = {
-  cheers: '/images/nib/nib-cheers.png',
-  laughing: '/images/nib/nib-laughing.png',
+  cheers: '/images/nib/nib-cheers.jpg',
+  laughing: '/images/nib/nib-laughing.jpg',
   speakeasy: '/images/nib/nib-speakeasy.jpeg',
-  soi11: '/images/nib/nib-soi11.png',
+  soi11: '/images/nib/nib-soi11.jpg',
   apt101: '/images/nib/nib-apt101.jpg',
   neonsign: '/images/nib/nib-neonsign.jpg',
   fridge: '/images/nib/nib-fridge.webp',
@@ -88,8 +88,8 @@ const IMG = {
   // assets. apt101 and laughing above are still used elsewhere on this page
   // (venue card/final-CTA background, and the "Bangkok can feel new again"
   // section).
-  beerpongshot: '/images/nib/nib-beerpongshot.png',
-  hosted: '/images/nib/nib-hosted.png',
+  beerpongshot: '/images/nib/nib-beerpongshot.jpg',
+  hosted: '/images/nib/nib-hosted.jpg',
   grouppic: '/images/nib/nib-grouppic.jpg',
   walkin: '/images/nib/nib-walkin.jpg',
 }

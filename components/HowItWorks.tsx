@@ -4,7 +4,7 @@ export default function HowItWorks() {
       time: '9:30 PM',
       head: 'You arrive knowing nobody.',
       desc: 'Check in, grab your first drink, and our hosts introduce everyone.',
-      img: '/images/First-stop.png',
+      img: '/images/First-stop.jpg',
     },
     {
       time: '10:30 PM',
@@ -22,7 +22,7 @@ export default function HowItWorks() {
       time: 'Late',
       head: "You're not on a tour anymore.",
       desc: "You're out with your new Bangkok crew. This is where the night peaks.",
-      img: '/images/Rhodes group shot.png',
+      img: '/images/Rhodes group shot.jpg',
     },
   ]
 
@@ -54,7 +54,7 @@ export default function HowItWorks() {
                 {s.time}
               </p>
               <div className="hiw-image">
-                <img
+                <img loading="lazy" decoding="async"
                   src={s.img}
                   alt={s.head}
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}

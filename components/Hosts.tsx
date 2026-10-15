@@ -80,7 +80,7 @@ export default function Hosts() {
                 background: 'linear-gradient(160deg, #1D0010 0%, #120009 100%)',
               }}
             >
-              <img
+              <img loading="lazy" decoding="async"
                 src={host.photo}
                 alt={host.name}
                 style={{

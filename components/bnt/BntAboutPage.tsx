@@ -368,7 +368,7 @@ export default function BntAboutPage() {
           </div>
           <div className="split-row">
             <div className="split-media">
-              <img src="/bnt/images/passion.jpg" alt="The Passion" />
+              <img loading="lazy" decoding="async" src="/bnt/images/passion.jpg" alt="The Passion" />
             </div>
             <div className="split-text">
               <div className="card-marker">01 / THE PASSION</div>
@@ -383,7 +383,7 @@ export default function BntAboutPage() {
 
           <div className="split-row reverse">
             <div className="split-media">
-              <img src="/bnt/images/hospitality.jpg" alt="The Heart" />
+              <img loading="lazy" decoding="async" src="/bnt/images/hospitality.jpg" alt="The Heart" />
             </div>
             <div className="split-text">
               <div className="card-marker">02 / THE HEART</div>
@@ -398,7 +398,7 @@ export default function BntAboutPage() {
 
           <div className="split-row">
             <div className="split-media">
-              <img src="/bnt/images/reward.jpg" alt="The Reward" />
+              <img loading="lazy" decoding="async" src="/bnt/images/reward.jpg" alt="The Reward" />
             </div>
             <div className="split-text">
               <div className="card-marker">03 / THE REWARD</div>

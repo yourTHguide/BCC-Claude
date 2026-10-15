@@ -109,7 +109,7 @@ export default function SelectNight() {
               }}
             >
               {/* Real photo + overlay */}
-              <img
+              <img loading="lazy" decoding="async"
                 src={`/images/${night.slug}.jpg`}
                 alt={night.title}
                 style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover',objectPosition:'center'}}

@@ -1,5 +1,18 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Perf: let browsers keep site images for a day (and reuse them for a week
+  // while quietly re-checking), so repeat visitors don't re-download every
+  // photo. Keeps Vercel Fast Data Transfer down on the Hobby plan.
+  async headers() {
+    return [
+      {
+        source: '/:all*(jpg|jpeg|png|webp|gif|svg)',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' },
+        ],
+      },
+    ]
+  },
   experimental: {
     // Phase 3F correction: Next.js 14.2's client-side Router Cache reuses a
     // previously-fetched RSC payload for a dynamic route for up to 30s by

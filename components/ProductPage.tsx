@@ -652,7 +652,7 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
             </div>
             <div className="pp-gallery-strip">
               {gallery.map((img) => (
-                <img
+                <img loading="lazy" decoding="async"
                   key={img.id}
                   src={img.url}
                   alt={img.alt ?? product.name}

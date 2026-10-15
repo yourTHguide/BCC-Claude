@@ -830,7 +830,7 @@ export default function WeekendsPage() {
           <div className="gallery" id="galleryStrip">
             {galleryPhotos.map((photo, i) => (
               <div key={i} className="gallery__thumb" onClick={() => openLightbox(i)}>
-                <img src={photo.src} alt={photo.alt} />
+                <img loading="lazy" decoding="async" src={photo.src} alt={photo.alt} />
               </div>
             ))}
           </div>
@@ -999,7 +999,7 @@ export default function WeekendsPage() {
             {HOSTS.map((host) => (
               <div className="host-card" key={host.name}>
                 <div className="host-avatar">
-                  <img src={host.photo} alt={host.name} style={{ objectPosition: host.objectPosition }} />
+                  <img loading="lazy" decoding="async" src={host.photo} alt={host.name} style={{ objectPosition: host.objectPosition }} />
                 </div>
                 <div className="host-name">{host.name}</div>
                 <div className="host-role">{host.role}</div>

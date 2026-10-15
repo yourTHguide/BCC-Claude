@@ -10,7 +10,7 @@ export default function People() {
     <section className="section-pad" style={{ background: '#120009' }}>
       <div className="people-grid">
         <div className="people-image">
-          <img
+          <img loading="lazy" decoding="async"
             src="/images/saturday-signature.jpg"
             alt="A full Bangkok Club Crawl group together at the end of the night"
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
@@ -50,7 +50,7 @@ export default function People() {
 
           <div className="scrollbar-hide people-gallery">
             {gallery.map((src, i) => (
-              <img
+              <img loading="lazy" decoding="async"
                 key={i}
                 src={src}
                 alt="Guests meeting and talking during the crawl"

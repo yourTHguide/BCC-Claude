@@ -16,7 +16,7 @@ export default function FinalCTA() {
       }}
     >
       {/* Background photo — echoes the hero */}
-      <img
+      <img loading="lazy" decoding="async"
         src="/images/hero.jpg"
         alt=""
         aria-hidden="true"

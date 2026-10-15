@@ -2,7 +2,7 @@ export default function BntFooter({ style }: { style?: React.CSSProperties }) {
   return (
     <footer className="global-footer" style={style}>
       <div className="footer-content">
-        <img
+        <img loading="lazy" decoding="async"
           src="/bnt/logo/best-nightlife-thailand-logo.png"
           alt="BEST Nightlife Logo"
           style={{ height: '35px', marginBottom: '15px' }}
