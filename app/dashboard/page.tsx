@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 
@@ -149,6 +149,10 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [addingOTA, setAddingOTA] = useState(false)
   const [addingExp, setAddingExp] = useState(false)
+  // Set when the add form is being reused to edit an existing row.
+  const [editingOtaId, setEditingOtaId] = useState<string|null>(null)
+  const [editingExpId, setEditingExpId] = useState<string|null>(null)
+  const [detailLoadedId, setDetailLoadedId] = useState<string|null>(null)
   const [otaForm, setOtaForm] = useState({ source:'klook', guest_name:'', guest_email:'', quantity:1, total_paid:'' })
   const [expForm, setExpForm] = useState({ category:'van', description:'', amount:'' })
   const [localEvent, setLocalEvent] = useState(event)
@@ -204,6 +208,7 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
     setBookings(data.bookings || [])
     setOtaBookings(data.otaBookings || [])
     setExpenses(data.expenses || [])
+    setDetailLoadedId(event.id)
   }
 
   async function toggleOpen() {
@@ -227,22 +232,40 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
   }
 
   async function addOTA() {
-    await fetch('/api/admin/dashboard/ota-bookings', {
-      method: 'POST',
+    const fields = {
+      source: otaForm.source,
+      guestName: otaForm.guest_name,
+      guestEmail: otaForm.guest_email,
+      quantity: otaForm.quantity,
+      totalPaid: parseInt(otaForm.total_paid) || 0,
+    }
+    const res = await fetch('/api/admin/dashboard/ota-bookings', {
+      method: editingOtaId ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        eventDate: event.event_date,
-        nightSlug: event.night_slug,
-        source: otaForm.source,
-        guestName: otaForm.guest_name,
-        guestEmail: otaForm.guest_email,
-        quantity: otaForm.quantity,
-        totalPaid: parseInt(otaForm.total_paid) || 0,
-      }),
-    })
-    setAddingOTA(false)
-    setOtaForm({ source:'klook', guest_name:'', guest_email:'', quantity:1, total_paid:'' })
+      body: JSON.stringify(editingOtaId
+        ? { id: editingOtaId, ...fields }
+        : { eventDate: event.event_date, nightSlug: event.night_slug, ...fields }),
+    }).catch(() => null)
+    if (!res || !res.ok) {
+      const body = res ? await res.json().catch(() => ({} as any)) : {}
+      alert(`Couldn't save this booking: ${body.error || 'network error, please try again'}`)
+      return
+    }
+    closeOtaForm()
     loadDetail()
+    onUpdate()
+  }
+
+  function startEditOTA(o: OTABooking) {
+    setEditingOtaId(o.id)
+    setOtaForm({ source:o.source, guest_name:o.guest_name||'', guest_email:o.guest_email||'', quantity:o.quantity||1, total_paid:String(o.total_paid||0) })
+    setAddingOTA(true)
+  }
+
+  function closeOtaForm() {
+    setAddingOTA(false)
+    setEditingOtaId(null)
+    setOtaForm({ source:'klook', guest_name:'', guest_email:'', quantity:1, total_paid:'' })
   }
 
   function deleteOTABooking(o: OTABooking) {
@@ -274,20 +297,65 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
   }
 
   async function addExpense() {
-    await fetch('/api/admin/dashboard/expenses', {
-      method: 'POST',
+    const fields = {
+      category: expForm.category,
+      description: expForm.description,
+      amount: parseInt(expForm.amount) || 0,
+    }
+    const res = await fetch('/api/admin/dashboard/expenses', {
+      method: editingExpId ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        eventDate: event.event_date,
-        nightSlug: event.night_slug,
-        category: expForm.category,
-        description: expForm.description,
-        amount: parseInt(expForm.amount) || 0,
-      }),
-    })
-    setAddingExp(false)
-    setExpForm({ category:'van', description:'', amount:'' })
+      body: JSON.stringify(editingExpId
+        ? { id: editingExpId, ...fields }
+        : { eventDate: event.event_date, nightSlug: event.night_slug, ...fields }),
+    }).catch(() => null)
+    if (!res || !res.ok) {
+      const body = res ? await res.json().catch(() => ({} as any)) : {}
+      alert(`Couldn't save this expense: ${body.error || 'network error, please try again'}`)
+      return
+    }
+    closeExpForm()
     loadDetail()
+  }
+
+  function startEditExpense(e: Expense) {
+    setEditingExpId(e.id)
+    setExpForm({ category:e.category, description:e.description||'', amount:String(e.amount||0) })
+    setAddingExp(true)
+  }
+
+  function closeExpForm() {
+    setAddingExp(false)
+    setEditingExpId(null)
+    setExpForm({ category:'van', description:'', amount:'' })
+  }
+
+  function deleteExpense(e: Expense) {
+    setConfirmModal({
+      title: 'Delete this expense?',
+      message: `Delete ${e.category.replace('_',' ')} ฿${(e.amount||0).toLocaleString()}${e.description ? ` (${e.description})` : ''}? This cannot be undone.`,
+      confirmLabel: 'Delete',
+      onConfirm: async () => {
+        try {
+          const res = await fetch('/api/admin/dashboard/expenses', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: e.id }),
+          })
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({} as any))
+            alert(`Couldn't delete this expense: ${body.error || res.statusText}`)
+            return
+          }
+          if (editingExpId === e.id) closeExpForm()
+          await loadDetail()
+        } catch (err: any) {
+          alert(`Couldn't delete this expense: ${err?.message || 'network error, please try again'}`)
+        } finally {
+          setConfirmModal(null)
+        }
+      },
+    })
   }
 
   // ── Operations layer handlers ──
@@ -406,12 +474,26 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
     saveOpsField({ host_fee_final: suggested, host_payment_status: localEvent.host_payment_status === 'Not calculated' ? 'Calculated' : localEvent.host_payment_status })
   }
 
-  function markHostPaid() {
+  // Uses the fee currently in the input (falling back to the suggested fee)
+  // and saves it together with 'Paid' in one request. Previously the popup
+  // read the last *saved* host_fee_final, which went stale once attendance
+  // changed the suggested fee (e.g. ฿1,500 saved earlier, ฿2,400 after 8
+  // check-ins) — so the popup showed, and the record kept, the old amount.
+  function markHostPaid(suggested: number) {
+    const typed = parseInt(hostFeeInput)
+    const fee = isNaN(typed) ? suggested : typed
+    const mismatch = fee !== suggested
+      ? ` Note: the suggested fee for ${checkedInGuests} checked-in guest${checkedInGuests!==1?'s':''} is ฿${suggested.toLocaleString()}.`
+      : ''
     setConfirmModal({
       title: 'Mark host payment as Paid?',
-      message: `Confirm ${localEvent.host_assigned || 'the assigned host'} has been paid ฿${(localEvent.host_fee_final||0).toLocaleString()} for this date.`,
-      confirmLabel: 'Mark Paid',
-      onConfirm: async () => { await saveOpsField({ host_payment_status: 'Paid' }); setConfirmModal(null) },
+      message: `Confirm ${localEvent.host_assigned || 'the assigned host'} has been paid ฿${fee.toLocaleString()} for this date.${mismatch}`,
+      confirmLabel: `Mark ฿${fee.toLocaleString()} Paid`,
+      onConfirm: async () => {
+        const ok = await saveOpsField({ host_fee_final: fee, host_payment_status: 'Paid' })
+        if (ok) setHostFeeInput(String(fee))
+        setConfirmModal(null)
+      },
     })
   }
 
@@ -530,6 +612,20 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
   const checkedInGuests = bookings.filter(b=>b.attendance_status==='checked_in').reduce((s,b)=>s+b.quantity,0)
     + otaBookings.filter(o=>o.attendance_status==='checked_in').reduce((s,o)=>s+o.quantity,0)
   const suggestedFee = suggestedHostFee(checkedInGuests)
+  // Keep the final-fee input in step with the suggested fee as check-ins
+  // change, as long as it hasn't been paid and nobody typed a custom amount
+  // (i.e. the input still equals the previous suggestion, or is empty).
+  // Only reacts to attendance edits, not to the panel's own initial load or
+  // switching to another date.
+  const prevSuggestedRef = useRef<number|null>(null)
+  useEffect(() => {
+    if (detailLoadedId !== event.id) { prevSuggestedRef.current = null; return }
+    const prev = prevSuggestedRef.current
+    prevSuggestedRef.current = suggestedFee
+    if (prev === null || prev === suggestedFee) return
+    if (localEvent.host_payment_status === 'Paid') return
+    if (hostFeeInput === '' || parseInt(hostFeeInput) === prev) setHostFeeInput(String(suggestedFee))
+  }, [suggestedFee, detailLoadedId, event.id])
   const meetupIssues = sendMeetupIssuesFor()
   const canSendMeetup = meetupIssues.length === 0
 
@@ -669,7 +765,7 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
                 <option value="Paid">Paid</option>
               </select>
               {localEvent.host_payment_status !== 'Paid' && (
-                <button onClick={markHostPaid} style={{ ...S.btn, ...S.btnRed, whiteSpace:'nowrap' }}>Mark Paid</button>
+                <button onClick={() => markHostPaid(suggestedFee)} style={{ ...S.btn, ...S.btnRed, whiteSpace:'nowrap' }}>Mark Paid</button>
               )}
             </div>
           </div>
@@ -785,7 +881,7 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
         <div style={{ ...S.card, marginBottom:'16px' }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'16px' }}>
             <p style={{ ...S.label, margin:0 }}>OTA / DIRECT BOOKINGS ({otaGuests} guests)</p>
-            <button onClick={() => setAddingOTA(true)} style={{ ...S.btn, ...S.btnDanger, height:'30px', padding:'0 12px' }}>+ Add</button>
+            <button onClick={() => { closeOtaForm(); setAddingOTA(true) }} style={{ ...S.btn, ...S.btnDanger, height:'30px', padding:'0 12px' }}>+ Add</button>
           </div>
           {addingOTA && (
             <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:'8px', padding:'16px', marginBottom:'16px' }}>
@@ -814,8 +910,8 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
                 </div>
               </div>
               <div style={{ display:'flex', gap:'8px' }}>
-                <button onClick={addOTA} style={{ ...S.btn, ...S.btnRed }}>Save</button>
-                <button onClick={()=>setAddingOTA(false)} style={{ ...S.btn, ...S.btnGhost }}>Cancel</button>
+                <button onClick={addOTA} style={{ ...S.btn, ...S.btnRed }}>{editingOtaId ? 'Save changes' : 'Save'}</button>
+                <button onClick={closeOtaForm} style={{ ...S.btn, ...S.btnGhost }}>Cancel</button>
               </div>
             </div>
           )}
@@ -828,6 +924,7 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
               </div>
               <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
                 <p style={{ fontWeight:600, fontSize:'13px', color:'#fff', margin:0 }}>฿{(b.total_paid||0).toLocaleString()}</p>
+                <button onClick={() => startEditOTA(b)} title="Edit booking" style={{ ...S.btn, ...S.btnGhost, height:'30px', padding:'0 10px', fontSize:'12px' }}>Edit</button>
                 <button onClick={() => deleteOTABooking(b)} title="Remove booking" style={{ ...S.btn, ...S.btnGhost, height:'30px', padding:'0 10px', fontSize:'12px', color:'#EA003A', borderColor:'rgba(234,0,58,0.35)' }}>Remove</button>
               </div>
             </div>
@@ -838,7 +935,7 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
         <div style={{ ...S.card, marginBottom:'40px' }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'16px' }}>
             <p style={{ ...S.label, margin:0 }}>EXPENSES (฿{totalExp.toLocaleString()})</p>
-            <button onClick={()=>setAddingExp(true)} style={{ ...S.btn, ...S.btnDanger, height:'30px', padding:'0 12px' }}>+ Add</button>
+            <button onClick={()=>{ closeExpForm(); setAddingExp(true) }} style={{ ...S.btn, ...S.btnDanger, height:'30px', padding:'0 12px' }}>+ Add</button>
           </div>
           {addingExp && (
             <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:'8px', padding:'16px', marginBottom:'16px' }}>
@@ -859,19 +956,23 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
                 </div>
               </div>
               <div style={{ display:'flex', gap:'8px' }}>
-                <button onClick={addExpense} style={{ ...S.btn, ...S.btnRed }}>Save</button>
-                <button onClick={()=>setAddingExp(false)} style={{ ...S.btn, ...S.btnGhost }}>Cancel</button>
+                <button onClick={addExpense} style={{ ...S.btn, ...S.btnRed }}>{editingExpId ? 'Save changes' : 'Save'}</button>
+                <button onClick={closeExpForm} style={{ ...S.btn, ...S.btnGhost }}>Cancel</button>
               </div>
             </div>
           )}
           {expenses.length===0 && !addingExp && <p style={{ fontSize:'13px', color:'rgba(255,255,255,0.35)' }}>No expenses logged.</p>}
           {expenses.map(e => (
-            <div key={e.id} style={{ display:'flex', justifyContent:'space-between', borderBottom:'1px solid rgba(255,255,255,0.06)', paddingBottom:'10px', marginBottom:'10px' }}>
+            <div key={e.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:'8px', borderBottom:'1px solid rgba(255,255,255,0.06)', paddingBottom:'10px', marginBottom:'10px' }}>
               <div>
                 <p style={{ fontWeight:600, fontSize:'13px', color:'#fff', textTransform:'capitalize' }}>{e.category.replace('_',' ')}</p>
                 {e.description && <p style={{ fontSize:'12px', color:'rgba(255,255,255,0.45)', marginTop:'2px' }}>{e.description}</p>}
               </div>
-              <p style={{ fontWeight:600, fontSize:'13px', color:'#EA003A' }}>฿{e.amount.toLocaleString()}</p>
+              <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+                <p style={{ fontWeight:600, fontSize:'13px', color:'#EA003A', margin:0 }}>฿{e.amount.toLocaleString()}</p>
+                <button onClick={() => startEditExpense(e)} title="Edit expense" style={{ ...S.btn, ...S.btnGhost, height:'30px', padding:'0 10px', fontSize:'12px' }}>Edit</button>
+                <button onClick={() => deleteExpense(e)} title="Delete expense" style={{ ...S.btn, ...S.btnGhost, height:'30px', padding:'0 10px', fontSize:'12px', color:'#EA003A', borderColor:'rgba(234,0,58,0.35)' }}>Delete</button>
+              </div>
             </div>
           ))}
         </div>
