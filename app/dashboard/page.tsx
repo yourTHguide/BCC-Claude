@@ -3,10 +3,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
+import OperationsSheet, { type OperationsPalette } from '@/components/operations/OperationsSheet'
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
 const DAY_LABELS = ['Mo','Tu','We','Th','Fr','Sa','Su']
 const HOSTS = ['Guide','Ice','Boom','JJ']
+
+const OPS_PALETTE: OperationsPalette = {
+  text:'#fff', muted:'rgba(255,255,255,0.60)', faint:'rgba(255,255,255,0.38)',
+  card:'rgba(255,255,255,0.04)', border:'rgba(255,255,255,0.08)', inputBg:'rgba(255,255,255,0.06)',
+  accent:'#EA003A', accentText:'#fff', green:'#22c55e', amber:'#f59e0b', red:'#EA003A',
+}
 const VERDICT_OPTIONS = ['Pending','Pre-confirmation','Operation Confirmed','Cancelled / Rescheduled','Completed','Reviewed']
 const VERDICT_REQUIRING_CONFIRM = ['Operation Confirmed','Cancelled / Rescheduled']
 const PRE_CONFIRMATION_MESSAGE = "Quick update — we're close to confirming tonight's group. We'll make the final confirmation by 7 PM. If the group stays smaller, we'd like to check which option works best for you: reschedule or refund. If you prefer to reschedule, please send us your preferred alternative date."
@@ -993,7 +1000,7 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
 
 // ── Main Dashboard ──────────────────────────────────────────
 export default function Dashboard() {
-  const [activeTab, setActiveTab] = useState<'calendar'|'bookings'>('calendar')
+  const [activeTab, setActiveTab] = useState<'calendar'|'bookings'|'operations'>('calendar')
   const [calYear, setCalYear] = useState(new Date().getFullYear())
   const [calMonth, setCalMonth] = useState(new Date().getMonth())
   const [events, setEvents] = useState<EventDate[]>([])
@@ -1157,13 +1164,13 @@ export default function Dashboard() {
       <div className="flex flex-col gap-3 py-3 px-4 sm:h-14 sm:flex-row sm:items-center sm:justify-between sm:gap-0 sm:py-0 sm:px-6" style={{ background:'rgba(26,0,21,0.98)', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
         <p style={S.eyebrow}>BCC DASHBOARD</p>
         <div className="flex flex-wrap items-center gap-2">
-          {(['calendar','bookings'] as const).map(tab => (
+          {(['calendar','bookings','operations'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)} style={{
               ...S.btn,
               ...(activeTab===tab ? S.btnRed : S.btnGhost),
               textTransform:'capitalize',
             }}>
-              {tab === 'calendar' ? '📅 Calendar' : '📋 Bookings'}
+              {tab === 'calendar' ? '📅 Calendar' : tab === 'bookings' ? '📋 Bookings' : '📊 Operations'}
             </button>
           ))}
           <Link href="/dashboard/products" style={{ ...S.btn, ...S.btnGhost, display:'inline-flex', alignItems:'center', textDecoration:'none' }}>
@@ -1502,6 +1509,14 @@ export default function Dashboard() {
               )
             })}
           </div>
+        </div>
+      )}
+
+      {activeTab === 'operations' && (
+        <div style={{ maxWidth:'1100px', margin:'0 auto', padding:'20px 16px 60px' }}>
+          <p style={{ ...S.eyebrow, marginBottom:'4px' }}>OPERATIONS SHEET</p>
+          <h2 style={{ fontWeight:600, fontSize:'20px', margin:'0 0 16px' }}>Every event: host, route, guests, money</h2>
+          <OperationsSheet palette={OPS_PALETTE} eventHref={r => `/operator/manage/events/${r.id}`} />
         </div>
       )}
 

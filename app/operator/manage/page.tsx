@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { CalendarDays, Package, ClipboardCheck, QrCode, Ticket, Handshake, ChevronRight } from 'lucide-react'
+import { CalendarDays, Package, ClipboardCheck, QrCode, Ticket, Handshake, ChevronRight, BarChart3 } from 'lucide-react'
 import { operatorTheme as T, eyebrow } from '@/lib/operator/theme'
 
 export const dynamic = 'force-dynamic'
@@ -17,6 +17,7 @@ const IN_SHELL_OPERATIONS = [
   { href: '/operator/manage/products', label: 'Products / Experiences', detail: 'Catalog — content, media, pricing context', Icon: Package },
   { href: '/operator/manage/calendar', label: 'Calendar / Instances', detail: 'Month view, scheduling, capacity, pricing', Icon: CalendarDays },
   { href: '/operator/manage/events', label: 'Event Operations', detail: 'Overview, guests, expenses, brief, closeout', Icon: ClipboardCheck },
+  { href: '/operator/manage/operations', label: 'Operations Sheet', detail: 'Filter by date/host: route, guests, expenses, earnings', Icon: BarChart3 },
   { href: '/operator/manage/checkin', label: 'Check-in', detail: 'QR scanner + confirmation', Icon: QrCode },
   { href: '/operator/manage/partners', label: 'Partners', detail: 'Directory, deals, proposal history', Icon: Handshake },
 ]

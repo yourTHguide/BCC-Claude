@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, BarChart3 } from 'lucide-react'
 import { getUpcomingInstances } from '@/lib/operator/eventOps'
 import { operatorTheme as T, eyebrow } from '@/lib/operator/theme'
 
@@ -28,6 +28,21 @@ export default async function OperatorEventsListPage() {
       <p style={eyebrow(T.textFaint)}>Event Operations</p>
       <h1 style={{ fontSize: '20px', fontWeight: 700, margin: '4px 0 4px' }}>Upcoming Instances</h1>
       <p style={{ fontSize: '13px', color: T.textMuted, margin: '0 0 20px' }}>Next 30 days. Full calendar stays on the BCC Dashboard.</p>
+
+      <Link
+        href="/operator/manage/operations"
+        style={{
+          display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', marginBottom: '16px',
+          background: T.accentSoft, border: `1px solid ${T.border}`, borderRadius: T.radiusSm, textDecoration: 'none', color: T.text,
+        }}
+      >
+        <BarChart3 size={17} color={T.accent} />
+        <div style={{ flex: 1 }}>
+          <p style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 1px' }}>Operations Sheet</p>
+          <p style={{ fontSize: '11.5px', color: T.textMuted, margin: 0 }}>Past + upcoming: host, route, guests, expenses, earnings</p>
+        </div>
+        <ChevronRight size={16} color={T.textFaint} />
+      </Link>
 
       {instances.length === 0 && <p style={{ fontSize: '13px', color: T.textFaint }}>Nothing scheduled in this window.</p>}
 
