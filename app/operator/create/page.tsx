@@ -19,14 +19,17 @@ export const dynamic = 'force-dynamic'
 // in-shell flow — Setup (pick/create Partner, pick/create Deal context) ->
 // Working Draft (edit/regenerate/request changes). It does NOT yet reach
 // Finalize & Generate PDF; that's a later phase.
+//
+// Caption Library: "Caption Set" graduates from "Coming next" to Captions —
+// the Living OS caption engine migrated onto Supabase (public.captions) with
+// Gemini generation. See app/operator/create/captions.
 const ACTIVE = [
   { href: '/dashboard/products/new', label: 'New Nightlife Product / Experience', detail: 'BCC / BNT scheduled product flow', Icon: Package },
   { href: '/operator/create/proposal', label: 'Partner + Proposal', detail: 'Set up a partner, deal context, and draft', Icon: Users2 },
+  { href: '/operator/create/captions', label: 'Captions', detail: 'BCC caption shelves: copy, mark used, generate more', Icon: Sparkles },
 ]
 
-const COMING_NEXT = [
-  { label: 'Caption Set', detail: 'Coming soon', Icon: Sparkles },
-]
+const COMING_NEXT: Array<{ label: string; detail: string; Icon: typeof Sparkles }> = []
 
 export default function OperatorCreatePage() {
   return (
@@ -55,7 +58,7 @@ export default function OperatorCreatePage() {
         </Link>
       ))}
 
-      <p style={{ ...eyebrow(T.textFaint), margin: '18px 0 10px' }}>Coming next</p>
+      {COMING_NEXT.length > 0 && <p style={{ ...eyebrow(T.textFaint), margin: '18px 0 10px' }}>Coming next</p>}
       {COMING_NEXT.map(({ label, detail, Icon }) => (
         <div
           key={label}
