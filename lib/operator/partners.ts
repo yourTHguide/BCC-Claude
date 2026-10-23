@@ -15,6 +15,7 @@ export interface PartnerListRow {
   displayName: string
   relationshipStatus: RelationshipStatus
   organizationType: string | null
+  logoUrl: string | null
   /** Distinct business contexts touched by this partner's deals — derived, not stored (Phase 3B §5/§10: no brand-link table). */
   businessContexts: string[]
   locationCount: number
@@ -27,7 +28,7 @@ export async function getPartnersListForOperator(filter?: { status?: Relationshi
   const supabase = getServiceSupabase()
   let query = supabase
     .from('partners')
-    .select('id, display_name, relationship_status, organization_type, created_at, updated_at')
+    .select('id, display_name, relationship_status, organization_type, logo_url, created_at, updated_at')
     .order('created_at', { ascending: false })
   if (filter?.status) query = query.eq('relationship_status', filter.status)
   if (filter?.search?.trim()) query = query.ilike('display_name', `%${filter.search.trim()}%`)
@@ -62,6 +63,7 @@ export async function getPartnersListForOperator(filter?: { status?: Relationshi
     displayName: row.display_name,
     relationshipStatus: row.relationship_status,
     organizationType: row.organization_type,
+    logoUrl: row.logo_url ?? null,
     businessContexts: Array.from(contextsByPartner.get(row.id) ?? []),
     locationCount: locationCountByPartner.get(row.id) ?? 0,
     createdAt: row.created_at,

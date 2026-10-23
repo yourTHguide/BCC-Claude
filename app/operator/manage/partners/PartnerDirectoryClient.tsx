@@ -6,6 +6,7 @@ import { Search, List, LayoutGrid, Handshake, ChevronRight, MapPin } from 'lucid
 import { operatorTheme as T, eyebrow } from '@/lib/operator/theme'
 import type { PartnerListRow } from '@/lib/operator/partners'
 import type { RelationshipStatus } from '@/lib/partners'
+import PartnerLogo from './PartnerLogo'
 
 type StatusFilter = 'all' | RelationshipStatus
 type ViewMode = 'list' | 'grid'
@@ -160,9 +161,7 @@ export default function PartnerDirectoryClient({ partners }: { partners: Partner
             background: T.bgElevated, border: `1px solid ${T.border}`, borderRadius: T.radiusSm, textDecoration: 'none', color: T.text,
           }}
         >
-          <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: T.chipBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Handshake size={17} color={T.textFaint} />
-          </div>
+          <PartnerLogo src={p.logoUrl} name={p.displayName} size={40} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <p style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.displayName}</p>
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -192,8 +191,8 @@ export default function PartnerDirectoryClient({ partners }: { partners: Partner
                 overflow: 'hidden', textDecoration: 'none', color: T.text, padding: '12px',
               }}
             >
-              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: T.chipBg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px' }}>
-                <Handshake size={15} color={T.textFaint} />
+              <div style={{ marginBottom: '8px' }}>
+                <PartnerLogo src={p.logoUrl} name={p.displayName} size={48} />
               </div>
               <p style={{ fontSize: '12.5px', fontWeight: 600, margin: '0 0 6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.displayName}</p>
               <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', alignItems: 'center' }}>

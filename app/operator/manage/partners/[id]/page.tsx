@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import {
-  ChevronLeft, Handshake, MapPin, Users, Briefcase, FileText, StickyNote, BadgeCheck,
+  ChevronLeft, MapPin, Users, Briefcase, FileText, StickyNote, BadgeCheck,
 } from 'lucide-react'
 import { getPartnerProfileForOperator } from '@/lib/operator/partners'
 import { operatorTheme as T, eyebrow } from '@/lib/operator/theme'
@@ -9,6 +9,8 @@ import type { RelationshipStatus, PartnerDealStatus, PartnerDeal } from '@/lib/p
 import type { Proposal, ProposalStatus } from '@/lib/proposals'
 import DealActions from './DealActions'
 import ProposalActions from './ProposalActions'
+import LocationLinksBar from './LocationLinks'
+import PartnerLogo from '../PartnerLogo'
 
 export const dynamic = 'force-dynamic'
 
@@ -201,8 +203,8 @@ export default async function PartnerProfilePage({ params }: { params: { id: str
       </Link>
 
       {/* Identity */}
-      <div style={{ width: '48px', height: '48px', borderRadius: T.radiusSm, background: T.chipBg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '12px' }}>
-        <Handshake size={20} color={T.textFaint} />
+      <div style={{ marginBottom: '12px' }}>
+        <PartnerLogo src={partner.logoUrl} name={partner.displayName} size={72} radius={T.radius} />
       </div>
       <h1 style={{ fontSize: '21px', fontWeight: 700, margin: '0 0 4px' }}>{partner.displayName}</h1>
       {partner.legalName && partner.legalName !== partner.displayName && (
@@ -250,11 +252,18 @@ export default async function PartnerProfilePage({ params }: { params: { id: str
               </p>
               {loc.kind && <p style={{ fontSize: '11.5px', color: T.textMuted, margin: '0 0 2px' }}>{loc.kind}</p>}
               {loc.address && <p style={{ fontSize: '11.5px', color: T.textFaint, margin: 0 }}>{loc.address}</p>}
+              {loc.notes && <p style={{ fontSize: '11.5px', color: T.textFaint, margin: '2px 0 0' }}>{loc.notes}</p>}
             </div>
             <span style={{ fontSize: '10px', fontWeight: 600, padding: '2px 7px', borderRadius: '999px', color: loc.isActive ? T.statusGreen : T.textFaint, background: loc.isActive ? T.statusGreenSoft : T.chipBg, flexShrink: 0 }}>
               {loc.isActive ? 'Active' : 'Inactive'}
             </span>
           </div>
+          <LocationLinksBar
+            partnerId={partner.id}
+            locationId={loc.id}
+            venueName={loc.name}
+            links={{ instagramUrl: loc.instagramUrl, facebookUrl: loc.facebookUrl, tiktokUrl: loc.tiktokUrl, websiteUrl: loc.websiteUrl, googleMapsUrl: loc.googleMapsUrl }}
+          />
         </Card>
       ))}
 
