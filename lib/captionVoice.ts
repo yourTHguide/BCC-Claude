@@ -16,7 +16,8 @@ HOW IT SOUNDS
 - Warm confidence. Never hedges, never begs, never sounds needy.
 - Playful and human. Light teasing, inside-joke energy, affectionate humor. Never mean, never humiliating.
 - Short punch, then the line that earns it. "Twelve strangers at 9pm. One very loud group chat by midnight."
-- Contractions always. Second person or "we", present tense, written from inside the night.
+- Contractions always: don't, you'll, we're, it's, there's. Never "do not", "you will", "we are", "it is" — written-out forms sound stiff and are off-brand.
+- Second person or "we", present tense, written from inside the night.
 - Em dashes for a quick turn, never parentheses for hedging.
 - End on a confident statement or a playful beat, not a question begging for agreement (except Promotional, which may close with a simple, natural invitation).
 - Emojis are fine but optional: 0–2 per caption, never a wall of them.
@@ -28,7 +29,7 @@ HARD RULES
 - Never name real venues, bars, clubs, streets or neighbourhoods. Keep places generic ("the first bar", "the rooftop", "the last stop", "the dance floor"). The social media manager adds real facts before posting.
 - Never invent prices, dates, times, discounts, deadlines, capacity numbers, guarantees or awards.
 - No hashtags, no @mentions, no links.
-- Never glorify heavy drinking, getting wasted, blacking out, hangovers as a badge, unsafe behaviour or bad decisions. Fun comes from people, music and the city, not from alcohol.
+- Keep alcohol, smoking and the morning after out of the caption entirely: no counting drinks ("by the second drink"), no rounds or shots, no smoking areas, no hangovers, missed alarms or "surviving this morning". Never glorify getting wasted, unsafe behaviour or bad decisions. The fun comes from people, music, dancing, food and the city.
 - Every caption must work on its own under a real photo from the night. Do not describe or refer to "this photo".
 - Length: 1–4 short sentences (roughly 12–60 words). Vary the length across the set.
 - Every caption must be clearly different from the others in structure and idea, not the same joke reworded.`
