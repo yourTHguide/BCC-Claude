@@ -19,6 +19,7 @@ import 'server-only'
 
 import { getServiceSupabase } from '@/lib/supabase'
 import { defaultDealVariables, type ProposalDealVariable } from '@/lib/proposals'
+import { LOCATION_LINK_FIELDS, type LocationLinks } from '@/lib/partnerLinks'
 
 export type PartnerOrganizationType = 'hospitality-group' | 'venue' | 'brand' | 'agency' | 'individual' | 'other'
 export type RelationshipStatus = 'prospect' | 'in-conversation' | 'proposal-pending' | 'active' | 'paused' | 'archived'
@@ -67,6 +68,11 @@ export interface PartnerLocation {
   address: string | null
   notes: string | null
   isActive: boolean
+  instagramUrl: string | null
+  facebookUrl: string | null
+  tiktokUrl: string | null
+  websiteUrl: string | null
+  googleMapsUrl: string | null
   createdAt: string
   updatedAt: string
 }
@@ -102,6 +108,8 @@ export interface Partner {
   nextAction: string | null
   relationshipNotes: PartnerNote[]
   files: PartnerFileLink[]
+  /** Site-relative path (/partner-logos/x.jpg) or absolute https URL. */
+  logoUrl: string | null
   createdAt: string
   updatedAt: string
   /** Populated by getPartner(); empty on getPartners()'s list rows to avoid an N+1 join. */
@@ -111,7 +119,7 @@ export interface Partner {
 }
 
 const PARTNER_FIELDS =
-  'id, display_name, legal_name, aliases, organization_type, relationship_status, relationship_owner, relationship_summary, review_date, next_action, relationship_notes, files, created_at, updated_at'
+  'id, display_name, legal_name, aliases, organization_type, relationship_status, relationship_owner, relationship_summary, review_date, next_action, relationship_notes, files, logo_url, created_at, updated_at'
 
 function rowToPartner(row: any, contacts: PartnerContact[] = [], locations: PartnerLocation[] = []): Partner {
   return {
@@ -127,6 +135,7 @@ function rowToPartner(row: any, contacts: PartnerContact[] = [], locations: Part
     nextAction: row.next_action,
     relationshipNotes: row.relationship_notes ?? [],
     files: row.files ?? [],
+    logoUrl: row.logo_url ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     contacts,
@@ -158,6 +167,11 @@ function rowToLocation(row: any): PartnerLocation {
     address: row.address,
     notes: row.notes,
     isActive: row.is_active,
+    instagramUrl: row.instagram_url ?? null,
+    facebookUrl: row.facebook_url ?? null,
+    tiktokUrl: row.tiktok_url ?? null,
+    websiteUrl: row.website_url ?? null,
+    googleMapsUrl: row.google_maps_url ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -473,6 +487,8 @@ export interface UpdatePartnerLocationPatch {
   kind?: string | null
   address?: string | null
   notes?: string | null
+  /** Already normalised by lib/partnerLinks.ts normalizeLocationLink(). */
+  links?: Partial<LocationLinks>
 }
 
 export async function updatePartnerLocation(id: string, patch: UpdatePartnerLocationPatch): Promise<PartnerLocation> {
@@ -482,6 +498,10 @@ export async function updatePartnerLocation(id: string, patch: UpdatePartnerLoca
   if (patch.kind !== undefined) update.kind = patch.kind
   if (patch.address !== undefined) update.address = patch.address
   if (patch.notes !== undefined) update.notes = patch.notes
+  for (const field of LOCATION_LINK_FIELDS) {
+    const value = patch.links?.[field.key]
+    if (value !== undefined) update[field.column] = value
+  }
 
   const { data, error } = await supabase.from('partner_locations').update(update).eq('id', id).select('*').single()
   if (error || !data) {
