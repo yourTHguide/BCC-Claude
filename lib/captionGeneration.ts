@@ -7,13 +7,14 @@ import { appendCaptions, listCategoryCaptions } from '@/lib/captionStore'
 // near-duplicates of anything already on any shelf, store up to
 // CAPTIONS_PER_GENERATE. Never pads the set to hit the number.
 //
-// Provider: Gemini Developer API (free tier), REST generateContent with a
-// JSON-array response schema. Key lives in GEMINI_API_KEY (server-only).
+// Provider: Gemini Developer API (free tier), REST Interactions API (the
+// 2.x models and generateContent path are closed to new keys). The prompt
+// asks for a bare JSON array, parsed defensively. Key lives in GEMINI_API_KEY (server-only).
 // GEMINI_CAPTION_MODEL overrides the primary model; on a 404/429/5xx we fall
 // through to the next model so a free-tier rate limit on one model doesn't
 // block the button.
 
-const DEFAULT_MODELS = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite']
+const DEFAULT_MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite']
 const OVERSHOOT = 6
 const EXAMPLE_COUNT = 8
 const AVOID_COUNT = 60
@@ -30,39 +31,42 @@ function modelChain(): string[] {
 }
 
 async function callGemini(model: string, apiKey: string, system: string, prompt: string) {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: system }] },
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 1,
-          responseMimeType: 'application/json',
-          responseSchema: { type: 'ARRAY', items: { type: 'STRING' } },
-        },
-      }),
-      cache: 'no-store',
-      signal: AbortSignal.timeout(45_000),
-    }
-  )
+  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
+    body: JSON.stringify({
+      model,
+      input: prompt,
+      system_instruction: system,
+      // Nothing to chain or resume; don't keep a server-side copy.
+      store: false,
+    }),
+    cache: 'no-store',
+    signal: AbortSignal.timeout(45_000),
+  })
   const body = (await response.json().catch(() => null)) as any
   return { status: response.status, ok: response.ok, body }
 }
 
-function extractCaptions(body: any): string[] {
-  const parts: Array<{ text?: string; thought?: boolean }> = body?.candidates?.[0]?.content?.parts ?? []
-  const raw = parts
-    .filter((part) => !part.thought && typeof part.text === 'string')
-    .map((part) => part.text)
+// Interactions API: steps[] of type "model_output" carrying content[] text
+// parts (thought steps are skipped). Tolerates an SDK-style output_text too.
+function responseText(body: any): string {
+  if (typeof body?.output_text === 'string') return body.output_text
+  const steps: any[] = Array.isArray(body?.steps) ? body.steps : []
+  return steps
+    .filter((step) => step?.type === 'model_output')
+    .flatMap((step) => (Array.isArray(step.content) ? step.content : []))
+    .filter((part: any) => part?.type === 'text' && typeof part.text === 'string')
+    .map((part: any) => part.text)
     .join('')
-    .trim()
+}
+
+function extractCaptions(body: any): string[] {
+  const raw = responseText(body).trim()
   const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '')
   const start = cleaned.indexOf('[')
   const end = cleaned.lastIndexOf(']')
-  if (start < 0 || end <= start) throw new Error('Gemini returned no JSON array')
+  if (start < 0 || end <= start) throw new Error(`Gemini returned no JSON array (status ${body?.status ?? 'unknown'})`)
   const parsed = JSON.parse(cleaned.slice(start, end + 1)) as unknown
   if (!Array.isArray(parsed)) throw new Error('Gemini returned a non-array')
   return parsed.filter((item): item is string => typeof item === 'string')
@@ -93,32 +97,32 @@ export async function generateCaptions(categoryId: CaptionCategoryId) {
     avoid.length > examples.length
       ? `Other captions already on this shelf (do not repeat these ideas):\n${avoid.slice(examples.length).map((c) => `- ${c.text}`).join('\n')}`
       : '',
-    'Return only a JSON array of caption strings.',
+    'Return only a JSON array of caption strings, e.g. ["first caption", "second caption"]. No prose, no markdown, no numbering.',
   ]
     .filter(Boolean)
     .join('\n\n')
 
-  let lastFailure = ''
+  const failures: string[] = []
   for (const model of modelChain()) {
     let result: Awaited<ReturnType<typeof callGemini>>
     try {
       result = await callGemini(model, apiKey, BCC_VOICE_BRIEF, prompt)
     } catch (error) {
-      lastFailure = `${model}: ${error instanceof Error ? error.message : 'request failed'}`
+      failures.push(`${model}: ${error instanceof Error ? error.message : 'request failed'}`)
       continue
     }
     if (!result.ok) {
-      lastFailure = `${model}: HTTP ${result.status} ${result.body?.error?.message ?? ''}`.trim()
+      failures.push(`${model}: HTTP ${result.status} ${result.body?.error?.message ?? ''}`.trim())
       if (result.status === 404 || result.status === 429 || result.status >= 500) continue
       // 400/401/403: key or request problem — another model won't help.
-      throw new CaptionGenerationError(lastFailure, 'Gemini rejected the request. Check that the API key in Vercel is valid.')
+      throw new CaptionGenerationError(failures.join(' | '), 'Gemini rejected the request. Check that the API key in Vercel is valid.')
     }
 
     let candidates: string[]
     try {
       candidates = extractCaptions(result.body)
     } catch (error) {
-      lastFailure = `${model}: ${error instanceof Error ? error.message : 'unparseable response'}`
+      failures.push(`${model}: ${error instanceof Error ? error.message : 'unparseable response'}`)
       continue
     }
 
@@ -127,7 +131,7 @@ export async function generateCaptions(categoryId: CaptionCategoryId) {
   }
 
   throw new CaptionGenerationError(
-    lastFailure,
+    failures.join(' | '),
     'Gemini is busy or rate-limited right now (free tier). Nothing was added — try again in a minute.'
   )
 }
