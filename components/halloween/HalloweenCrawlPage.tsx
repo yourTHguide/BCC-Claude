@@ -82,9 +82,9 @@ export default function HalloweenCrawlPage() {
     <LightboxContext.Provider value={setLightboxImage}>
       <main className="halloween-page halloween-grain relative overflow-x-hidden bg-halloween-bg text-halloween-ivory">
         <EventHeader />
-        <HeroSection />
+        <HeroSection ctaRef={heroCtaRef} />
         <SocialProofGallery />
-        <HeroTicketBlock ctaRef={heroCtaRef} />
+        <HeroTicketBlock />
         <NightFlowTimeline />
         <SoloSection />
         <InclusionsSection />
@@ -143,7 +143,7 @@ function UrgencyLine({ className = '' }: { className?: string }) {
   )
 }
 
-function HeroSection() {
+function HeroSection({ ctaRef }: { ctaRef: React.RefObject<HTMLButtonElement> }) {
   return (
     <section className="relative overflow-hidden pt-24 sm:pt-28 lg:h-screen lg:min-h-[820px] lg:max-h-[1040px] lg:pt-0">
       <div className="absolute inset-0 lg:left-auto lg:w-[56%]">
@@ -174,6 +174,8 @@ function HeroSection() {
           <p className="mt-6 max-w-xl font-display text-[24px] leading-tight text-halloween-ivory sm:text-[28px]">Come in costume. Meet the crew. We'll handle the night.</p>
           <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-halloween-muted sm:text-[17px] sm:leading-[1.7]">A hosted Halloween night through Bangkok with 3 curated venues, social games, welcome shots, group transport and a final party stop — built so strangers become a group before the night really gets going.</p>
           <p className="mt-6 border-y border-halloween-ivory/10 py-4 text-[12px] font-medium tracking-[0.08em] text-halloween-ivory sm:text-[13px]">Back for Year Three · Saturday, October 31 · Bangkok</p>
+          <UrgencyLine className="mt-6" />
+          <BokunButton ref={ctaRef} id="bokun_2a56732d_ab8e_4144_9a2a_1a2004d032f5" className="halloween-cta mt-3 w-full sm:w-auto lg:!min-h-[56px] lg:!px-8 lg:!text-[13px]">SECURE YOUR SPOT <MoveRight className="ml-3 h-4 w-4" /></BokunButton>
         </div>
       </div>
     </section>
@@ -182,7 +184,7 @@ function HeroSection() {
 
 // Price + first CTA. Sits below the "60+ guests" social proof so visitors see
 // last year's crowd before the price.
-function HeroTicketBlock({ ctaRef }: { ctaRef: React.RefObject<HTMLButtonElement> }) {
+function HeroTicketBlock() {
   return (
     <section className="px-5 py-14 sm:px-6 sm:py-16">
       <div className="mx-auto max-w-[1240px]">
@@ -199,7 +201,7 @@ function HeroTicketBlock({ ctaRef }: { ctaRef: React.RefObject<HTMLButtonElement
           </div>
           <p className="mt-3 text-[11px] leading-relaxed text-halloween-muted/80 sm:text-[12px]">3 venues · 3 welcome shots · transport · hosts · social games</p>
           <UrgencyLine className="mt-5" />
-          <BokunButton ref={ctaRef} id="bokun_47c48f42_32e9_430d_9557_4fd9efe21c68" className="halloween-cta mt-3 w-full sm:w-auto lg:!min-h-[56px] lg:!px-8 lg:!text-[13px]">SECURE YOUR SPOT <MoveRight className="ml-3 h-4 w-4" /></BokunButton>
+          <BokunButton id="bokun_47c48f42_32e9_430d_9557_4fd9efe21c68" className="halloween-cta mt-3 w-full sm:w-auto lg:!min-h-[56px] lg:!px-8 lg:!text-[13px]">SECURE YOUR SPOT <MoveRight className="ml-3 h-4 w-4" /></BokunButton>
           <p className="mt-4 text-[13px] leading-relaxed text-halloween-muted">Come solo or bring your friends. Either way, your Halloween night is sorted.</p>
           <a href="#the-night" className="mt-5 inline-flex items-center gap-2 text-[11px] font-semibold tracking-[0.12em] text-halloween-ivory">See how the night works <ArrowDown className="h-3.5 w-3.5 text-crimson" /></a>
         </div>
@@ -428,7 +430,7 @@ function EventFooter() {
 
 function MobileStickyCTA({ show }: { show: boolean }) {
   return (
-    <div className={`fixed inset-x-0 bottom-0 z-50 border-t border-halloween-ivory/10 bg-halloween-bg/95 p-3 backdrop-blur-xl transition-transform duration-300 lg:hidden ${show ? 'translate-y-0' : 'translate-y-full'}`}>
+    <div className={`fixed inset-x-0 bottom-0 z-50 border-t border-halloween-ivory/10 bg-halloween-bg/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl transition-transform duration-300 lg:hidden ${show ? 'translate-y-0' : 'translate-y-full'}`}>
       <UrgencyLine className="mb-2 text-center !text-[10px]" />
       <BokunButton id="bokun_f637bc59_ba82_41df_c367_ac2def7b6085" className="halloween-cta w-full !min-h-12">฿1,500 · SECURE YOUR SPOT</BokunButton>
     </div>
