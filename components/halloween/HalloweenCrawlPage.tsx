@@ -58,16 +58,7 @@ const inclusions = [
 const faqs = [
   ['Can I come alone?', <>Absolutely.<br /><br />Solo guests are a big part of the crowd, and the experience is designed to help people connect naturally from the beginning.</>],
   ['What does my ticket include?', <>Your ticket covers the full hosted experience: 3 curated nightlife venues, one welcome Halloween shot at each venue, pre-arranged venue access, group transport between stops, Halloween social games, event hosts and the official event WhatsApp group.</>],
-  ['Do I have to wear a costume?', <>Costumes are strongly encouraged, but not mandatory.<br /><br />Halloween is more fun when everyone commits a little, though.</>],
   ['Where do we meet?', <>The event will begin at a nightlife venue in central Bangkok.<br /><br />The confirmed meeting point and final event instructions will be sent to booked guests before the event.</>],
-  ['What time does it start?', <>The experience officially starts at 9:30 PM.<br /><br />We recommend arriving by approximately 9:20 PM for check-in.<br /><br />The group moves together, so arriving on time matters.</>],
-  ['How old do I need to be?', <>Guests must be 20 years or older.<br /><br />Valid photo identification may be required by venues.</>],
-  ['Are drinks included?', <>A welcome Halloween shot is included at every venue.<br /><br />Additional drinks are not included.</>],
-  ['Is transportation included?', <>Yes. Group transport between venues is included.<br /><br />Transport to the first meeting point and from the final venue is not included unless otherwise stated.</>],
-  ['Do I need to know anyone before coming?', <>No.<br /><br />That is basically the point.<br /><br />Come solo, come with one person, or bring friends — the hosts are there to help turn everyone into one group.</>],
-  ['Are walk-ins allowed?', <>No.<br /><br />This is a reservation-only event.<br /><br />You must book before sales close or the event reaches capacity.</>],
-  ['Is this open to everyone?', <>No. Capacity is intentionally capped so the night stays hosted, organised and easy to move as one group.<br /><br />Once the available spots are taken, ticket sales close.</>],
-  ['When will the venues be announced?', <>Final venue and route details will be shared with confirmed guests once arrangements are finalized.</>],
   // TODO: confirm this exact refund/cancellation wording against BEST Nightlife Thailand's real policy before launch.
   ["What's the refund policy?", <>Tickets are non-refundable once booked — spots are limited and reserved specifically for you, so refunds aren't offered for change of mind or no-shows.<br /><br />If we cancel or reschedule the event, you'll receive a full refund, and confirmed guests will be notified directly by WhatsApp and email.</>],
 ] satisfies Array<[string, ReactNode]>
@@ -91,9 +82,9 @@ export default function HalloweenCrawlPage() {
     <LightboxContext.Provider value={setLightboxImage}>
       <main className="halloween-page halloween-grain relative overflow-x-hidden bg-halloween-bg text-halloween-ivory">
         <EventHeader />
-        <HeroSection ctaRef={heroCtaRef} />
+        <HeroSection />
         <SocialProofGallery />
-        <ProblemSection />
+        <HeroTicketBlock ctaRef={heroCtaRef} />
         <NightFlowTimeline />
         <SoloSection />
         <InclusionsSection />
@@ -128,7 +119,31 @@ function EventHeader() {
   )
 }
 
-function HeroSection({ ctaRef }: { ctaRef: React.RefObject<HTMLButtonElement> }) {
+// Days left until Halloween night (Oct 31, 2026), counted in Bangkok calendar days.
+// Calculated client-side after mount so the server render never shows a stale number.
+// Returns null before mount and on/after Oct 31, which hides the urgency line.
+function useDaysLeft() {
+  const [daysLeft, setDaysLeft] = useState<number | null>(null)
+  useEffect(() => {
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date())
+    const [y, m, d] = today.split('-').map(Number)
+    const days = Math.round((Date.UTC(2026, 9, 31) - Date.UTC(y, m - 1, d)) / 86_400_000)
+    setDaysLeft(days > 0 ? days : null)
+  }, [])
+  return daysLeft
+}
+
+function UrgencyLine({ className = '' }: { className?: string }) {
+  const daysLeft = useDaysLeft()
+  if (daysLeft === null) return null
+  return (
+    <p className={`text-[11px] font-bold uppercase tracking-[0.14em] text-crimson ${className}`}>
+      🎃 Only {daysLeft} {daysLeft === 1 ? 'day' : 'days'} left — limited spots · Closes when full
+    </p>
+  )
+}
+
+function HeroSection() {
   return (
     <section className="relative overflow-hidden pt-[430px] sm:pt-[520px] lg:h-screen lg:min-h-[820px] lg:max-h-[1040px] lg:pt-0">
       <div className="absolute inset-x-0 top-0 h-[430px] sm:h-[520px] lg:inset-y-0 lg:left-auto lg:h-auto lg:w-[56%]">
@@ -159,7 +174,20 @@ function HeroSection({ ctaRef }: { ctaRef: React.RefObject<HTMLButtonElement> })
           <p className="mt-6 max-w-xl font-display text-[24px] leading-tight text-halloween-ivory sm:text-[28px]">Come in costume. Meet the crew. We'll handle the night.</p>
           <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-halloween-muted sm:text-[17px] sm:leading-[1.7]">A hosted Halloween night through Bangkok with 3 curated venues, social games, welcome shots, group transport and a final party stop — built so strangers become a group before the night really gets going.</p>
           <p className="mt-6 border-y border-halloween-ivory/10 py-4 text-[12px] font-medium tracking-[0.08em] text-halloween-ivory sm:text-[13px]">Back for Year Three · Saturday, October 31 · Bangkok</p>
-          <div className="mt-6 sm:mt-7 sm:flex sm:items-end sm:gap-8">
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// Price + first CTA. Sits below the "60+ guests" social proof so visitors see
+// last year's crowd before the price.
+function HeroTicketBlock({ ctaRef }: { ctaRef: React.RefObject<HTMLButtonElement> }) {
+  return (
+    <section className="px-5 py-14 sm:px-6 sm:py-16">
+      <div className="mx-auto max-w-[1240px]">
+        <div className="lg:max-w-[650px]">
+          <div className="sm:flex sm:items-end sm:gap-8">
             <div>
               <p className="text-[10px] font-semibold tracking-[0.22em] text-crimson">FINAL RELEASE</p>
               <p className="font-display text-[64px] leading-none text-halloween-ivory sm:text-[76px]">฿1,500</p>
@@ -170,7 +198,8 @@ function HeroSection({ ctaRef }: { ctaRef: React.RefObject<HTMLButtonElement> })
             </div>
           </div>
           <p className="mt-3 text-[11px] leading-relaxed text-halloween-muted/80 sm:text-[12px]">3 venues · 3 welcome shots · transport · hosts · social games</p>
-          <BokunButton ref={ctaRef} id="bokun_47c48f42_32e9_430d_9557_4fd9efe21c68" className="halloween-cta mt-5 w-full sm:w-auto lg:!min-h-[56px] lg:!px-8 lg:!text-[13px]">SECURE YOUR SPOT <MoveRight className="ml-3 h-4 w-4" /></BokunButton>
+          <UrgencyLine className="mt-5" />
+          <BokunButton ref={ctaRef} id="bokun_47c48f42_32e9_430d_9557_4fd9efe21c68" className="halloween-cta mt-3 w-full sm:w-auto lg:!min-h-[56px] lg:!px-8 lg:!text-[13px]">SECURE YOUR SPOT <MoveRight className="ml-3 h-4 w-4" /></BokunButton>
           <p className="mt-4 text-[13px] leading-relaxed text-halloween-muted">Come solo or bring your friends. Either way, your Halloween night is sorted.</p>
           <a href="#the-night" className="mt-5 inline-flex items-center gap-2 text-[11px] font-semibold tracking-[0.12em] text-halloween-ivory">See how the night works <ArrowDown className="h-3.5 w-3.5 text-crimson" /></a>
         </div>
@@ -199,32 +228,6 @@ function SocialProofGallery() {
         <GalleryImage src="/halloween/halloween-last-4.jpg" alt="A group of guests in Halloween face paint" className="col-span-5 row-span-5" />
         <GalleryImage src="/halloween/halloween-last-5.jpg" alt="A guest singing into a microphone during the Halloween Crawl" className="col-span-3 row-span-5" />
         <p className="pointer-events-none absolute bottom-4 left-4 bg-halloween-bg/80 px-3 py-2 text-[9px] font-semibold tracking-[0.18em] text-halloween-ivory">BANGKOK · HALLOWEEN 2025</p>
-      </div>
-    </PageSection>
-  )
-}
-
-function ProblemSection() {
-  return (
-    <PageSection className="bg-halloween-surface/45" innerClassName="grid gap-10 lg:grid-cols-2 lg:gap-20">
-      <div>
-        <Eyebrow>WHY THIS EXISTS</Eyebrow>
-        <h2 className="mt-4 text-[clamp(28px,8.5vw,40px)] font-display leading-[0.98] sm:text-5xl lg:text-[62px]">HALLOWEEN IN BANGKOK GETS BUSY FAST.</h2>
-        <div className="mt-7 space-y-4 text-[16px] leading-relaxed text-halloween-muted lg:max-w-lg">
-          <p>The city fills up.</p>
-          <p>Venues get packed. Entry gets unpredictable. Groups split. And half the night can disappear deciding where to go next.</p>
-          <p>We built the Halloween Crawl so you don't have to figure everything out on the street.</p>
-        </div>
-      </div>
-      <div className="lg:pt-20">
-        <p className="border-l-2 border-crimson pl-5 text-[17px] font-semibold leading-snug text-halloween-ivory sm:text-[19px]">A hosted Halloween night through Bangkok — curated, social, and handled from start to finish.</p>
-        <div className="mt-8 space-y-4 text-[16px] leading-relaxed text-halloween-muted">
-          <p>We plan the route and access in advance.</p>
-          <p>Your hosts keep the group moving together.</p>
-          <p>Transport between venues is arranged.</p>
-          <p>And the night builds naturally from meeting people into actually going out together.</p>
-        </div>
-        <p className="mt-8 font-display text-[26px] italic text-halloween-ivory">You bring the costume. We handle the flow.</p>
       </div>
     </PageSection>
   )
@@ -322,7 +325,7 @@ function PricingSection() {
         <div className="mt-9 border-y border-crimson/35 py-7">
           <p className="text-[11px] font-bold tracking-[0.2em] text-crimson">FINAL RELEASE</p>
           <p className="mt-1 font-display text-[82px] leading-none text-halloween-ivory sm:text-[96px]">฿1,500</p>
-          <p className="mt-3 text-[13px] font-semibold text-halloween-ivory">Limited spots — capacity is capped</p>
+          <p className="mt-3 text-[13px] font-semibold text-halloween-ivory">Closes Oct 29 or when full · No walk-ins</p>
           <p className="mt-3 text-[12px] leading-relaxed text-halloween-muted">3 venues · 3 welcome shots · transport · hosts · social games</p>
         </div>
         <dl className="grid grid-cols-2 divide-x divide-halloween-ivory/10 border-b border-halloween-ivory/10">
@@ -332,7 +335,8 @@ function PricingSection() {
         <div className="mt-6 grid grid-cols-2 gap-x-6 gap-y-3 text-[12px] text-halloween-muted sm:grid-cols-3">
           <span>Saturday, October 31</span><span>9:30 PM</span><span>Bangkok</span><span>Age 20+</span><span>Reservation only</span>
         </div>
-        <BokunButton id="bokun_c3048926_8d5f_4eac_9034_7f9bac4e3d52" className="halloween-cta mt-8 w-full sm:w-auto">SECURE YOUR SPOT <MoveRight className="ml-3 h-4 w-4" /></BokunButton>
+        <UrgencyLine className="mt-8" />
+        <BokunButton id="bokun_c3048926_8d5f_4eac_9034_7f9bac4e3d52" className="halloween-cta mt-3 w-full sm:w-auto">SECURE YOUR SPOT <MoveRight className="ml-3 h-4 w-4" /></BokunButton>
         <p className="mt-4 text-[12px] text-halloween-muted">Capacity is capped. Once spots are gone, ticket sales close.</p>
       </div>
       <div className="relative min-h-[420px] lg:min-h-0">
@@ -360,7 +364,8 @@ function BookingReasonsSection() {
         <p className="text-[14px] font-semibold tracking-[0.08em] text-halloween-ivory">Book now and:</p>
         <ul className="mt-4 divide-y divide-halloween-ivory/10 border-y border-halloween-ivory/10">{['Secure one of the limited spots', 'Book before capacity is reached', 'Join the confirmed guest group', 'Receive route and event updates directly', "Stop worrying about what you're doing on Halloween"].map((item) => <li key={item} className="flex gap-3 py-4 text-[15px] text-halloween-muted"><Check className="h-4 w-4 shrink-0 text-crimson" />{item}</li>)}</ul>
         <h3 className="mt-8 font-display text-[34px] leading-tight text-halloween-ivory">Book it now. Sort the costume later.</h3>
-        <BokunButton id="bokun_d4159a37_9e60_4fbd_a145_8a0bcd5f4e63" className="halloween-cta mt-6 w-full sm:w-auto">SECURE YOUR SPOT <MoveRight className="ml-3 h-4 w-4" /></BokunButton>
+        <UrgencyLine className="mt-6" />
+        <BokunButton id="bokun_d4159a37_9e60_4fbd_a145_8a0bcd5f4e63" className="halloween-cta mt-3 w-full sm:w-auto">SECURE YOUR SPOT <MoveRight className="ml-3 h-4 w-4" /></BokunButton>
         <p className="mt-4 text-[12px] text-halloween-muted">One booking covers the full hosted Halloween crawl.</p>
       </div>
     </PageSection>
@@ -405,7 +410,8 @@ function FinalCTA() {
             <p className="mt-2 text-[12px] font-semibold text-crimson">Limited spots · Capacity capped</p>
             <p className="mt-3 text-[13px] text-halloween-muted">Presale &amp; Early Bird are closed</p>
           </div>
-          <BokunButton id="bokun_e526ab48_af71_40ce_b256_9b1cde6a5f74" className="halloween-cta mt-7 w-full sm:w-auto">SECURE YOUR SPOT <MoveRight className="ml-3 h-4 w-4" /></BokunButton>
+          <UrgencyLine className="mt-7" />
+          <BokunButton id="bokun_e526ab48_af71_40ce_b256_9b1cde6a5f74" className="halloween-cta mt-3 w-full sm:w-auto">SECURE YOUR SPOT <MoveRight className="ml-3 h-4 w-4" /></BokunButton>
           <p className="mt-7 text-[11px] font-semibold tracking-[0.12em] text-halloween-muted">Presented by BEST Nightlife Thailand<br /><span className="mt-2 inline-block">From the team behind Bangkok Club Crawl</span></p>
         </div>
       </div>
@@ -427,6 +433,7 @@ function EventFooter() {
 function MobileStickyCTA({ show }: { show: boolean }) {
   return (
     <div className={`fixed inset-x-0 bottom-0 z-50 border-t border-halloween-ivory/10 bg-halloween-bg/95 p-3 backdrop-blur-xl transition-transform duration-300 lg:hidden ${show ? 'translate-y-0' : 'translate-y-full'}`}>
+      <UrgencyLine className="mb-2 text-center !text-[10px]" />
       <BokunButton id="bokun_f637bc59_ba82_41df_c367_ac2def7b6085" className="halloween-cta w-full !min-h-12">฿1,500 · SECURE YOUR SPOT</BokunButton>
     </div>
   )
