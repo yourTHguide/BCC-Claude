@@ -1013,6 +1013,11 @@ export default function Dashboard() {
   const [resendState, setResendState] = useState<Record<string,'idle'|'sending'|'sent'|'error'>>({})
   const [rescheduleOpen, setRescheduleOpen] = useState<Record<string,boolean>>({})
   const [rescheduleDate, setRescheduleDate] = useState<Record<string,string>>({})
+  // Events on the chosen reschedule date, so a guest is moved onto a real
+  // night (date + night), not just a new date on their old night.
+  const [rescheduleEvents, setRescheduleEvents] = useState<Record<string,EventDate[]|null>>({})
+  const [rescheduleEventId, setRescheduleEventId] = useState<Record<string,string>>({})
+  const [rescheduleError, setRescheduleError] = useState<Record<string,string>>({})
   const [cancelConfirm, setCancelConfirm] = useState<Record<string,boolean>>({})
   const [actionState, setActionState] = useState<Record<string,'idle'|'sending'|'done'|'error'>>({})
 
@@ -1070,23 +1075,41 @@ export default function Dashboard() {
     }
   }
 
+  async function chooseRescheduleDate(bookingId: string, date: string) {
+    setRescheduleDate(s => ({ ...s, [bookingId]: date }))
+    setRescheduleEventId(s => ({ ...s, [bookingId]: '' }))
+    setRescheduleError(s => ({ ...s, [bookingId]: '' }))
+    setRescheduleEvents(s => ({ ...s, [bookingId]: null }))
+    if (!date) return
+    const res = await fetch(`/api/admin/dashboard/events?start=${date}&end=${date}`).catch(() => null)
+    const data = res ? await res.json().catch(() => ({} as any)) : {}
+    const evs: EventDate[] = data.events || []
+    setRescheduleEvents(s => ({ ...s, [bookingId]: evs }))
+    // Ordered open-first by the API; preselect the first one.
+    if (evs.length > 0) setRescheduleEventId(s => ({ ...s, [bookingId]: evs[0].id }))
+  }
+
   async function rescheduleBooking(bookingId: string) {
     const newDate = rescheduleDate[bookingId]
-    if (!newDate) return
+    const newEventId = rescheduleEventId[bookingId]
+    if (!newDate || !newEventId) return
     setActionState(s => ({ ...s, [bookingId]: 'sending' }))
+    setRescheduleError(s => ({ ...s, [bookingId]: '' }))
     try {
       const res = await fetch('/api/reschedule-booking', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId, newDate }),
+        body: JSON.stringify({ bookingId, newDate, newEventId }),
       })
       const data = await res.json()
       if (res.ok && data.success) {
         setActionState(s => ({ ...s, [bookingId]: 'done' }))
         setRescheduleOpen(s => ({ ...s, [bookingId]: false }))
         loadBookings()
+        loadEvents()
         setTimeout(() => setActionState(s => ({ ...s, [bookingId]: 'idle' })), 3000)
       } else {
+        setRescheduleError(s => ({ ...s, [bookingId]: data.error || 'Failed — try again' }))
         setActionState(s => ({ ...s, [bookingId]: 'error' }))
       }
     } catch {
@@ -1470,12 +1493,26 @@ export default function Dashboard() {
                       <input
                         type="date"
                         value={rescheduleDate[b.id] || ''}
-                        onChange={e => setRescheduleDate(s => ({ ...s, [b.id]: e.target.value }))}
+                        onChange={e => chooseRescheduleDate(b.id, e.target.value)}
                         style={{ ...S.input, maxWidth:'180px' }}
                       />
+                      {rescheduleDate[b.id] && rescheduleEvents[b.id] && rescheduleEvents[b.id]!.length === 0 && (
+                        <p style={{ color:'#f59e0b', fontSize:'12px', margin:0, width:'100%' }}>No event on this date. Open the date in the calendar first.</p>
+                      )}
+                      {rescheduleEvents[b.id] && rescheduleEvents[b.id]!.length > 0 && (
+                        <select
+                          value={rescheduleEventId[b.id] || ''}
+                          onChange={e => setRescheduleEventId(s => ({ ...s, [b.id]: e.target.value }))}
+                          style={{ ...S.input, maxWidth:'240px' }}
+                        >
+                          {rescheduleEvents[b.id]!.map(ev => (
+                            <option key={ev.id} value={ev.id}>{ev.night_name}{ev.is_open ? '' : ' (closed)'}</option>
+                          ))}
+                        </select>
+                      )}
                       <button
                         onClick={() => rescheduleBooking(b.id)}
-                        disabled={!rescheduleDate[b.id] || actionState[b.id]==='sending'}
+                        disabled={!rescheduleDate[b.id] || !rescheduleEventId[b.id] || actionState[b.id]==='sending'}
                         style={{ ...S.btn, ...S.btnRed }}
                       >
                         {actionState[b.id]==='sending' ? 'Sending…' : 'Confirm New Date & Notify Guest'}
@@ -1483,7 +1520,7 @@ export default function Dashboard() {
                       <button onClick={() => setRescheduleOpen(s => ({ ...s, [b.id]: false }))} style={{ ...S.btn, ...S.btnGhost }}>
                         Never mind
                       </button>
-                      {actionState[b.id]==='error' && <p style={{ color:'#EA003A', fontSize:'12px', margin:0 }}>Failed — try again</p>}
+                      {actionState[b.id]==='error' && <p style={{ color:'#EA003A', fontSize:'12px', margin:0 }}>{rescheduleError[b.id] || 'Failed — try again'}</p>}
                     </div>
                   )}
 
