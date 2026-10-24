@@ -145,8 +145,8 @@ function UrgencyLine({ className = '' }: { className?: string }) {
 
 function HeroSection() {
   return (
-    <section className="relative overflow-hidden pt-[430px] sm:pt-[520px] lg:h-screen lg:min-h-[820px] lg:max-h-[1040px] lg:pt-0">
-      <div className="absolute inset-x-0 top-0 h-[430px] sm:h-[520px] lg:inset-y-0 lg:left-auto lg:h-auto lg:w-[56%]">
+    <section className="relative overflow-hidden pt-24 sm:pt-28 lg:h-screen lg:min-h-[820px] lg:max-h-[1040px] lg:pt-0">
+      <div className="absolute inset-0 lg:left-auto lg:w-[56%]">
         <Image
           src="/halloween/halloween-header.jpg"
           alt="Three costumed women walking through Bangkok's nightlife streets on Halloween"
@@ -156,7 +156,7 @@ function HeroSection() {
           sizes="(min-width: 1024px) 56vw, 100vw"
           className="object-cover object-center"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-halloween-bg lg:bg-gradient-to-r lg:from-halloween-bg lg:via-halloween-bg/25 lg:to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-b from-halloween-bg/45 via-halloween-bg/65 to-halloween-bg lg:bg-gradient-to-r lg:from-halloween-bg lg:via-halloween-bg/25 lg:to-transparent" />
       </div>
       <div className="relative mx-auto flex max-w-[1240px] px-5 pb-14 sm:px-6 lg:h-full lg:items-center lg:pb-0">
         <div className="w-full pt-5 lg:max-w-[650px] lg:py-[92px]">
