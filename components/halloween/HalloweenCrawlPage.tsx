@@ -119,15 +119,15 @@ function EventHeader() {
   )
 }
 
-// Days left until Halloween night (Oct 31, 2026), counted in Bangkok calendar days.
+// Days left to book until sales close (Oct 30, 2026), counted in Bangkok calendar days.
 // Calculated client-side after mount so the server render never shows a stale number.
-// Returns null before mount and on/after Oct 31, which hides the urgency line.
+// Returns null before mount and on/after Oct 30, which hides the urgency line.
 function useDaysLeft() {
   const [daysLeft, setDaysLeft] = useState<number | null>(null)
   useEffect(() => {
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date())
     const [y, m, d] = today.split('-').map(Number)
-    const days = Math.round((Date.UTC(2026, 9, 31) - Date.UTC(y, m - 1, d)) / 86_400_000)
+    const days = Math.round((Date.UTC(2026, 9, 30) - Date.UTC(y, m - 1, d)) / 86_400_000)
     setDaysLeft(days > 0 ? days : null)
   }, [])
   return daysLeft
@@ -138,7 +138,7 @@ function UrgencyLine({ className = '' }: { className?: string }) {
   if (daysLeft === null) return null
   return (
     <p className={`text-[11px] font-bold uppercase tracking-[0.14em] text-crimson ${className}`}>
-      🎃 Only {daysLeft} {daysLeft === 1 ? 'day' : 'days'} left — limited spots · Closes when full
+      🎃 Only {daysLeft} {daysLeft === 1 ? 'day' : 'days'} to book — closes Oct 30 or when full
     </p>
   )
 }
@@ -213,12 +213,8 @@ function SocialProofGallery() {
     <PageSection className="border-y border-halloween-ivory/10" innerClassName="grid gap-10 lg:grid-cols-[0.72fr_1.28fr] lg:items-end lg:gap-16">
       <div>
         <Eyebrow>LAST HALLOWEEN</Eyebrow>
-        <h2 className="mt-4 font-display text-[40px] leading-[0.96] sm:text-5xl lg:text-[64px]">60+ GUESTS<br />JOINED US.</h2>
-        <div className="mt-6 space-y-4 text-[16px] leading-relaxed text-halloween-muted">
-          <p>Travellers. Expats. Bangkok locals. Solo guests. Groups of friends.</p>
-          <p>Different countries, different costumes, different reasons for showing up.</p>
-          <p>By the time the night got going, it didn't feel like 60 strangers anymore.</p>
-        </div>
+        <h2 className="mt-4 font-display text-[clamp(30px,8.5vw,40px)] leading-[0.98] sm:text-5xl lg:text-[52px]">SOLO TRAVELERS. EXPATS. LOCALS. 60+ GUESTS FROM AROUND THE WORLD.</h2>
+        <p className="mt-6 text-[16px] leading-relaxed text-halloween-muted">Last year, 60+ people showed up not knowing anyone. Most left as a group.</p>
         <p className="mt-7 text-[11px] font-semibold tracking-[0.13em] text-halloween-ivory">See what last Halloween looked like ↓</p>
       </div>
       <div className="relative grid h-[560px] grid-cols-12 grid-rows-12 gap-2 sm:h-[680px] lg:h-[610px]">
@@ -325,7 +321,7 @@ function PricingSection() {
         <div className="mt-9 border-y border-crimson/35 py-7">
           <p className="text-[11px] font-bold tracking-[0.2em] text-crimson">FINAL RELEASE</p>
           <p className="mt-1 font-display text-[82px] leading-none text-halloween-ivory sm:text-[96px]">฿1,500</p>
-          <p className="mt-3 text-[13px] font-semibold text-halloween-ivory">Closes Oct 29 or when full · No walk-ins</p>
+          <p className="mt-3 text-[13px] font-semibold text-halloween-ivory">Closes Oct 30 or when full · No walk-ins</p>
           <p className="mt-3 text-[12px] leading-relaxed text-halloween-muted">3 venues · 3 welcome shots · transport · hosts · social games</p>
         </div>
         <dl className="grid grid-cols-2 divide-x divide-halloween-ivory/10 border-b border-halloween-ivory/10">
