@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
+import { loadDoorGuests } from '@/lib/doorList'
 
 export const dynamic = 'force-dynamic'
 
@@ -59,43 +60,22 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: 'Not your assigned event' }, { status: 403 })
   }
 
-  const [{ data: bookings, error: bookingsError }, { data: otaBookings, error: otaError }, { data: expenses, error: expensesError }] =
-    await Promise.all([
-      supabase
-        .from('bookings')
-        .select('id, guest_name, guest_email, quantity, attendance_status')
-        .eq('event_date', event.event_date)
-        .eq('night_slug', event.night_slug)
-        .eq('status', 'confirmed'),
-      supabase
-        .from('ota_bookings')
-        .select('id, guest_name, source, quantity, attendance_status')
-        .eq('event_date', event.event_date)
-        .eq('night_slug', event.night_slug),
-      supabase
-        .from('expenses')
-        .select('id, category, description, amount')
-        .eq('event_date', event.event_date)
-        .eq('night_slug', event.night_slug),
-    ])
+  const [{ guests, error: guestsError }, { data: expenses, error: expensesError }] = await Promise.all([
+    loadDoorGuests(supabase, event.event_date, event.night_slug),
+    supabase
+      .from('expenses')
+      .select('id, category, description, amount')
+      .eq('event_date', event.event_date)
+      .eq('night_slug', event.night_slug),
+  ])
 
-  if (bookingsError || otaError || expensesError) {
-    console.error('admin/host/events/[id]: sub-query error:', bookingsError || otaError || expensesError)
+  if (guestsError || expensesError) {
+    console.error('admin/host/events/[id]: sub-query error:', guestsError || expensesError)
     return NextResponse.json({ error: 'Failed to load event details' }, { status: 500 })
   }
 
-  const guests = [
-    ...(bookings ?? []).map((b: any) => ({
-      id: b.id, source: 'website', guestName: b.guest_name || b.guest_email || 'Guest',
-      quantity: b.quantity, attendanceStatus: b.attendance_status, table: 'bookings' as const,
-    })),
-    ...(otaBookings ?? []).map((o: any) => ({
-      id: o.id, source: o.source, guestName: o.guest_name || 'Guest',
-      quantity: o.quantity, attendanceStatus: o.attendance_status, table: 'ota_bookings' as const,
-    })),
-  ]
   const totalGuests = guests.reduce((s, g) => s + g.quantity, 0)
-  const checkedInGuests = guests.filter((g) => g.attendanceStatus === 'checked_in').reduce((s, g) => s + g.quantity, 0)
+  const checkedInGuests = guests.filter((g) => g.status === 'checked_in').reduce((s, g) => s + g.quantity, 0)
 
   return NextResponse.json({
     event: {

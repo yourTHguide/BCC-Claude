@@ -1,65 +1,36 @@
 import { notFound } from 'next/navigation'
-import { QrCode } from 'lucide-react'
-import { getEventInstance, getEventOpsData } from '@/lib/operator/eventOps'
+import { getEventInstance } from '@/lib/operator/eventOps'
+import { loadDoorGuests } from '@/lib/doorList'
+import { getServiceSupabase } from '@/lib/supabase'
 import { operatorTheme as T } from '@/lib/operator/theme'
-import AttendanceControl from './AttendanceControl'
+import DoorList, { type DoorListTheme } from '@/components/doorlist/DoorList'
 
 export const dynamic = 'force-dynamic'
 
-const SOURCE_LABEL: Record<string, string> = {
-  website: 'Website', klook: 'Klook', airbnb: 'Airbnb', gyg: 'GetYourGuide', viator: 'Viator',
-  eventbrite: 'Eventbrite', manual: 'Manual',
+const theme: DoorListTheme = {
+  elevated: T.bgElevated, border: T.border, text: T.text, muted: T.textMuted, faint: T.textFaint,
+  accent: T.accent, accentText: T.accentText,
+  green: T.statusGreen, greenSoft: T.statusGreenSoft, blue: T.statusBlue, blueSoft: T.statusBlueSoft,
+  red: T.statusRed, redSoft: T.statusRedSoft, chipBg: T.chipBg, radius: T.radiusSm,
 }
 
-// Reuses bookings/ota_bookings guest data exactly as-is — no VIP flag, no
-// table number, no checked-in timestamp (none of those exist, see
-// SNX_PHASE2A_EVENT_OPS_PLAN.md §4). QR scanning links to the in-shell
-// scanner (/operator/manage/checkin, Phase 2D) — same html5-qrcode
-// integration, same /api/admin/checkin/[token] routes, just re-hosted.
-// Manual/undo attendance changes stay here (AttendanceControl below), never
-// duplicated into the check-in flow itself.
+// Door list for one night: direct (QR) bookings and OTA bookings together, one
+// row per booking. Check in with one tap, or scan a QR. Attendance is
+// booking-level (a group of 4 checks in as one unit) and reuses
+// POST /api/update-attendance, the same route the QR check-in flow uses.
 export default async function EventGuestsPage({ params }: { params: { id: string } }) {
   const instance = await getEventInstance(params.id)
   if (!instance) notFound()
-  const ops = await getEventOpsData(instance.eventDate, instance.nightSlug)
+  const { guests, error } = await loadDoorGuests(getServiceSupabase(), instance.eventDate, instance.nightSlug)
 
   return (
     <div style={{ padding: '10px 18px 8px' }}>
-      <h1 style={{ fontSize: '17px', fontWeight: 700, margin: '4px 0 4px' }}>Guest List</h1>
-      <p style={{ fontSize: '13px', color: T.textMuted, margin: '0 0 16px' }}>
-        {ops.totalGuests} guests · {ops.checkedInGuests} checked in
-      </p>
-
-      <a
-        href="/operator/manage/checkin"
-        style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '13px',
-          borderRadius: T.radiusSm, marginBottom: '18px', background: T.accent, color: '#fff',
-          fontWeight: 600, fontSize: '14px', textDecoration: 'none',
-        }}
-      >
-        <QrCode size={17} /> Scan QR Code
-      </a>
-
-      {ops.guests.length === 0 && <p style={{ fontSize: '13px', color: T.textFaint }}>No bookings for this instance yet.</p>}
-
-      {ops.guests.map((g) => (
-        <div key={`${g.kind}-${g.id}`} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', marginBottom: '8px', background: T.bgElevated, border: `1px solid ${T.border}`, borderRadius: T.radiusSm }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontSize: '13.5px', fontWeight: 600, margin: '0 0 2px' }}>{g.guestName || 'Guest'}</p>
-            <p style={{ fontSize: '11.5px', color: T.textMuted, margin: 0 }}>
-              {g.quantity} guest{g.quantity === 1 ? '' : 's'} · {SOURCE_LABEL[g.source] ?? g.source}
-              {g.totalPaid ? ` · ฿${g.totalPaid.toLocaleString()}` : ''}
-            </p>
-            {g.attendeeNames.length > 1 && (
-              <p style={{ fontSize: '11.5px', color: T.textMuted, margin: '3px 0 0' }}>
-                {g.attendeeNames.map((n, i) => `${i + 1}. ${n}`).join(', ')}
-              </p>
-            )}
-          </div>
-          <AttendanceControl table={g.kind} id={g.id} status={g.attendanceStatus} />
-        </div>
-      ))}
+      <h1 style={{ fontSize: '17px', fontWeight: 700, margin: '4px 0 14px' }}>Door List</h1>
+      {error ? (
+        <p style={{ fontSize: '13px', color: T.statusRed }}>Failed to load guests.</p>
+      ) : (
+        <DoorList guests={guests} theme={theme} scanHref="/operator/manage/checkin" />
+      )}
     </div>
   )
 }

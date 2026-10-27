@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import OperationsSheet, { type OperationsPalette } from '@/components/operations/OperationsSheet'
+import DoorList, { type DoorListTheme } from '@/components/doorlist/DoorList'
+import type { DoorGuest } from '@/lib/doorList'
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
 const DAY_LABELS = ['Mo','Tu','We','Th','Fr','Sa','Su']
@@ -96,6 +98,15 @@ interface Expense {
   category: string
   description: string
   amount: number
+}
+
+// Same door list the Operator and Host views use (components/doorlist/DoorList).
+const DOOR_THEME: DoorListTheme = {
+  elevated: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.10)', text: '#fff',
+  muted: 'rgba(255,255,255,0.60)', faint: 'rgba(255,255,255,0.40)',
+  accent: '#EA003A', accentText: '#FF4D6D',
+  green: '#4ADE80', greenSoft: 'rgba(74,222,128,0.14)', blue: '#60A5FA', blueSoft: 'rgba(96,165,250,0.14)',
+  red: '#F87171', redSoft: 'rgba(248,113,113,0.14)', chipBg: 'rgba(255,255,255,0.08)', radius: '10px',
 }
 
 // ── Styles ─────────────────────────────────────────────────
@@ -777,40 +788,26 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
             </div>
           </div>
 
-          {/* Guest attendance */}
+          {/* Guest attendance: same door list as /operator and the Host view */}
           <div style={{ marginBottom:'16px' }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'10px' }}>
-              <p style={{ ...S.label, marginBottom:0 }}>GUEST ATTENDANCE</p>
-              <Link href="/dashboard/checkin" style={{ ...S.btn, ...S.btnGhost, textDecoration:'none', display:'inline-flex', alignItems:'center', height:'28px', fontSize:'11px', padding:'0 10px' }}>
-                Scan Ticket
-              </Link>
-            </div>
-            {bookings.length===0 && otaBookings.length===0 && (
-              <p style={{ fontSize:'13px', color:'rgba(255,255,255,0.35)' }}>No guests yet.</p>
-            )}
-            {bookings.map(b => (
-              <div key={`b-${b.id}`} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:'8px', borderBottom:'1px solid rgba(255,255,255,0.06)', paddingBottom:'8px', marginBottom:'8px' }}>
-                <div style={{ flex:1 }}>
-                  <p style={{ fontSize:'13px', color:'#fff', margin:0 }}>{b.guest_name||b.guest_email}</p>
-                  {attendeeLine(b) && <p style={{ fontSize:'11px', color:'rgba(255,255,255,0.5)', margin:'2px 0 0' }}>{attendeeLine(b)}</p>}
-                </div>
-                <select value={b.attendance_status} onChange={e => updateAttendance('bookings', b.id, e.target.value)} style={{...S.input, height:'30px', fontSize:'12px', width:'130px'}}>
-                  <option value="expected">Expected</option>
-                  <option value="checked_in">Checked in</option>
-                  <option value="no_show">No-show</option>
-                </select>
-              </div>
-            ))}
-            {otaBookings.map(o => (
-              <div key={`o-${o.id}`} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:'8px', borderBottom:'1px solid rgba(255,255,255,0.06)', paddingBottom:'8px', marginBottom:'8px' }}>
-                <p style={{ fontSize:'13px', color:'#fff', margin:0, flex:1 }}>{o.guest_name||'Guest'} <span style={{color:'rgba(255,255,255,0.35)'}}>· {o.source}</span></p>
-                <select value={o.attendance_status} onChange={e => updateAttendance('ota_bookings', o.id, e.target.value)} style={{...S.input, height:'30px', fontSize:'12px', width:'130px'}}>
-                  <option value="expected">Expected</option>
-                  <option value="checked_in">Checked in</option>
-                  <option value="no_show">No-show</option>
-                </select>
-              </div>
-            ))}
+            <p style={{ ...S.label, marginBottom:'10px' }}>GUEST ATTENDANCE</p>
+            <DoorList
+              guests={[
+                ...bookings.map((b: any): DoorGuest => ({
+                  id: b.id, table: 'bookings', name: b.guest_name || b.guest_email || 'Guest', quantity: b.quantity,
+                  source: b.source || 'website', status: b.attendance_status, email: b.guest_email || null,
+                  phone: b.guest_whatsapp || b.guest_phone || null, ref: null, notes: b.notes || null,
+                  attendeeNames: [...(b.booking_attendees ?? [])].sort((x: any, y: any) => x.position - y.position).map((a: any) => a.full_name),
+                })),
+                ...otaBookings.map((o: any): DoorGuest => ({
+                  id: o.id, table: 'ota_bookings', name: o.guest_name || 'Guest', quantity: o.quantity, source: o.source,
+                  status: o.attendance_status, email: o.guest_email || null, phone: null, ref: null, notes: o.notes || null, attendeeNames: [],
+                })),
+              ].sort((p, q) => p.name.trim().localeCompare(q.name.trim(), 'en', { sensitivity: 'base' }))}
+              theme={DOOR_THEME}
+              scanHref="/dashboard/checkin"
+              onChanged={loadDetail}
+            />
           </div>
 
           {/* Actions */}

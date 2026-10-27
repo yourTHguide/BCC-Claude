@@ -2,15 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-
-interface Guest {
-  id: string
-  source: string
-  guestName: string
-  quantity: number
-  attendanceStatus: string
-  table: 'bookings' | 'ota_bookings'
-}
+import DoorList, { type DoorListTheme } from '@/components/doorlist/DoorList'
+import type { DoorGuest } from '@/lib/doorList'
 
 interface Expense {
   id: string
@@ -33,9 +26,17 @@ interface HostEventDetail {
     specialNotes: string | null
     operationVerdict: string
   }
-  guests: Guest[]
+  guests: DoorGuest[]
   headcount: { total: number; checkedIn: number }
   expenses: Expense[]
+}
+
+const HOST_DOOR_THEME: DoorListTheme = {
+  elevated: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.10)', text: '#fff',
+  muted: 'rgba(255,255,255,0.60)', faint: 'rgba(255,255,255,0.40)',
+  accent: '#EA003A', accentText: '#FF4D6D',
+  green: '#4ADE80', greenSoft: 'rgba(74,222,128,0.14)', blue: '#60A5FA', blueSoft: 'rgba(96,165,250,0.14)',
+  red: '#F87171', redSoft: 'rgba(248,113,113,0.14)', chipBg: 'rgba(255,255,255,0.08)', radius: '10px',
 }
 
 const EXPENSE_CATEGORIES = ['van', 'host_pay', 'drinks', 'cover_charge', 'extra']
@@ -65,15 +66,6 @@ export default function HostEventDetailPage({ params }: { params: { id: string }
   }
 
   useEffect(load, [params.id])
-
-  async function updateAttendance(guest: Guest, status: string) {
-    await fetch('/api/update-attendance', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ table: guest.table, id: guest.id, status }),
-    })
-    load()
-  }
 
   async function addExpense() {
     const res = await fetch(`/api/admin/host/events/${params.id}/expenses`, {
@@ -116,13 +108,6 @@ export default function HostEventDetailPage({ params }: { params: { id: string }
               {!data.event.isOpen && ' · Closed'}
             </p>
 
-            <Link
-              href="/dashboard/checkin"
-              style={{ display: 'block', textAlign: 'center', padding: '13px', borderRadius: '8px', marginBottom: '20px', background: 'linear-gradient(135deg,#EA003A,#820065)', color: '#fff', fontWeight: 600, fontSize: '14px', textDecoration: 'none' }}
-            >
-              Scan Ticket
-            </Link>
-
             {/* Operational brief — read-only for a Host */}
             <div style={S.card}>
               <p style={S.label}>Operational Brief</p>
@@ -147,27 +132,9 @@ export default function HostEventDetailPage({ params }: { params: { id: string }
               )}
             </div>
 
-            {/* Guest list */}
-            <div style={S.card}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-                <p style={{ ...S.label, marginBottom: 0 }}>Guests</p>
-                <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.60)' }}>{data.headcount.checkedIn} / {data.headcount.total} checked in</p>
-              </div>
-              {data.guests.length === 0 && <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.35)' }}>No guests yet.</p>}
-              {data.guests.map((g) => (
-                <div key={`${g.table}-${g.id}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '8px', marginBottom: '8px' }}>
-                  <p style={{ fontSize: '13px', color: '#fff', margin: 0, flex: 1 }}>{g.guestName} <span style={{ color: 'rgba(255,255,255,0.35)' }}>· {g.quantity}</span></p>
-                  <select
-                    value={g.attendanceStatus}
-                    onChange={(e) => updateAttendance(g, e.target.value)}
-                    style={{ ...S.input, height: '30px', fontSize: '12px', width: '130px' }}
-                  >
-                    <option value="expected">Expected</option>
-                    <option value="checked_in">Checked in</option>
-                    <option value="no_show">No-show</option>
-                  </select>
-                </div>
-              ))}
+            {/* Door list: everyone (direct + OTA), one-tap check-in, Scan at the top */}
+            <div style={{ marginBottom: '14px' }}>
+              <DoorList guests={data.guests} theme={HOST_DOOR_THEME} scanHref="/dashboard/checkin" />
             </div>
 
             {/* Expenses — entry only, no revenue/profit shown */}

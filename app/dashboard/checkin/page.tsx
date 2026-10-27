@@ -160,6 +160,17 @@ export default function ScanTicketPage() {
           Point the camera at the guest&apos;s QR code — it resolves automatically.
         </p>
 
+        <Link
+          href="/dashboard/host"
+          style={{
+            display: 'block', textAlign: 'center', padding: '12px', margin: '14px 0', borderRadius: '8px',
+            border: '1px solid rgba(255,255,255,0.20)', background: 'rgba(255,255,255,0.06)',
+            color: '#fff', fontWeight: 600, fontSize: '14px', textDecoration: 'none',
+          }}
+        >
+          Guest list · check in by name
+        </Link>
+
         <div style={S.viewport}>
           <div id={READER_ELEMENT_ID} style={{ width: '100%', height: '100%' }} />
           {cameraState === 'starting' && (

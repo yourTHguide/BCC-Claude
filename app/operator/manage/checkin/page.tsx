@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, ListChecks } from 'lucide-react'
 import { operatorTheme as T, eyebrow } from '@/lib/operator/theme'
 
 const READER_ELEMENT_ID = 'op-qr-reader-region'
@@ -114,6 +114,17 @@ export default function OperatorScanTicketPage() {
       <p style={{ fontSize: '13px', color: T.textMuted, margin: '0 0 16px' }}>
         Point the camera at the guest&apos;s QR code — it resolves automatically.
       </p>
+
+      <Link
+        href="/operator/manage/doorlist"
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', marginBottom: '14px',
+          borderRadius: T.radiusSm, border: `1px solid ${T.borderStrong}`, background: T.bgElevated, color: T.text,
+          fontWeight: 600, fontSize: '14px', textDecoration: 'none',
+        }}
+      >
+        <ListChecks size={17} /> Guest list · check in by name
+      </Link>
 
       <div style={{ position: 'relative', width: '100%', aspectRatio: '1 / 1', borderRadius: T.radius, overflow: 'hidden', background: '#000', border: `1px solid ${T.border}` }}>
         <div id={READER_ELEMENT_ID} style={{ width: '100%', height: '100%' }} />
