@@ -15,6 +15,11 @@ export const dynamic = 'force-dynamic'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+// Unique per test send so Gmail never stacks tests into one conversation.
+function testStamp() {
+  return new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Bangkok', hour12: false })
+}
+
 function getResend() {
   return new Resend(process.env.RESEND_API_KEY)
 }
@@ -65,7 +70,7 @@ export async function POST(req: NextRequest) {
     const { error } = await getResend().emails.send({
       from,
       to: auth.admin.email,
-      subject: `[TEST] ${subject}`,
+      subject: `[TEST ${testStamp()}] ${subject}`,
       html,
     })
     if (error) return NextResponse.json({ error: error.message }, { status: 502 })

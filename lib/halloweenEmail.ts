@@ -49,7 +49,7 @@ export function toRecipient(b: any): HalloweenRecipient {
 
 export function buildHalloweenEmail(b: any) {
   return {
-    subject: halloweenEmailSubject(),
+    subject: halloweenEmailSubject(b.guest_name),
     html: generateHalloweenConfirmationEmail({
       guestName: b.guest_name || 'Guest',
       quantity: b.quantity,

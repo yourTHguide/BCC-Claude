@@ -21,8 +21,13 @@ export const HALLOWEEN_EVENT = {
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
-export function halloweenEmailSubject() {
-  return `You’re in 🎃 Bangkok Halloween Crawl: everything for Oct 31`
+// Personalised so every guest's email starts its own Gmail conversation. A
+// shared subject made Gmail thread repeated sends together and collapse the
+// repeated sections as "quoted text" (hidden behind a "…" with the dark
+// background stripped).
+export function halloweenEmailSubject(guestName?: string) {
+  const first = guestName?.split(' ')[0]
+  return `${first ? `${first}, you’re` : 'You’re'} in 🎃 Bangkok Halloween Crawl: everything for Oct 31`
 }
 
 export function generateHalloweenConfirmationEmail({
@@ -64,22 +69,24 @@ export function generateHalloweenConfirmationEmail({
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="color-scheme" content="dark"/>
+<meta name="supported-color-schemes" content="dark"/>
 <title>You’re in: ${esc(HALLOWEEN_EVENT.name)}</title>
 </head>
-<body style="margin:0;padding:0;background:#0D000A;font-family:'Helvetica Neue',Arial,sans-serif">
+<body bgcolor="#0D000A" style="margin:0;padding:0;background:#0D000A;font-family:'Helvetica Neue',Arial,sans-serif">
 
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#0D000A;padding:32px 16px">
-<tr><td align="center">
+<table width="100%" cellpadding="0" cellspacing="0" bgcolor="#0D000A" style="background:#0D000A;padding:32px 16px">
+<tr><td align="center" bgcolor="#0D000A">
 <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px">
 
   <!-- HEADER -->
-  <tr><td style="background:linear-gradient(135deg,#EA003A,#820065);border-radius:12px 12px 0 0;padding:32px 24px;text-align:center">
+  <tr><td bgcolor="#B8004F" style="background:#B8004F;background-image:linear-gradient(135deg,#EA003A,#820065);border-radius:12px 12px 0 0;padding:32px 24px;text-align:center">
     <p style="margin:0 0 8px;font-weight:700;font-size:12px;letter-spacing:0.18em;text-transform:uppercase;color:rgba(255,255,255,0.70)">${brand.shortName}</p>
     <h1 style="margin:0;font-size:28px;font-weight:700;color:#fff;line-height:1.2">You’re In 🎃</h1>
     <p style="margin:10px 0 0;font-size:16px;color:rgba(255,255,255,0.85);font-style:italic">${esc(HALLOWEEN_EVENT.name)}</p>
   </td></tr>
 
-  <tr><td style="background:#1A0015;padding:24px 24px 28px;border-radius:0 0 12px 12px">
+  <tr><td bgcolor="#1A0015" style="background:#1A0015;padding:24px 24px 28px;border-radius:0 0 12px 12px">
 
     <p style="margin:0 0 6px;font-size:16px;color:#fff;font-weight:600">Hey ${esc(firstName)}!</p>
     <p style="margin:0 0 24px;font-size:14px;color:rgba(255,255,255,0.70);line-height:1.6">You’re confirmed. Here’s everything you need for the night.</p>
@@ -97,7 +104,7 @@ export function generateHalloweenConfirmationEmail({
     <!-- QR -->
     <div style="${sectionDivider};text-align:center">
       <p style="${eyebrow}">🎟 Your check-in QR code</p>
-      <div style="display:inline-block;background:#FFFFFF;border-radius:12px;padding:12px">
+      <div bgcolor="#FFFFFF" style="display:inline-block;background:#FFFFFF;border-radius:12px;padding:12px">
         <img src="${qrUrl}" width="200" height="200" alt="Check-in QR code" style="display:block;width:200px;height:200px;border:0"/>
       </div>
       <p style="margin:14px 0 2px;font-size:14px;font-weight:600;color:#fff">${esc(guestName || 'Guest')}</p>
@@ -109,7 +116,7 @@ export function generateHalloweenConfirmationEmail({
     <!-- NIGHT -->
     <div style="${sectionDivider}">
       <p style="${eyebrow}">👻 Your night</p>
-      <table cellpadding="0" cellspacing="0" width="100%">${stopsHtml}</table>
+      <table cellpadding="0" cellspacing="0" width="100%"><tbody>${stopsHtml}</tbody></table>
       <p style="margin:2px 0 0;font-size:13px;color:rgba(255,255,255,0.60)">Group transport between venues. All entries included.</p>
     </div>
 
@@ -129,7 +136,7 @@ export function generateHalloweenConfirmationEmail({
   </td></tr>
 
   <!-- FOOTER -->
-  <tr><td style="background:#0D000A;padding:24px 24px 0;text-align:center">
+  <tr><td bgcolor="#0D000A" style="background:#0D000A;padding:24px 24px 0;text-align:center">
     <p style="margin:0 0 16px;font-size:13px;color:rgba(255,255,255,0.40)">Questions? Reach us anytime.</p>
     <table cellpadding="0" cellspacing="0" style="margin:0 auto">
       <tr>
