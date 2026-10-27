@@ -9,7 +9,7 @@ export const HALLOWEEN_EVENT = {
   name: 'Bangkok Halloween Crawl 2026',
   dateLabel: 'Saturday, October 31',
   meetVenue: 'Lamaya Bangkok',
-  checkInLabel: 'Check-in from 9:00 PM · Arrive by 9:30 PM',
+  checkInLabel: 'Arrive by 9:30 PM',
   mapsUrl: 'https://maps.app.goo.gl/fiZtpbXXh6ufTSov7',
   whatsappGroupUrl: 'https://chat.whatsapp.com/CoP8TaF6p3s3fibLw1shfq',
   stops: [
