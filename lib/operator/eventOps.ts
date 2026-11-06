@@ -150,6 +150,9 @@ export interface GuestRow {
   totalPaid: number
   source: string
   attendanceStatus: 'expected' | 'checked_in' | 'no_show'
+  email: string | null
+  // When the confirmed-meetup email last went to this guest (null = never).
+  meetupSentAt: string | null
 }
 
 export interface ExpenseRow {
@@ -181,13 +184,13 @@ export async function getEventOpsData(eventDate: string, nightSlug: string): Pro
   const [{ data: bookings }, { data: otaBookings }, { data: expenses }] = await Promise.all([
     supabase
       .from('bookings')
-      .select('id, guest_name, quantity, total_paid, source, attendance_status, booking_attendees(full_name, position)')
+      .select('id, guest_name, guest_email, quantity, total_paid, source, attendance_status, meetup_sent_at, booking_attendees(full_name, position)')
       .eq('event_date', eventDate)
       .eq('night_slug', nightSlug)
       .eq('status', 'confirmed'),
     supabase
       .from('ota_bookings')
-      .select('id, guest_name, quantity, total_paid, source, attendance_status')
+      .select('id, guest_name, guest_email, quantity, total_paid, source, attendance_status, meetup_sent_at')
       .eq('event_date', eventDate)
       .eq('night_slug', nightSlug),
     supabase
@@ -206,10 +209,12 @@ export async function getEventOpsData(eventDate: string, nightSlug: string): Pro
         .map((a: any) => a.full_name as string),
       quantity: b.quantity,
       totalPaid: b.total_paid ?? 0, source: b.source ?? 'website', attendanceStatus: b.attendance_status,
+      email: b.guest_email ?? null, meetupSentAt: b.meetup_sent_at ?? null,
     })),
     ...(otaBookings ?? []).map((o: any) => ({
       id: o.id, kind: 'ota_bookings' as const, guestName: o.guest_name, attendeeNames: [], quantity: o.quantity,
       totalPaid: o.total_paid ?? 0, source: o.source, attendanceStatus: o.attendance_status,
+      email: o.guest_email ?? null, meetupSentAt: o.meetup_sent_at ?? null,
     })),
   ]
 

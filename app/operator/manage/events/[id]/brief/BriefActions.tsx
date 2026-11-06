@@ -1,24 +1,31 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { operatorTheme as T } from '@/lib/operator/theme'
+import MeetupSender from '@/components/operations/MeetupSender'
 
 interface Guest {
+  id: string
+  kind: 'bookings' | 'ota_bookings'
   guestName: string | null
   quantity: number
   source: string
   attendanceStatus: string
+  email: string | null
+  meetupSentAt: string | null
 }
 
 // "Copy Brief" assembles the same field sources buildHostBriefText() uses
 // in app/dashboard/page.tsx:394-445 (name/date/host/meeting point/guest
 // list/WhatsApp/venue route/van-taxi/notes) — same content, mobile-formatted
-// trigger instead of a plain-text block on screen. "Send Announcement"
+// trigger instead of a plain-text block on screen. The meetup email
 // reuses POST /api/send-confirmed-meetup exactly, including its
 // server-side precondition checks — this component doesn't re-guess those
 // rules, it just displays whatever `missing` the server returns.
 export default function BriefActions({
   id,
+  operationVerdict,
   nightName,
   eventDate,
   hostAssigned,
@@ -30,6 +37,7 @@ export default function BriefActions({
   guests,
 }: {
   id: string
+  operationVerdict: string
   nightName: string
   eventDate: string
   hostAssigned: string | null
@@ -40,10 +48,16 @@ export default function BriefActions({
   venueRoute: { venue1?: string; venue2?: string; venue3?: string; venue4?: string; backup?: string; notes?: string }
   guests: Guest[]
 }) {
+  const router = useRouter()
   const [copied, setCopied] = useState(false)
-  const [sending, setSending] = useState(false)
-  const [sendResult, setSendResult] = useState<string | null>(null)
-  const [sendIssues, setSendIssues] = useState<string[] | null>(null)
+
+  // Same preconditions the send route enforces; shown up front so the
+  // buttons explain themselves instead of failing on press.
+  const blockers = [
+    operationVerdict !== 'Operation Confirmed' && 'Operation status must be "Operation Confirmed"',
+    !meetUpLocation && 'Meet-up location is not set',
+    !whatsappGroupLink && 'WhatsApp group link is not set',
+  ].filter(Boolean) as string[]
 
   function buildBriefText(): string {
     const totalGuests = guests.reduce((s, g) => s + g.quantity, 0)
@@ -73,45 +87,28 @@ export default function BriefActions({
     setTimeout(() => setCopied(false), 2000)
   }
 
-  async function sendAnnouncement() {
-    setSending(true)
-    setSendResult(null)
-    setSendIssues(null)
-    try {
-      const res = await fetch('/api/send-confirmed-meetup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ eventId: id }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setSendIssues(data.missing ?? [data.error ?? 'Could not send.'])
-      } else {
-        setSendResult(`Sent to ${data.sent} guest${data.sent === 1 ? '' : 's'}${data.skippedNoEmail ? ` (${data.skippedNoEmail} skipped, no email)` : ''}.`)
-      }
-    } catch {
-      setSendIssues(['Could not reach the server.'])
-    } finally {
-      setSending(false)
-    }
-  }
-
   const btnStyle = { flex: 1, padding: '12px', borderRadius: T.radiusSm, border: `1px solid ${T.border}`, background: T.bgElevated, color: T.text, fontWeight: 600, fontSize: '13px', cursor: 'pointer' as const }
 
   return (
     <div style={{ marginBottom: '18px' }}>
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
         <button type="button" onClick={copyBrief} style={btnStyle}>{copied ? 'Copied ✓' : 'Copy Brief'}</button>
-        <button type="button" disabled={sending} onClick={sendAnnouncement} style={{ ...btnStyle, background: T.accent, color: '#fff', border: 'none' }}>
-          {sending ? 'Sending…' : 'Send Announcement'}
-        </button>
       </div>
-      {sendResult && <p style={{ fontSize: '12px', color: T.statusGreen, margin: 0 }}>{sendResult}</p>}
-      {sendIssues && (
-        <div style={{ fontSize: '12px', color: T.statusAmber, margin: 0 }}>
-          Can't send yet: {sendIssues.join('; ')}
-        </div>
-      )}
+      <MeetupSender
+        eventId={id}
+        nightName={nightName}
+        eventDate={eventDate}
+        guests={guests.map((g) => ({
+          table: g.kind, id: g.id, name: g.guestName || 'Guest', quantity: g.quantity,
+          email: g.email, sentAt: g.meetupSentAt, attendance: g.attendanceStatus,
+        }))}
+        blockers={blockers}
+        palette={{
+          text: T.text, muted: T.textMuted, faint: T.textFaint, border: T.border, rowBg: T.bgElevated,
+          accent: T.accent, green: T.statusGreen, amber: T.statusAmber, red: T.statusRed,
+        }}
+        onSent={() => router.refresh()}
+      />
     </div>
   )
 }

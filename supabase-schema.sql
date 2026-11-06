@@ -542,3 +542,8 @@ ALTER TABLE bookings
     CHECK (storefront IS NULL OR storefront = ANY (ARRAY['bcc'::text, 'bnt'::text])),
   ADD CONSTRAINT bookings_price_tier_check
     CHECK (price_tier IS NULL OR price_tier = ANY (ARRAY['early_bird'::text, 'regular'::text]));
+
+-- ── Confirmed-meetup per-guest send record (2026-11-06, APPLIED) ──
+-- See supabase/migrations/20261106000001_meetup_sent_at.sql
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS meetup_sent_at TIMESTAMPTZ;
+ALTER TABLE ota_bookings ADD COLUMN IF NOT EXISTS meetup_sent_at TIMESTAMPTZ;

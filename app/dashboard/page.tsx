@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import OperationsSheet, { type OperationsPalette } from '@/components/operations/OperationsSheet'
+import MeetupSender, { type MeetupPalette, type MeetupGuest } from '@/components/operations/MeetupSender'
 import DoorList, { type DoorListTheme } from '@/components/doorlist/DoorList'
 import type { DoorGuest } from '@/lib/doorList'
 
@@ -15,6 +16,11 @@ const OPS_PALETTE: OperationsPalette = {
   text:'#fff', muted:'rgba(255,255,255,0.60)', faint:'rgba(255,255,255,0.38)',
   card:'rgba(255,255,255,0.04)', border:'rgba(255,255,255,0.08)', inputBg:'rgba(255,255,255,0.06)',
   accent:'#EA003A', accentText:'#fff', green:'#22c55e', amber:'#f59e0b', red:'#EA003A',
+}
+
+const MEETUP_PALETTE: MeetupPalette = {
+  text:'#fff', muted:'rgba(255,255,255,0.55)', faint:'rgba(255,255,255,0.38)', border:'rgba(255,255,255,0.08)',
+  rowBg:'rgba(255,255,255,0.03)', accent:'#EA003A', green:'#22c55e', amber:'#f59e0b', red:'#EA003A',
 }
 const VERDICT_OPTIONS = ['Pending','Pre-confirmation','Operation Confirmed','Cancelled / Rescheduled','Completed','Reviewed']
 const VERDICT_REQUIRING_CONFIRM = ['Operation Confirmed','Cancelled / Rescheduled']
@@ -67,6 +73,7 @@ interface Booking {
   source: string
   status: string
   attendance_status: string
+  meetup_sent_at?: string | null
   notes?: string | null
   // Named guests (Single Meet Club); empty for bookings without them.
   booking_attendees?: { full_name: string; position: number }[]
@@ -91,6 +98,7 @@ interface OTABooking {
   quantity: number
   total_paid: number
   attendance_status: string
+  meetup_sent_at?: string | null
 }
 
 interface Expense {
@@ -180,8 +188,6 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
   const [hostFeeInput, setHostFeeInput] = useState<string>('')
   const [briefCopyState, setBriefCopyState] = useState<'idle'|'copied'>('idle')
   const [preConfirmCopyState, setPreConfirmCopyState] = useState<'idle'|'copied'>('idle')
-  const [sendMeetupState, setSendMeetupState] = useState<'idle'|'sending'|'done'|'error'>('idle')
-  const [sendMeetupIssues, setSendMeetupIssues] = useState<string[]>([])
 
   useEffect(() => {
     setHostFeeInput(event.host_fee_final != null ? String(event.host_fee_final) : '')
@@ -584,40 +590,6 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
     return issues
   }
 
-  function attemptSendConfirmedMeetup() {
-    const issues = sendMeetupIssuesFor()
-    setSendMeetupIssues(issues)
-    if (issues.length > 0) return
-    setConfirmModal({
-      title: 'Send confirmed meetup email?',
-      message: `This emails every confirmed guest for ${localEvent.night_name} on ${event.event_date} with tonight's meet-up location and WhatsApp link. This can't be undone.`,
-      confirmLabel: 'Send email',
-      onConfirm: doSendConfirmedMeetup,
-    })
-  }
-
-  async function doSendConfirmedMeetup() {
-    setConfirmModal(null)
-    setSendMeetupState('sending')
-    try {
-      const res = await fetch('/api/send-confirmed-meetup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ eventId: localEvent.id }),
-      })
-      const data = await res.json()
-      if (res.ok && data.success) {
-        setSendMeetupState('done')
-        onUpdate()
-      } else {
-        setSendMeetupIssues(data.missing || [data.error || 'Send failed'])
-        setSendMeetupState('error')
-      }
-    } catch {
-      setSendMeetupState('error')
-    }
-  }
-
   const webGuests = bookings.reduce((s,b) => s+b.quantity, 0)
   const otaGuests = otaBookings.reduce((s,b) => s+b.quantity, 0)
   const totalGuests = webGuests + otaGuests
@@ -645,7 +617,6 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
     if (hostFeeInput === '' || parseInt(hostFeeInput) === prev) setHostFeeInput(String(suggestedFee))
   }, [suggestedFee, detailLoadedId, event.id])
   const meetupIssues = sendMeetupIssuesFor()
-  const canSendMeetup = meetupIssues.length === 0
 
   const dateObj = new Date(event.event_date + 'T00:00:00')
   const formattedDate = dateObj.toLocaleDateString('en', { weekday:'long', day:'numeric', month:'long' })
@@ -823,21 +794,21 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
               {preConfirmCopyState==='copied' ? '✓ Copied' : 'Copy Pre-confirmation Message'}
             </button>
 
-            <button
-              onClick={attemptSendConfirmedMeetup}
-              disabled={sendMeetupState==='sending'}
-              style={{ ...S.btn, ...S.btnRed }}
-            >
-              {sendMeetupState==='sending' ? 'Sending…' : sendMeetupState==='done' ? '✓ Sent' : 'Send Confirmed Meetup'}
-            </button>
-            {!canSendMeetup && meetupIssues.length > 0 && sendMeetupIssues.length > 0 && (
-              <div style={{ background:'rgba(234,0,58,0.08)', border:'1px solid rgba(234,0,58,0.20)', borderRadius:'8px', padding:'10px 12px' }}>
-                <p style={{ fontSize:'12px', color:'#EA003A', margin:'0 0 4px', fontWeight:600 }}>Can't send yet:</p>
-                <ul style={{ margin:0, paddingLeft:'16px' }}>
-                  {sendMeetupIssues.map((iss,idx) => <li key={idx} style={{ fontSize:'12px', color:'rgba(255,255,255,0.60)' }}>{iss}</li>)}
-                </ul>
-              </div>
-            )}
+            <div style={{ marginTop:'6px' }}>
+              <p style={{ ...S.label, marginBottom:'8px' }}>CONFIRMED MEETUP EMAIL</p>
+              <MeetupSender
+                eventId={localEvent.id}
+                nightName={localEvent.night_name}
+                eventDate={event.event_date}
+                guests={[
+                  ...bookings.map((b: Booking): MeetupGuest => ({ table:'bookings', id:b.id, name:b.guest_name||b.guest_email||'Guest', quantity:b.quantity, email:b.guest_email||null, sentAt:b.meetup_sent_at??null, attendance:b.attendance_status })),
+                  ...otaBookings.map((o): MeetupGuest => ({ table:'ota_bookings', id:o.id, name:o.guest_name||'Guest', quantity:o.quantity, email:o.guest_email||null, sentAt:o.meetup_sent_at??null, attendance:o.attendance_status })),
+                ]}
+                blockers={meetupIssues.filter(i => !i.startsWith('There are no confirmed guests'))}
+                palette={MEETUP_PALETTE}
+                onSent={() => { loadDetail(); onUpdate() }}
+              />
+            </div>
           </div>
         </div>
 

@@ -23,6 +23,7 @@ export default async function EventBriefPage({ params }: { params: { id: string 
 
       <BriefActions
         id={instance.id}
+        operationVerdict={instance.operationVerdict}
         nightName={instance.nightName}
         eventDate={instance.eventDate}
         hostAssigned={instance.hostAssigned}
