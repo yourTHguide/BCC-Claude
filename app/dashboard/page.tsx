@@ -1170,6 +1170,9 @@ export default function Dashboard() {
           <Link href="/dashboard/host" style={{ ...S.btn, ...S.btnGhost, display:'inline-flex', alignItems:'center', textDecoration:'none' }}>
             🎤 Host view
           </Link>
+          <Link href="/dashboard/team" style={{ ...S.btn, ...S.btnGhost, display:'inline-flex', alignItems:'center', textDecoration:'none' }}>
+            👥 Team
+          </Link>
         </div>
         <div className="flex items-center justify-center gap-3">
           <button onClick={prevMonth} style={{ ...S.btn, ...S.btnGhost, padding:'0 12px' }}>‹</button>

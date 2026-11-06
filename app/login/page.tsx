@@ -51,7 +51,7 @@ function LoginInner() {
     <div style={S.page}>
       <div style={S.wrap}>
         <p style={S.eyebrow}>BCC DASHBOARD</p>
-        <h1 style={S.h1}>Admin Sign In</h1>
+        <h1 style={S.h1}>Sign In</h1>
         <form onSubmit={handleSubmit}>
           <input style={S.input} type="email" placeholder="Email" autoComplete="username" value={email}
             onChange={(e) => { setEmail(e.target.value); setError(null) }} required />
@@ -62,6 +62,9 @@ function LoginInner() {
             {busy ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
+        <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', marginTop: '16px', textAlign: 'center' }}>
+          Host and forgot your password? Ask Guide to send you a new link.
+        </p>
       </div>
     </div>
   )
