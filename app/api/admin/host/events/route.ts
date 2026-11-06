@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
 import { bangkokToday } from '@/lib/dates'
@@ -32,7 +32,7 @@ export const dynamic = 'force-dynamic'
 //     rescheduled, completed, reviewed)
 //   • has ≥1 real booking (website `bookings` or manually-entered
 //     `ota_bookings`) for that (event_date, night_slug)
-export async function GET() {
+export async function GET(req: NextRequest) {
   const auth = await requireAdmin()
   if ('response' in auth) return auth.response
 
@@ -44,7 +44,10 @@ export async function GET() {
     .gte('event_date', today)
     .order('event_date', { ascending: true })
 
-  if (auth.admin.role === 'staff') {
+  // ?mine=1 lets an owner/admin see exactly what a host sees: only the
+  // nights they're assigned to themselves (e.g. Guide hosting tonight).
+  const mine = new URL(req.url).searchParams.get('mine') === '1'
+  if (auth.admin.role === 'staff' || mine) {
     query = query.eq('host_assigned', auth.admin.displayName ?? '__none__')
   }
 
@@ -55,8 +58,9 @@ export async function GET() {
   }
 
   const candidates = data ?? []
+  const viewer = { role: auth.admin.role, displayName: auth.admin.displayName, today }
   if (candidates.length === 0) {
-    return NextResponse.json({ events: [] })
+    return NextResponse.json({ events: [], viewer })
   }
 
   // Booking counts per (event_date, night_slug) — a single pair of queries
@@ -85,6 +89,9 @@ export async function GET() {
       nightName: e.night_name,
       nightSlug: e.night_slug,
       isOpen: e.is_open,
+      hostAssigned: e.host_assigned,
+      operationVerdict: e.operation_verdict,
     })),
+    viewer,
   })
 }

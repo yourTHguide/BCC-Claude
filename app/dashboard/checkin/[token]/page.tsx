@@ -10,7 +10,7 @@ interface CheckinResponse {
     guestEmail: string | null
     quantity: number
     attendeeNames?: string[]
-    totalPaid: number
+    totalPaid?: number
     status: string
     attendanceStatus: string
     reference: string
@@ -196,7 +196,7 @@ export default function CheckinTokenPage({ params }: { params: { token: string }
               <div style={{ textAlign: 'right' }}>
                 <p style={S.label}>Payment</p>
                 <p style={{ color: 'rgba(255,255,255,0.70)', fontSize: '13px' }}>
-                  {data.booking.status === 'confirmed' ? `Paid ฿${data.booking.totalPaid.toLocaleString()}` : data.booking.status}
+                  {data.booking.status === 'confirmed' ? 'Paid ✓' : data.booking.status}
                 </p>
               </div>
             </div>

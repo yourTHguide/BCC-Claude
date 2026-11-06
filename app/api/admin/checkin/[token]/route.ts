@@ -23,14 +23,18 @@ export const dynamic = 'force-dynamic'
 // `quantity` on the response is informational context for the host, not a
 // counter this endpoint can partially decrement.
 
-function toResponseShape(booking: ResolvedBooking, reference: string, alreadyCheckedIn: boolean) {
+// Hosts ('staff') never receive the amount paid — same rule as the host
+// event routes. The check-in page itself no longer shows the amount to
+// anyone (a guest's QR opens it straight from the phone camera, so the page
+// can't tell who is scanning); owner/admin still get the field.
+function toResponseShape(booking: ResolvedBooking, reference: string, alreadyCheckedIn: boolean, showPaid: boolean) {
   return {
     booking: {
       id: booking.id,
       guestName: booking.guestName,
       guestEmail: booking.guestEmail,
       quantity: booking.quantity,
-      totalPaid: booking.totalPaid,
+      ...(showPaid ? { totalPaid: booking.totalPaid } : {}),
       status: booking.status,
       attendanceStatus: booking.attendanceStatus,
       reference,
@@ -68,11 +72,10 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
   }
 
   const reference = formatBookingReference(booking.productSlug, booking.id)
-  const shape = toResponseShape(booking, reference, booking.attendanceStatus === 'checked_in')
+  const shape = toResponseShape(booking, reference, booking.attendanceStatus === 'checked_in', auth.admin.role !== 'staff')
   console.error('[CHECKIN-GET] resolved ok', {
     hasGuestName: shape.booking.guestName != null,
     quantity: shape.booking.quantity,
-    totalPaid: shape.booking.totalPaid,
     status: shape.booking.status,
     attendanceStatus: shape.booking.attendanceStatus,
     eventDate: shape.event.eventDate,
@@ -102,7 +105,7 @@ export async function POST(_req: NextRequest, { params }: { params: { token: str
   // Repeat scan: idempotent, no side effect re-run — report the existing
   // state so the UI shows "Already checked in" instead of a fresh success.
   if (booking.attendanceStatus === 'checked_in') {
-    return NextResponse.json(toResponseShape(booking, reference, true))
+    return NextResponse.json(toResponseShape(booking, reference, true, auth.admin.role !== 'staff'))
   }
 
   const { error } = await supabase
@@ -116,6 +119,6 @@ export async function POST(_req: NextRequest, { params }: { params: { token: str
   }
 
   return NextResponse.json(
-    toResponseShape({ ...booking, attendanceStatus: 'checked_in' }, reference, false)
+    toResponseShape({ ...booking, attendanceStatus: 'checked_in' }, reference, false, auth.admin.role !== 'staff')
   )
 }
