@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin, requireRole } from '@/lib/admin-auth'
+import { requireRole } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
+import { isRecentDuplicate } from '@/lib/dedupe'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,7 +10,7 @@ export const dynamic = 'force-dynamic'
 // policy — see PHASE4_CHECKPOINT.md's RLS audit). Same insert, now behind
 // requireAdmin() + the service role.
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin()
+  const auth = await requireRole(['owner', 'admin'])
   if ('response' in auth) return auth.response
 
   let body: any
@@ -21,13 +22,17 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = getServiceSupabase()
-  const { error } = await supabase.from('expenses').insert({
+  const row = {
     event_date: eventDate,
     night_slug: nightSlug,
     category,
     description: description || null,
     amount: Number.isFinite(Number(amount)) ? Number(amount) : 0,
-  })
+  }
+  if (await isRecentDuplicate(supabase, 'expenses', row)) {
+    return NextResponse.json({ success: true, duplicate: true })
+  }
+  const { error } = await supabase.from('expenses').insert(row)
 
   if (error) {
     console.error('admin/dashboard/expenses: insert error:', error)

@@ -67,16 +67,27 @@ export default function HostEventDetailPage({ params }: { params: { id: string }
 
   useEffect(load, [params.id])
 
+  const [savingExpense, setSavingExpense] = useState(false)
   async function addExpense() {
-    const res = await fetch(`/api/admin/host/events/${params.id}/expenses`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...expForm, amount: parseInt(expForm.amount) || 0 }),
-    })
-    if (res.ok) {
-      setAddingExpense(false)
-      setExpForm({ category: 'van', description: '', amount: '' })
-      load()
+    if (savingExpense) return
+    setSavingExpense(true)
+    try {
+      const res = await fetch(`/api/admin/host/events/${params.id}/expenses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...expForm, amount: parseInt(expForm.amount) || 0 }),
+      })
+      if (res.ok) {
+        setAddingExpense(false)
+        setExpForm({ category: 'van', description: '', amount: '' })
+        load()
+      } else {
+        alert("Couldn't save the expense — please try again.")
+      }
+    } catch {
+      alert("Couldn't save the expense — check your connection and try again.")
+    } finally {
+      setSavingExpense(false)
     }
   }
 
@@ -171,7 +182,7 @@ export default function HostEventDetailPage({ params }: { params: { id: string }
                   <input value={expForm.description} onChange={(e) => setExpForm((f) => ({ ...f, description: e.target.value }))} placeholder="Description (optional)" style={{ ...S.input, marginBottom: '8px' }} />
                   <input type="number" value={expForm.amount} onChange={(e) => setExpForm((f) => ({ ...f, amount: e.target.value }))} placeholder="Amount (฿)" style={{ ...S.input, marginBottom: '10px' }} />
                   <div style={{ display: 'flex', gap: '8px' }}>
-                    <button onClick={addExpense} style={{ ...S.btn, background: 'linear-gradient(135deg,#EA003A,#820065)', color: '#fff' }}>Save</button>
+                    <button onClick={addExpense} disabled={savingExpense} style={{ ...S.btn, background: 'linear-gradient(135deg,#EA003A,#820065)', color: '#fff', opacity: savingExpense ? 0.6 : 1 }}>{savingExpense ? 'Saving…' : 'Save'}</button>
                     <button onClick={() => setAddingExpense(false)} style={{ ...S.btn, background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.70)', border: '1px solid rgba(255,255,255,0.10)' }}>Cancel</button>
                   </div>
                 </div>

@@ -178,6 +178,9 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
   // Set when the add form is being reused to edit an existing row.
   const [editingOtaId, setEditingOtaId] = useState<string|null>(null)
   const [editingExpId, setEditingExpId] = useState<string|null>(null)
+  // Locks the Save buttons while a save is in flight — a second tap used to
+  // insert the same expense / booking twice (the server also dedupes).
+  const [savingForm, setSavingForm] = useState<'ota'|'exp'|null>(null)
   const [detailLoadedId, setDetailLoadedId] = useState<string|null>(null)
   const [otaForm, setOtaForm] = useState({ source:'klook', guest_name:'', guest_email:'', quantity:1, total_paid:'' })
   const [expForm, setExpForm] = useState({ category:'van', description:'', amount:'' })
@@ -256,6 +259,12 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
   }
 
   async function addOTA() {
+    if (savingForm) return
+    setSavingForm('ota')
+    try { await saveOTAForm() } finally { setSavingForm(null) }
+  }
+
+  async function saveOTAForm() {
     const fields = {
       source: otaForm.source,
       guestName: otaForm.guest_name,
@@ -321,6 +330,12 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
   }
 
   async function addExpense() {
+    if (savingForm) return
+    setSavingForm('exp')
+    try { await saveExpenseForm() } finally { setSavingForm(null) }
+  }
+
+  async function saveExpenseForm() {
     const fields = {
       category: expForm.category,
       description: expForm.description,
@@ -885,7 +900,7 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
                 </div>
               </div>
               <div style={{ display:'flex', gap:'8px' }}>
-                <button onClick={addOTA} style={{ ...S.btn, ...S.btnRed }}>{editingOtaId ? 'Save changes' : 'Save'}</button>
+                <button onClick={addOTA} disabled={savingForm!==null} style={{ ...S.btn, ...S.btnRed, opacity: savingForm ? 0.6 : 1 }}>{savingForm==='ota' ? 'Saving…' : editingOtaId ? 'Save changes' : 'Save'}</button>
                 <button onClick={closeOtaForm} style={{ ...S.btn, ...S.btnGhost }}>Cancel</button>
               </div>
             </div>
@@ -931,7 +946,7 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
                 </div>
               </div>
               <div style={{ display:'flex', gap:'8px' }}>
-                <button onClick={addExpense} style={{ ...S.btn, ...S.btnRed }}>{editingExpId ? 'Save changes' : 'Save'}</button>
+                <button onClick={addExpense} disabled={savingForm!==null} style={{ ...S.btn, ...S.btnRed, opacity: savingForm ? 0.6 : 1 }}>{savingForm==='exp' ? 'Saving…' : editingExpId ? 'Save changes' : 'Save'}</button>
                 <button onClick={closeExpForm} style={{ ...S.btn, ...S.btnGhost }}>Cancel</button>
               </div>
             </div>
@@ -969,6 +984,17 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
 // ── Main Dashboard ──────────────────────────────────────────
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<'calendar'|'bookings'|'operations'>('calendar')
+
+  // The /dashboard layout redirects hosts ('staff') on a full page load,
+  // but an in-app link (e.g. "Back" on the scanner) navigates client-side
+  // and skips the layout. Send a host back to their own view here too; the
+  // data routes behind this page are owner/admin-only regardless.
+  useEffect(() => {
+    fetch('/api/admin/session', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(s => { if (s?.role === 'staff') window.location.replace('/dashboard/host') })
+      .catch(() => {})
+  }, [])
   const [calYear, setCalYear] = useState(new Date().getFullYear())
   const [calMonth, setCalMonth] = useState(new Date().getMonth())
   const [events, setEvents] = useState<EventDate[]>([])

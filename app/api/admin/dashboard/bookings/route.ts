@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireRole } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic'
 // Cancelled bookings are included (shown labelled, without actions) so the
 // tab keeps a full record; totals elsewhere still count confirmed only.
 export async function GET() {
-  const auth = await requireAdmin()
+  const auth = await requireRole(['owner', 'admin'])
   if ('response' in auth) return auth.response
 
   const supabase = getServiceSupabase()

@@ -28,6 +28,14 @@ function extractToken(input: string): string {
 
 export default function ScanTicketPage() {
   const router = useRouter()
+  // Hosts go back to their own nights; owner/admin back to the dashboard.
+  const [backHref, setBackHref] = useState('/dashboard/host')
+  useEffect(() => {
+    fetch('/api/admin/session', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((s) => { if (s && s.role !== 'staff') setBackHref('/dashboard') })
+      .catch(() => {})
+  }, [])
   const scannedRef = useRef(false)
   const [cameraState, setCameraState] = useState<'starting' | 'scanning' | 'error'>('starting')
   const [cameraError, setCameraError] = useState<string | null>(null)
@@ -154,7 +162,7 @@ export default function ScanTicketPage() {
   return (
     <div style={S.page}>
       <div style={{ width: '100%', maxWidth: '420px' }}>
-        <Link href="/dashboard" style={S.back}>← Back to Event Operations</Link>
+        <Link href={backHref} style={S.back}>← Back to Event Operations</Link>
         <h1 style={{ fontSize: '20px', margin: '16px 0 4px' }}>Scan Ticket</h1>
         <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)' }}>
           Point the camera at the guest&apos;s QR code — it resolves automatically.

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireRole } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 // see PHASE4_CHECKPOINT.md's RLS audit). Same query/shape/order as that direct
 // read, just behind requireAdmin() + the service role now.
 export async function GET(req: NextRequest) {
-  const auth = await requireAdmin()
+  const auth = await requireRole(['owner', 'admin'])
   if ('response' in auth) return auth.response
 
   const { searchParams } = new URL(req.url)

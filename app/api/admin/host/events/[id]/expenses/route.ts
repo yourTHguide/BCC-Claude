@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
+import { isRecentDuplicate } from '@/lib/dedupe'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,13 +43,17 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: 'Invalid amount' }, { status: 400 })
   }
 
-  const { error: insertError } = await supabase.from('expenses').insert({
+  const row = {
     event_date: event.event_date,
     night_slug: event.night_slug,
     category,
     description: description || null,
     amount: Math.round(parsedAmount),
-  })
+  }
+  if (await isRecentDuplicate(supabase, 'expenses', row)) {
+    return NextResponse.json({ success: true, duplicate: true })
+  }
+  const { error: insertError } = await supabase.from('expenses').insert(row)
 
   if (insertError) {
     console.error('admin/host/events/[id]/expenses: insert error:', insertError)
