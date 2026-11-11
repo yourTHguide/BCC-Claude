@@ -5,6 +5,7 @@ import { getServiceSupabase } from '@/lib/supabase'
 import { getAppUrl } from '@/lib/appUrl'
 import { resolveStorefront, VISIBILITY_COLUMN } from '@/lib/storefront'
 import { resolveEventPricing } from '@/lib/pricing'
+import { stripePaymentLabel } from '@/lib/stripePaymentLabel'
 
 // Format the YYYY-MM-DD string into a friendly label.
 // Parse into LOCAL date components (not new Date(eventDate), which parses as
@@ -311,6 +312,12 @@ async function createDynamicCheckout({
       formatted_date: formattedDate,
     },
 
+    // Label the payment itself so Stripe's Transactions list shows the night.
+    payment_intent_data: {
+      description: stripePaymentLabel('BKK Club Crawl', event.night_name, event.event_date),
+      metadata: { storefront, night_name: event.night_name, event_date: event.event_date, event_id: event.id },
+    },
+
     custom_text: {
       submit: {
         message: `You're booking ${qty} ticket${qty > 1 ? 's' : ''} for ${event.night_name} on ${formattedDate}.`,
@@ -377,6 +384,11 @@ async function createLegacyCheckout({
       event_date: eventDate,
       quantity: String(quantity),
       formatted_date: formattedDate,
+    },
+
+    payment_intent_data: {
+      description: stripePaymentLabel('BKK Club Crawl', nightName, eventDate),
+      metadata: { night_name: nightName, event_date: eventDate },
     },
 
     // Pre-fill description so guest sees the night name

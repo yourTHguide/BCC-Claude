@@ -5,6 +5,7 @@ import { getAppUrl } from '@/lib/appUrl'
 import { resolveStorefront } from '@/lib/storefront'
 import { isPreviewOrDev, isProductionDeployment, smcCheckoutAudienceAllowed, smcCheckoutReadiness } from '@/lib/smc/env'
 import { SMC_MAX_TICKETS_PER_BOOKING, SMC_TERMS_VERSION } from '@/lib/smc/terms'
+import { stripePaymentLabel } from '@/lib/stripePaymentLabel'
 
 export const dynamic = 'force-dynamic'
 
@@ -133,6 +134,10 @@ export async function POST(req: NextRequest) {
     storefront: 'bnt',
   }
 
+  // Payment label for the Stripe dashboard ("Single Meet Club · Sat 22 Nov 2026").
+  const { data: smcEvent } = await supabase.from('event_dates').select('event_date').eq('id', reg.event_id).maybeSingle()
+  const paymentLabel = stripePaymentLabel('Single Meet Club', null, smcEvent?.event_date)
+
   try {
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
@@ -150,7 +155,7 @@ export async function POST(req: NextRequest) {
       customer_email: reg.lead_email,
       expires_at: expiresAt,
       metadata,
-      payment_intent_data: { metadata, description: 'Single Meet Club' },
+      payment_intent_data: { metadata, description: paymentLabel },
       success_url: `${appUrl}/single-meet-club/confirmation?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/single-meet-club/book?cancelled=1`,
     })
