@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
 import { parseReport } from '@/lib/ota-import/parse'
-import { buildPlan, type DbOta, type NightOption } from '@/lib/ota-import/match'
+import { buildPlan, MOVE_DAYS, type DbOta, type NightOption } from '@/lib/ota-import/match'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -37,8 +37,8 @@ export async function POST(req: NextRequest) {
 
   const supabase = getServiceSupabase()
   const dates = parsed.bookings.map((b) => b.eventDate).sort()
-  const from = new Date(Date.parse(dates[0] + 'T00:00:00Z') - 3 * 86400000).toISOString().slice(0, 10)
-  const to = new Date(Date.parse(dates[dates.length - 1] + 'T00:00:00Z') + 3 * 86400000).toISOString().slice(0, 10)
+  const from = new Date(Date.parse(dates[0] + 'T00:00:00Z') - MOVE_DAYS * 86400000).toISOString().slice(0, 10)
+  const to = new Date(Date.parse(dates[dates.length - 1] + 'T00:00:00Z') + MOVE_DAYS * 86400000).toISOString().slice(0, 10)
 
   const [{ data: dbRows, error: dbErr }, { data: nights, error: nErr }] = await Promise.all([
     supabase.from('ota_bookings')

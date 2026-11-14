@@ -1,11 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 
-// Owner/admin: upload an OTA's own report (Airbnb earnings CSV, GetYourGuide
-// or Viator .xlsx). Step 1 previews what will change, step 2 applies it.
-// Backed by /api/admin/dashboard/ota-import.
+// Owner/admin, Bookings tab: upload an OTA's own report (Airbnb earnings CSV,
+// GetYourGuide or Viator .xlsx), usually once a month. Step 1 previews what
+// will change, step 2 applies it. Backed by /api/admin/dashboard/ota-import.
 
 interface NightOption { slug: string; name: string; date?: string }
 interface Item {
@@ -26,7 +25,6 @@ interface Preview {
 }
 
 const S = {
-  page: { minHeight: '100vh', background: '#0D000A', color: '#fff', fontFamily: 'Inter, sans-serif', padding: '24px 20px' } as React.CSSProperties,
   card: { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '16px', marginBottom: '12px' } as React.CSSProperties,
   label: { fontWeight: 600, fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.45)', margin: '0 0 8px' },
   btn: { height: '38px', padding: '0 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '13px' } as React.CSSProperties,
@@ -41,7 +39,8 @@ const S = {
 const thb = (n: number | null | undefined) => (n === null || n === undefined ? '—' : `฿${Math.round(n).toLocaleString('en-US')}`)
 const day = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
 
-export default function ImportPage() {
+export default function OtaImport() {
+  const [open, setOpen] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<Preview | null>(null)
   const [nights, setNights] = useState<Record<string, string>>({})
@@ -83,22 +82,33 @@ export default function ImportPage() {
   const cancelledHere = items.filter((i) => i.kind === 'cancelled_in_dashboard')
   const toAdd = items.filter((i) => i.kind === 'new')
   const matched = items.filter((i) => i.kind === 'match' || i.kind === 'linked')
-  const flaggedMatches = matched.filter((i) => i.flags.length)
+  const isMove = (f: string) => f.startsWith('Moved')
+  const flaggedMatches = matched.filter((i) => i.flags.some((f) => !isMove(f)))
+  const moved = matched.filter((i) => i.flags.some(isMove))
   const cancelledSkipped = items.filter((i) => i.kind === 'cancelled_skip')
   const chosen = needs.filter((i) => nights[i.report.ref]).length
 
   const name = (i: Item) => i.report.guestName || i.db?.guest_name || `${preview?.summary.label} guest`
 
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} style={{ ...S.btn, ...S.ghost, marginBottom: '16px' }}>
+        📥 Import OTA report (Airbnb / GetYourGuide / Viator)
+      </button>
+    )
+  }
+
   return (
-    <div style={S.page}>
-      <div style={{ maxWidth: '760px', margin: '0 auto' }}>
-        <Link href="/dashboard" style={{ color: 'rgba(255,255,255,0.50)', fontSize: '13px', textDecoration: 'none' }}>← Dashboard</Link>
-        <p style={{ fontWeight: 600, fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#EA003A', margin: '16px 0 6px' }}>Finance</p>
-        <h1 style={{ fontSize: '20px', margin: '0 0 6px' }}>Import OTA report</h1>
+    <div style={{ ...S.card, background: 'rgba(255,255,255,0.02)', marginBottom: '20px' }}>
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+          <h2 style={{ fontSize: '16px', margin: 0 }}>📥 Import OTA report</h2>
+          <button onClick={() => setOpen(false)} style={{ ...S.btn, ...S.ghost, height: '28px', fontSize: '12px' }}>Close</button>
+        </div>
         <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)', margin: '0 0 18px', lineHeight: 1.55 }}>
           Upload the report you download from Airbnb (earnings CSV), GetYourGuide or Viator (.xlsx). Each booking is matched to your guests by
           date, name and amount. Matched guests get their booking code, payout and the correct amount. Missing guests are added to their night.
-          Nothing changes until you press Apply, and uploading the same file twice never doubles anyone.
+          Guests you moved to a nearby night still match. Nothing changes until you press Apply, and uploading the same file twice never doubles anyone.
         </p>
 
         <div style={S.card}>
@@ -132,9 +142,6 @@ export default function ImportPage() {
                 {preview.summary.needsNight > 0 && <span style={{ color: '#f59e0b' }}>📅 {preview.summary.needsNight} need a night</span>}
                 {preview.summary.cancelledSkipped > 0 && <span style={S.muted}>✖ {preview.summary.cancelledSkipped} cancelled (skipped)</span>}
               </div>
-              {preview.summary.payoutTo.length > 1 && (
-                <p style={{ ...S.flag, marginTop: '10px' }}>Payouts in this file went to {preview.summary.payoutTo.length} different bank accounts: {preview.summary.payoutTo.join(' and ')}.</p>
-              )}
             </div>
 
             {(needs.length > 0 || cancelledHere.length > 0 || flaggedMatches.length > 0 || preview.plan.dashboardOnly.length > 0) && (
@@ -178,7 +185,7 @@ export default function ImportPage() {
                     <span style={S.muted}>{day(i.report.eventDate)}</span>
                     <div>
                       <strong>{name(i)}</strong> <span style={S.muted}>· {i.report.ref}</span>
-                      {i.flags.map((f) => <p key={f} style={S.flag}>{f}</p>)}
+                      {i.flags.filter((f) => !isMove(f)).map((f) => <p key={f} style={S.flag}>{f}</p>)}
                     </div>
                     <span style={{ ...S.muted, fontSize: '12px' }}>matched</span>
                   </div>
@@ -216,12 +223,15 @@ export default function ImportPage() {
             {matched.length > 0 && (
               <div style={S.card}>
                 <button onClick={() => setShowMatched((v) => !v)} style={{ ...S.btn, ...S.ghost, height: '30px', fontSize: '12px' }}>
-                  {showMatched ? 'Hide' : 'Show'} {matched.length} matched guests
+                  {showMatched ? 'Hide' : 'Show'} {matched.length} matched guests{moved.length ? ` (${moved.length} moved to another night)` : ''}
                 </button>
                 {showMatched && matched.map((i) => (
                   <div key={i.report.ref} style={S.row}>
                     <span style={S.muted}>{day(i.report.eventDate)}</span>
-                    <div><strong>{name(i)}</strong> <span style={S.muted}>· {thb(i.report.net)} · {i.report.ref}</span></div>
+                    <div>
+                      <strong>{name(i)}</strong> <span style={S.muted}>· {thb(i.report.net)} · {i.report.ref}</span>
+                      {i.flags.filter(isMove).map((f) => <p key={f} style={{ ...S.muted, fontSize: '12px', margin: '3px 0 0' }}>{f}</p>)}
+                    </div>
                     <span style={{ ...S.muted, fontSize: '12px' }}>{i.db?.guest_name}</span>
                   </div>
                 ))}

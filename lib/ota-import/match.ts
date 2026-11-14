@@ -2,13 +2,17 @@ import type { ReportBooking, OtaSource } from './parse'
 
 // Matches an OTA report against the guests already in ota_bookings.
 //   1. Same booking reference already saved → "linked" (re-upload safe).
-//   2. Name match within ±3 days (Airbnb has names) → "match".
+//   2. Name match within ±7 days (guests get moved between nights) → "match".
 //   3. No name (GYG/Viator): same night + same amount, or the only unlinked
 //      guest of that platform on that night → "match".
 //   4. Anything left: a new guest to add on that date's night, unless it was
 //      cancelled (then skipped). A date with 0 or 2+ nights needs a choice.
 // Dates, names and guest counts already in the dashboard are never changed;
 // differences are only flagged for review.
+
+// Guests are often moved to a nearby night to reach the minimum group size,
+// so a booking may sit up to a week away from the date on the report.
+export const MOVE_DAYS = 7
 
 export interface DbOta {
   id: string
@@ -94,7 +98,7 @@ function suggestNight(opts: NightOption[], b: ReportBooking, db: DbOta[]): strin
 export function importWindow(bookings: ReportBooking[]): { from: string; to: string } | null {
   const dates = bookings.map((b) => b.eventDate).sort()
   if (!dates.length) return null
-  return { from: addDays(dates[0], -3), to: addDays(dates[dates.length - 1], 3) }
+  return { from: addDays(dates[0], -MOVE_DAYS), to: addDays(dates[dates.length - 1], MOVE_DAYS) }
 }
 
 export function buildPlan(
@@ -113,7 +117,7 @@ export function buildPlan(
   const matched = (b: ReportBooking, row: DbOta, kind: 'linked' | 'match') => {
     used.add(row.id)
     const flags: string[] = []
-    if (row.event_date !== b.eventDate) flags.push(`Dashboard has ${row.event_date}, ${source} says ${b.eventDate}`)
+    if (row.event_date !== b.eventDate) flags.push(`Moved: booked for ${b.eventDate}, on your ${row.event_date} night`)
     const g = guessQty(source, amountFor(b), learned)
     if (!g.guessed && g.qty !== row.quantity) flags.push(`Dashboard has ${row.quantity} guest(s), amount suggests ${g.qty}`)
     if (!b.cancelled && row.total_paid && !sameMoney(row.total_paid, b.net)) flags.push(`Amount ฿${row.total_paid} → ฿${Math.round(b.net)} (from report)`)
@@ -132,7 +136,7 @@ export function buildPlan(
   for (const b of pending) {
     if (!b.guestName) { afterName.push(b); continue }
     const cands = db
-      .filter((r) => !used.has(r.id) && !r.booking_ref && Math.abs(dayDiff(r.event_date, b.eventDate)) <= 3 && namesMatch(r.guest_name, b.guestName))
+      .filter((r) => !used.has(r.id) && !r.booking_ref && Math.abs(dayDiff(r.event_date, b.eventDate)) <= MOVE_DAYS && namesMatch(r.guest_name, b.guestName))
       .sort((x, y) =>
         Math.abs(dayDiff(x.event_date, b.eventDate)) - Math.abs(dayDiff(y.event_date, b.eventDate)) ||
         Number(!sameMoney(x.total_paid, b.net)) - Number(!sameMoney(y.total_paid, b.net)))
@@ -155,9 +159,9 @@ export function buildPlan(
   const leftover2: ReportBooking[] = []
   for (const b of leftover) {
     if (b.guestName || b.cancelled) { leftover2.push(b); continue }
-    const near = db.filter((r) => !used.has(r.id) && !r.booking_ref && Math.abs(dayDiff(r.event_date, b.eventDate)) <= 3 && sameMoney(r.total_paid, b.net))
+    const near = db.filter((r) => !used.has(r.id) && !r.booking_ref && Math.abs(dayDiff(r.event_date, b.eventDate)) <= MOVE_DAYS && sameMoney(r.total_paid, b.net))
     const rivals = leftover.filter((o) => o !== b && !o.guestName && !o.cancelled && Math.abs(o.net - b.net) <= 1 &&
-      near.some((r) => Math.abs(dayDiff(r.event_date, o.eventDate)) <= 3))
+      near.some((r) => Math.abs(dayDiff(r.event_date, o.eventDate)) <= MOVE_DAYS))
     if (near.length === 1 && rivals.length === 0) matched(b, near[0], 'match')
     else leftover2.push(b)
   }
@@ -179,7 +183,10 @@ export function buildPlan(
     const flags = g.guessed ? ['Guest count unclear from the amount — set to 1, please check'] : []
     const nearby: NightOption[] = []
     if (!opts.length) {
-      for (let d = -3; d <= 3; d++) {
+      // Closest nights first (up to a week either side).
+      const offsets = [0]
+      for (let d = 1; d <= MOVE_DAYS; d++) offsets.push(-d, d)
+      for (const d of offsets) {
         const day = addDays(b.eventDate, d)
         for (const o of nightsByDate.get(day) ?? []) nearby.push({ ...o, date: day })
       }

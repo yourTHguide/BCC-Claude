@@ -6,6 +6,7 @@ import Link from 'next/link'
 import OperationsSheet, { type OperationsPalette } from '@/components/operations/OperationsSheet'
 import MeetupSender, { type MeetupPalette, type MeetupGuest } from '@/components/operations/MeetupSender'
 import DoorList, { type DoorListTheme } from '@/components/doorlist/DoorList'
+import OtaImport from '@/components/operations/OtaImport'
 import type { DoorGuest } from '@/lib/doorList'
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
@@ -1199,9 +1200,6 @@ export default function Dashboard() {
           <Link href="/dashboard/team" style={{ ...S.btn, ...S.btnGhost, display:'inline-flex', alignItems:'center', textDecoration:'none' }}>
             👥 Team
           </Link>
-          <Link href="/dashboard/import" style={{ ...S.btn, ...S.btnGhost, display:'inline-flex', alignItems:'center', textDecoration:'none' }}>
-            📥 Import OTA
-          </Link>
         </div>
         <div className="flex items-center justify-center gap-3">
           <button onClick={prevMonth} style={{ ...S.btn, ...S.btnGhost, padding:'0 12px' }}>‹</button>
@@ -1391,6 +1389,8 @@ export default function Dashboard() {
               {filteredBookings.filter(b => b.status === 'confirmed').length} confirmed · {filteredBookings.filter(b => b.status === 'cancelled').length} cancelled
             </p>
           </div>
+
+          <OtaImport />
 
           {allBookings.length > 0 && (
             <div style={{ display:'flex', flexWrap:'wrap', gap:'10px', marginBottom:'16px' }}>
