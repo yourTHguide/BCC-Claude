@@ -60,7 +60,7 @@ export default function OtaImport() {
     const fd = new FormData()
     fd.append('file', file)
     fd.append('apply', apply ? '1' : '0')
-    fd.append('nights', JSON.stringify(nights))
+    fd.append('nights', JSON.stringify(Object.fromEntries(Object.entries(nights).filter(([, v]) => !v.endsWith('|')))))
     fd.append('fixQty', JSON.stringify(Object.keys(fixQty).filter((k) => fixQty[k])))
     fd.append('remove', JSON.stringify(Object.keys(remove).filter((k) => remove[k])))
     try {
@@ -73,7 +73,7 @@ export default function OtaImport() {
         setDone(null)
         // Pre-fill suggested nights (e.g. Halloween on 31 Oct).
         const pre: Record<string, string> = {}
-        for (const i of data.plan.items as Item[]) if (i.kind === 'needs_night' && i.nightSlug) pre[i.report.ref] = i.nightSlug
+        for (const i of data.plan.items as Item[]) if (i.kind === 'needs_night' && i.nightSlug) pre[i.report.ref] = `${i.report.eventDate}|${i.nightSlug}`
         setNights(pre)
         // Report's guest count is ticked by default; removals start unticked.
         const fq: Record<string, boolean> = {}
@@ -97,7 +97,7 @@ export default function OtaImport() {
   const flaggedMatches = matched.filter((i) => i.flags.some((f) => !isMove(f)))
   const moved = matched.filter((i) => i.flags.some(isMove))
   const cancelledSkipped = items.filter((i) => i.kind === 'cancelled_skip')
-  const chosen = needs.filter((i) => nights[i.report.ref]).length
+  const chosen = needs.filter((i) => nights[i.report.ref] && !nights[i.report.ref].endsWith('|')).length
 
   const name = (i: Item) => i.report.guestName || i.db?.guest_name || `${preview?.summary.label} guest`
 
@@ -169,30 +169,30 @@ export default function OtaImport() {
                       <strong>{name(i)}</strong> <span style={S.muted}>· {i.qty} guest{i.qty > 1 ? 's' : ''} · {thb(i.report.net)} · {i.report.ref}</span>
                       {i.flags.map((f) => <p key={f} style={S.flag}>{f}</p>)}
                     </div>
-                    <select
-                      value={nights[i.report.ref] ?? ''}
-                      onChange={(e) => setNights((n) => ({ ...n, [i.report.ref]: e.target.value }))}
-                      style={S.select}
-                    >
-                      <option value="">Didn&apos;t happen — don&apos;t add</option>
-                      {(i.nightOptions ?? []).some((o) => !o.date || o.date === i.report.eventDate) && (
-                        <optgroup label={`Night on ${day(i.report.eventDate)}`}>
-                          {(i.nightOptions ?? []).filter((o) => !o.date || o.date === i.report.eventDate).map((o) => <option key={o.slug} value={o.slug}>{o.name}</option>)}
-                        </optgroup>
-                      )}
-                      {!(i.nightOptions ?? []).some((o) => !o.date || o.date === i.report.eventDate) && (
-                        <optgroup label={`➕ Add a night on ${day(i.report.eventDate)}`}>
-                          {preview.nightTypes.map((t) => <option key={t.slug} value={`new|${t.slug}`}>{t.name} (new night)</option>)}
-                        </optgroup>
-                      )}
-                      {(i.nightOptions ?? []).some((o) => o.date && o.date !== i.report.eventDate) && (
-                        <optgroup label="Moved to a nearby night">
-                          {(i.nightOptions ?? []).filter((o) => o.date && o.date !== i.report.eventDate).map((o) => (
-                            <option key={`${o.date}|${o.slug}`} value={`${o.date}|${o.slug}`}>{day(o.date!)} · {o.name}</option>
-                          ))}
-                        </optgroup>
-                      )}
-                    </select>
+                    {(() => {
+                      // Pick any date + night type. If that night isn't on the
+                      // calendar it's added as an internal (not-for-sale) night.
+                      const [pDate, pSlug] = (nights[i.report.ref] ?? `${i.report.eventDate}|`).split('|')
+                      const set = (d: string, sl: string) => setNights((n) => ({ ...n, [i.report.ref]: `${d}|${sl}` }))
+                      const onCal = (sl: string) => (i.nightOptions ?? []).some((o) => o.slug === sl && (o.date ?? i.report.eventDate) === pDate)
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '210px' }}>
+                          <input type="date" value={pDate} onChange={(e) => e.target.value && set(e.target.value, pSlug)} style={{ ...S.select, colorScheme: 'dark' }} />
+                          <select value={pSlug} onChange={(e) => set(pDate, e.target.value)} style={S.select}>
+                            <option value="">Didn&apos;t happen — don&apos;t add</option>
+                            {preview.nightTypes.map((t) => (
+                              <option key={t.slug} value={t.slug}>{t.name}{onCal(t.slug) ? ' ✓' : ''}</option>
+                            ))}
+                          </select>
+                          {pSlug && (
+                            <span style={{ fontSize: '11px', color: onCal(pSlug) ? '#22c55e' : 'rgba(255,255,255,0.5)' }}>
+                              {onCal(pSlug) ? '✓ Night is on your calendar' : '➕ Night will be added (internal only, not on the website)'}
+                            </span>
+                          )}
+                          {pDate !== i.report.eventDate && <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Moved from {day(i.report.eventDate)}</span>}
+                        </div>
+                      )
+                    })()}
                   </div>
                 ))}
 

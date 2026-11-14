@@ -12,8 +12,8 @@ const LABEL = { airbnb: 'Airbnb', getyourguide: 'GetYourGuide', viator: 'Viator'
 
 // Upload an OTA's own report (Airbnb CSV, GetYourGuide / Viator .xlsx).
 // apply=0 → preview of what would change. apply=1 → same plan, written.
-// Form fields: file, apply ('0'|'1'), nights (JSON {ref: night_slug} for
-// bookings whose date has 0 or 2+ nights).
+// Form fields: file, apply ('0'|'1'), nights (JSON {ref: "YYYY-MM-DD|slug"}
+// for bookings whose date has 0 or 2+ nights), fixQty, remove.
 export async function POST(req: NextRequest) {
   const auth = await requireRole(['owner', 'admin'])
   if ('response' in auth) return auth.response
@@ -111,13 +111,14 @@ export async function POST(req: NextRequest) {
     const k = `${date}|${slug}`
     if (created.has(k) || (nightsByDate.get(date) ?? []).some((n) => n.slug === slug)) return null
     const { data: product } = await supabase.from('products').select('id, name').eq('slug', slug).maybeSingle()
+    if (!product && !typeMap.has(slug)) return `unknown night type ${slug}`
     const { error } = await supabase.from('event_dates').insert({
       event_date: date, night_slug: slug, night_name: product?.name ?? typeMap.get(slug) ?? slug,
       product_id: product?.id ?? null, is_open: false,
       notes: `Added from ${sourceLabel} import (OTA-only night)`,
     })
     if (error && error.code !== '23505') return error.message
-    created.set(k, true)
+    created.set(k, !error) // false = it already existed
     const list = nightsByDate.get(date) ?? []
     list.push({ slug, name: product?.name ?? slug })
     nightsByDate.set(date, list)
@@ -158,13 +159,15 @@ export async function POST(req: NextRequest) {
       // Choice is a slug, "YYYY-MM-DD|slug" (a nearby night) or "new|slug".
       const choice = item.kind === 'new' ? item.nightSlug : nightChoices[b.ref]
       if (!choice) { result.skipped++; continue }
+      // Any "date|slug" is allowed: if that night isn't on the calendar yet it
+      // is added (closed to website sales — internal record only).
       let [chosenDate, chosenSlug] = choice.includes('|') ? choice.split('|') : [b.eventDate, choice]
-      if (chosenDate === 'new') {
-        chosenDate = b.eventDate
-        const before = created.size
+      if (chosenDate === 'new') chosenDate = b.eventDate
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(chosenDate) || !chosenSlug) { result.failed.push(`${b.ref}: invalid night choice`); continue }
+      if (!(nightsByDate.get(chosenDate) ?? []).some((n) => n.slug === chosenSlug)) {
         const failure = await ensureNight(chosenDate, chosenSlug)
         if (failure) { result.failed.push(`${b.ref}: couldn't add night (${failure})`); continue }
-        if (created.size > before) result.nightsAdded++
+        if (created.get(`${chosenDate}|${chosenSlug}`)) result.nightsAdded++
       }
       const valid = (nightsByDate.get(chosenDate) ?? []).some((n) => n.slug === chosenSlug)
       if (!valid) { result.failed.push(`${b.ref}: no ${chosenSlug} night on ${chosenDate}`); continue }
