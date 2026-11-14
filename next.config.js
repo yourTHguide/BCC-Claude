@@ -3,6 +3,15 @@ const nextConfig = {
   // Perf: let browsers keep site images for a day (and reuse them for a week
   // while quietly re-checking), so repeat visitors don't re-download every
   // photo. Keeps Vercel Fast Data Transfer down on the Hobby plan.
+  // Retired themed nights (removed Nov 2026): their old pages send visitors
+  // to the main crawl page. Permanent so search engines drop the old URLs.
+  async redirects() {
+    return ['girls-night', 'solo-night', 'nomad-nights', '30plus-night', 'lgbtplus-night'].map((slug) => ({
+      source: `/${slug}`,
+      destination: '/',
+      permanent: true,
+    }))
+  },
   async headers() {
     return [
       {
