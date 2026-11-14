@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { OperationsRow } from '@/lib/operations/report'
+import { brandForNight } from '@/lib/operations/brand'
 
 // Shared Operations Sheet UI. Rendered by the BCC /dashboard "Operations"
 // tab and the BNT /operator/manage/operations page (same codebase, both
@@ -101,20 +102,41 @@ export default function OperationsSheet({ palette: P, eventHref }: { palette: Op
     if (p !== 'custom') setRange(presetRange(p))
   }
 
+  // operations-<start>-to-<end>.csv: one row per night. Plain numbers (THB),
+  // dates YYYY-MM-DD, expenses split by category, for finance.
   function exportCsv() {
-    const header = ['Date', 'Night', 'Status', 'Host', 'Host fee', 'Host paid', 'Meet-up', 'Route', 'Booked', 'Checked in', 'No-show', 'Website revenue', 'OTA/direct revenue', 'Total revenue', 'Expenses (excl. host)', 'Profit', 'Guests']
-    const lines = filtered.map((r) => [
-      r.eventDate, r.nightName, r.verdict, r.host ?? '', r.hostCost, r.hostPaymentStatus, r.meetUpLocation ?? '', r.route.join(' > '),
-      r.guestsBooked, r.guestsCheckedIn, r.guestsNoShow, r.revenueWebsite, r.revenueOta, r.revenueTotal, r.otherExpenses, r.profit,
-      r.guests.map((g) => `${g.name} x${g.quantity} (${g.source}, ${ATTENDANCE_LABEL[g.attendance] ?? g.attendance})`).join('; '),
-    ].map(csvCell).join(','))
-    const blob = new Blob(['﻿' + [header.join(','), ...lines].join('\n')], { type: 'text/csv;charset=utf-8' })
+    const own = ['host_pay', 'van', 'drinks', 'cover_charge'] // own columns; the rest is 'other'
+    const header = ['night_id', 'event_date', 'brand', 'night_slug', 'night_name', 'status', 'host_name', 'host_fee', 'host_paid',
+      'booked', 'checked_in', 'no_show', 'revenue_website', 'revenue_ota_direct', 'revenue_total',
+      'expense_van', 'expense_drinks', 'expense_cover_charge', 'expense_other', 'expenses_total_excl_host', 'profit', 'expense_notes', 'route', 'guests']
+    const lines = filtered.map((r) => {
+      const byCat = (c: string) => r.expenses.filter((x) => x.category === c).reduce((t, x) => t + x.amount, 0)
+      const other = r.expenses.filter((x) => !own.includes(x.category)).reduce((t, x) => t + x.amount, 0)
+      return [
+        r.id, r.eventDate, brandForNight(r.nightSlug), r.nightSlug, r.nightName, r.verdict, r.host ?? '', r.hostCost,
+        r.hostPaymentStatus === 'Paid' ? 'yes' : 'no',
+        r.guestsBooked, r.guestsCheckedIn, r.guestsNoShow, r.revenueWebsite, r.revenueOta, r.revenueTotal,
+        byCat('van'), byCat('drinks'), byCat('cover_charge'), other, r.otherExpenses, r.profit,
+        r.expenses.filter((x) => x.category !== 'host_pay').map((x) => `${CATEGORY_LABEL[x.category] ?? x.category} ${x.amount}${x.description ? ` (${x.description})` : ''}`).join('; '),
+        r.route.join(' > '),
+        r.guests.map((g) => `${g.name} x${g.quantity} (${g.source}, ${ATTENDANCE_LABEL[g.attendance] ?? g.attendance})`).join('; '),
+      ].map(csvCell).join(',')
+    })
+    const blob = new Blob(['\uFEFF' + [header.join(','), ...lines].join('\n')], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
     a.download = `operations-${start}-to-${end}.csv`
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  // bookings-<start>-to-<end>.csv: one row per booking, built on the server.
+  function exportBookings() {
+    const a = document.createElement('a')
+    a.href = `/api/admin/dashboard/operations/bookings?start=${start}&end=${end}`
+    a.download = `bookings-${start}-to-${end}.csv`
+    a.click()
   }
 
   const input: React.CSSProperties = { height: '36px', borderRadius: '8px', padding: '0 10px', background: P.inputBg, border: `1px solid ${P.border}`, color: P.text, fontFamily: 'inherit', fontSize: '13px', outline: 'none', minWidth: 0, width: '100%' }
@@ -184,7 +206,10 @@ export default function OperationsSheet({ palette: P, eventHref }: { palette: Op
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', gap: '8px' }}>
         <p style={{ fontSize: '12px', color: P.muted, margin: 0 }}>{loading ? 'Loading…' : `${filtered.length} event${filtered.length === 1 ? '' : 's'} · tap a row for guests, route and expenses`}</p>
-        <button onClick={exportCsv} disabled={filtered.length === 0} style={{ height: '32px', padding: '0 12px', borderRadius: '8px', border: `1px solid ${P.border}`, background: 'transparent', color: P.text, fontFamily: 'inherit', fontSize: '12px', fontWeight: 600, cursor: filtered.length ? 'pointer' : 'default', opacity: filtered.length ? 1 : 0.5, whiteSpace: 'nowrap' }}>Export CSV</button>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <button onClick={exportCsv} disabled={filtered.length === 0} title="One row per night" style={{ height: '32px', padding: '0 12px', borderRadius: '8px', border: `1px solid ${P.border}`, background: 'transparent', color: P.text, fontFamily: 'inherit', fontSize: '12px', fontWeight: 600, cursor: filtered.length ? 'pointer' : 'default', opacity: filtered.length ? 1 : 0.5, whiteSpace: 'nowrap' }}>Nights CSV</button>
+          <button onClick={exportBookings} title="One row per booking, all channels" style={{ height: '32px', padding: '0 12px', borderRadius: '8px', border: `1px solid ${P.border}`, background: 'transparent', color: P.text, fontFamily: 'inherit', fontSize: '12px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>Bookings CSV</button>
+        </div>
       </div>
 
       {error && <p style={{ fontSize: '13px', color: P.red }}>Couldn't load operations: {error}</p>}
