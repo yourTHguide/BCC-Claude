@@ -1,4 +1,5 @@
 import type { ReportBooking, OtaSource } from './parse'
+import { otaNightSlug, otaNightName } from './nights'
 
 // Matches an OTA report against the guests already in ota_bookings.
 //   1. Same booking reference already saved → "linked" (re-upload safe).
@@ -90,15 +91,6 @@ function dayDiff(a: string, b: string): number {
 
 function addDays(d: string, n: number): string {
   return new Date(Date.parse(d + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10)
-}
-
-// When a date has several nights (e.g. 31 Oct: Signature + Halloween), suggest
-// the one other guests from the same platform are already on.
-function suggestNight(opts: NightOption[], b: ReportBooking, db: DbOta[]): string | undefined {
-  if (opts.length < 2) return undefined
-  const counts = opts.map((o) => db.filter((r) => r.event_date === b.eventDate && r.night_slug === o.slug).length)
-  const best = Math.max(...counts)
-  return best > 0 && counts.filter((c) => c === best).length === 1 ? opts[counts.indexOf(best)].slug : undefined
 }
 
 export function importWindow(bookings: ReportBooking[]): { from: string; to: string } | null {
@@ -202,11 +194,14 @@ export function buildPlan(
         for (const o of nightsByDate.get(day) ?? []) nearby.push({ ...o, date: day })
       }
     }
-    if (opts.length === 1) items.push({ kind: 'new', report: b, qty: g.qty, qtyGuessed: g.guessed, nightSlug: opts[0].slug, flags })
+    // The night comes from the date (Fri TGIF, Sat Signature, else BKK Club
+    // Crawl). A date already on the calendar is added straight away; a date
+    // with no night yet is asked about (joined / rescheduled / didn't happen).
+    const slug = otaNightSlug(b.eventDate, opts.map((o) => o.slug))
+    if (opts.length) items.push({ kind: 'new', report: b, qty: g.qty, qtyGuessed: g.guessed, nightSlug: slug, flags })
     else items.push({
-      kind: 'needs_night', report: b, qty: g.qty, qtyGuessed: g.guessed, nightOptions: opts.length ? opts : nearby,
-      nightSlug: suggestNight(opts, b, db),
-      flags: [...flags, opts.length ? 'More than one night that date — pick one' : `No night on ${b.eventDate} in your calendar — add one on that date, or pick the night they joined`],
+      kind: 'needs_night', report: b, qty: g.qty, qtyGuessed: g.guessed, nightOptions: nearby, nightSlug: slug,
+      flags: [...flags, `No night on your calendar that day — confirm they joined (a ${otaNightName(slug)} night is added), pick the date they were moved to, or mark it didn't happen`],
     })
   }
 

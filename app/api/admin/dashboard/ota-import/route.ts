@@ -3,6 +3,7 @@ import { requireRole } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
 import { parseReport } from '@/lib/ota-import/parse'
 import { buildPlan, MOVE_DAYS, type DbOta, type NightOption } from '@/lib/ota-import/match'
+import { isOtaNight, otaNightSlug, otaNightName } from '@/lib/ota-import/nights'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -12,8 +13,8 @@ const LABEL = { airbnb: 'Airbnb', getyourguide: 'GetYourGuide', viator: 'Viator'
 
 // Upload an OTA's own report (Airbnb CSV, GetYourGuide / Viator .xlsx).
 // apply=0 → preview of what would change. apply=1 → same plan, written.
-// Form fields: file, apply ('0'|'1'), nights (JSON {ref: "YYYY-MM-DD|slug"}
-// for bookings whose date has 0 or 2+ nights), fixQty, remove.
+// Form fields: file, apply ('0'|'1'), nights (JSON {ref: "YYYY-MM-DD" the
+// guest joined, or "" = didn't happen}), fixQty, remove.
 export async function POST(req: NextRequest) {
   const auth = await requireRole(['owner', 'admin'])
   if ('response' in auth) return auth.response
@@ -24,7 +25,8 @@ export async function POST(req: NextRequest) {
   if (!(file instanceof File)) return NextResponse.json({ error: 'Upload a file' }, { status: 400 })
   if (file.size > MAX_BYTES) return NextResponse.json({ error: 'File is larger than 5 MB' }, { status: 400 })
   const apply = form.get('apply') === '1'
-  // nights: {ref: "slug" | "YYYY-MM-DD|slug" | "new|slug"}  (new = create that night on the report date)
+  // nights: {ref: "YYYY-MM-DD"} date they joined (report date or rescheduled), "" = didn't happen.
+  // The night itself follows from the date (see lib/ota-import/nights).
   // fixQty: [ref]   — use the guest count the report's amount implies
   // remove: [ota_bookings.id] — leftover / cancelled entries to delete
   const json = <T,>(k: string, d: T): T => { try { return JSON.parse(String(form.get(k) || '')) as T } catch { return d } }
@@ -67,7 +69,7 @@ export async function POST(req: NextRequest) {
   for (const r of [...(dbRows ?? []), ...(refRows ?? [])] as DbOta[]) db.set(r.id, r)
   const nightsByDate = new Map<string, NightOption[]>()
   for (const n of nights ?? []) {
-    if (n.night_slug === 'smc') continue // Single Meet Club isn't sold on OTAs
+    if (!isOtaNight(n.night_slug)) continue // SMC, New in Bangkok, old themes: never OTA
     const list = nightsByDate.get(n.event_date) ?? []
     list.push({ slug: n.night_slug, name: n.night_name || n.night_slug })
     nightsByDate.set(n.event_date, list)
@@ -89,13 +91,7 @@ export async function POST(req: NextRequest) {
     payoutTo: parsed.payoutTo,
   }
 
-  // Night types that can be added on a date with no night (OTA listings run
-  // Tue–Sun even when the website calendar doesn't).
-  const typeMap = new Map<string, string>()
-  nightsByDate.forEach((list) => list.forEach((n) => typeMap.set(n.slug, n.name)))
-  const nightTypes = Array.from(typeMap, ([slug, name]) => ({ slug, name })).sort((a, b) => a.name.localeCompare(b.name))
-
-  if (!apply) return NextResponse.json({ summary, plan, nightTypes })
+  if (!apply) return NextResponse.json({ summary, plan })
 
   // Only rows this plan showed as removable can be deleted.
   const removable = new Set<string>([
@@ -107,20 +103,24 @@ export async function POST(req: NextRequest) {
   // website sales; it only exists so OTA guests sit on their real night.
   const sourceLabel = LABEL[parsed.source]
   const created = new Map<string, boolean>()
+  // Closed to website sales; it only exists so OTA guests sit on their real night.
+  let productId: string | null | undefined
   async function ensureNight(date: string, slug: string): Promise<string | null> {
     const k = `${date}|${slug}`
     if (created.has(k) || (nightsByDate.get(date) ?? []).some((n) => n.slug === slug)) return null
-    const { data: product } = await supabase.from('products').select('id, name').eq('slug', slug).maybeSingle()
-    if (!product && !typeMap.has(slug)) return `unknown night type ${slug}`
+    if (productId === undefined) {
+      const { data } = await supabase.from('products').select('id').eq('slug', 'bangkok-club-crawl').maybeSingle()
+      productId = data?.id ?? null
+    }
     const { error } = await supabase.from('event_dates').insert({
-      event_date: date, night_slug: slug, night_name: product?.name ?? typeMap.get(slug) ?? slug,
-      product_id: product?.id ?? null, is_open: false,
+      event_date: date, night_slug: slug, night_name: otaNightName(slug),
+      product_id: productId, is_open: false,
       notes: `Added from ${sourceLabel} import (OTA-only night)`,
     })
     if (error && error.code !== '23505') return error.message
     created.set(k, !error) // false = it already existed
     const list = nightsByDate.get(date) ?? []
-    list.push({ slug, name: product?.name ?? slug })
+    list.push({ slug, name: otaNightName(slug) })
     nightsByDate.set(date, list)
     return null
   }
@@ -156,14 +156,16 @@ export async function POST(req: NextRequest) {
       continue
     }
     if (item.kind === 'new' || item.kind === 'needs_night') {
-      // Choice is a slug, "YYYY-MM-DD|slug" (a nearby night) or "new|slug".
-      const choice = item.kind === 'new' ? item.nightSlug : nightChoices[b.ref]
-      if (!choice) { result.skipped++; continue }
-      // Any "date|slug" is allowed: if that night isn't on the calendar yet it
-      // is added (closed to website sales — internal record only).
-      let [chosenDate, chosenSlug] = choice.includes('|') ? choice.split('|') : [b.eventDate, choice]
-      if (chosenDate === 'new') chosenDate = b.eventDate
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(chosenDate) || !chosenSlug) { result.failed.push(`${b.ref}: invalid night choice`); continue }
+      // Your answer (date joined, or "" = didn't happen) wins; otherwise a
+      // booking whose night is on the calendar is added there, and an
+      // unanswered one is skipped.
+      const answer = Object.prototype.hasOwnProperty.call(nightChoices, b.ref) ? nightChoices[b.ref] : undefined
+      if (answer === '' || (answer === undefined && item.kind === 'needs_night')) { result.skipped++; continue }
+      const chosenDate = answer ?? b.eventDate
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(chosenDate)) { result.failed.push(`${b.ref}: invalid date`); continue }
+      const chosenSlug = chosenDate === b.eventDate && item.nightSlug
+        ? item.nightSlug
+        : otaNightSlug(chosenDate, (nightsByDate.get(chosenDate) ?? []).map((n) => n.slug))
       if (!(nightsByDate.get(chosenDate) ?? []).some((n) => n.slug === chosenSlug)) {
         const failure = await ensureNight(chosenDate, chosenSlug)
         if (failure) { result.failed.push(`${b.ref}: couldn't add night (${failure})`); continue }

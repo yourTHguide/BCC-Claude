@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { otaNightName } from '@/lib/ota-import/nights'
 
 // Owner/admin, Bookings tab: upload an OTA's own report (Airbnb earnings CSV,
 // GetYourGuide or Viator .xlsx), usually once a month. Step 1 previews what
@@ -23,7 +24,6 @@ interface Preview {
     cancelledSkipped: number; cancelledInDashboard: number; dashboardOnly: number; payoutTo: string[]
   }
   plan: { items: Item[]; dashboardOnly: { id: string; event_date: string; guest_name: string | null; total_paid: number | null; quantity: number }[] }
-  nightTypes: { slug: string; name: string }[]
 }
 
 const S = {
@@ -52,8 +52,9 @@ export default function OtaImport() {
   const [fixQty, setFixQty] = useState<Record<string, boolean>>({})
   const [remove, setRemove] = useState<Record<string, boolean>>({})
   const [showMatched, setShowMatched] = useState(false)
-  // Rows in "Needs your eyes" you've answered (green) vs not yet (orange).
-  const [answered, setAnswered] = useState<Record<string, boolean>>({})
+  // "Needs your eyes" answers: nights[ref] = date joined ('' = didn't happen);
+  // mode drives the radio buttons. No entry = not answered yet (orange).
+  const [mode, setMode] = useState<Record<string, 'joined' | 'moved' | 'no'>>({})
 
   async function send(apply: boolean) {
     if (!file) return
@@ -62,7 +63,7 @@ export default function OtaImport() {
     const fd = new FormData()
     fd.append('file', file)
     fd.append('apply', apply ? '1' : '0')
-    fd.append('nights', JSON.stringify(Object.fromEntries(Object.entries(nights).filter(([, v]) => !v.endsWith('|')))))
+    fd.append('nights', JSON.stringify(nights))
     fd.append('fixQty', JSON.stringify(Object.keys(fixQty).filter((k) => fixQty[k])))
     fd.append('remove', JSON.stringify(Object.keys(remove).filter((k) => remove[k])))
     try {
@@ -73,11 +74,8 @@ export default function OtaImport() {
       else {
         setPreview(data)
         setDone(null)
-        // Pre-fill suggested nights (e.g. Halloween on 31 Oct).
-        const pre: Record<string, string> = {}
-        for (const i of data.plan.items as Item[]) if (i.kind === 'needs_night' && i.nightSlug) pre[i.report.ref] = `${i.report.eventDate}|${i.nightSlug}`
-        setNights(pre)
-        setAnswered(Object.fromEntries(Object.keys(pre).map((k) => [k, true])))
+        setNights({})
+        setMode({})
         // Report's guest count is ticked by default; removals start unticked.
         const fq: Record<string, boolean> = {}
         for (const i of data.plan.items as Item[]) if (i.suggestedQty) fq[i.report.ref] = true
@@ -100,15 +98,13 @@ export default function OtaImport() {
   const flaggedMatches = matched.filter((i) => i.flags.some((f) => !isMove(f)))
   const moved = matched.filter((i) => i.flags.some(isMove))
   const cancelledSkipped = items.filter((i) => i.kind === 'cancelled_skip')
-  const picked = needs.filter((i) => nights[i.report.ref] && !nights[i.report.ref].endsWith('|'))
+  const answered = (ref: string) => ref in nights
+  const picked = needs.filter((i) => nights[i.report.ref])
   const chosen = picked.length
-  const unanswered = needs.filter((i) => !answered[i.report.ref]).length
-  // Nights that will be created: picked date+night not already on the calendar.
-  const newNights = new Set(picked.map((i) => nights[i.report.ref]).filter((v) => {
-    const it = needs.find((x) => nights[x.report.ref] === v)!
-    const [d, sl] = v.split('|')
-    return !(it.nightOptions ?? []).some((o) => o.slug === sl && (o.date ?? it.report.eventDate) === d)
-  })).size
+  const unanswered = needs.filter((i) => !answered(i.report.ref)).length
+  // Nights that will be created: a chosen date with no night on the calendar.
+  const newNights = new Set(picked.map((i) => nights[i.report.ref]).filter((d) =>
+    !needs.some((x) => (x.nightOptions ?? []).some((o) => o.date === d)))).size
   const removing = Object.values(remove).filter(Boolean).length
 
   const name = (i: Item) => i.report.guestName || i.db?.guest_name || `${preview?.summary.label} guest`
@@ -172,36 +168,60 @@ export default function OtaImport() {
 
             {(needs.length > 0 || cancelledHere.length > 0 || flaggedMatches.length > 0 || preview.plan.dashboardOnly.length > 0) && (
               <div style={{ ...S.card, borderColor: 'rgba(245,158,11,0.35)' }}>
-                <p style={{ ...S.label, color: '#f59e0b' }}>Needs your eyes</p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <p style={{ ...S.label, color: '#f59e0b', margin: 0 }}>Needs your eyes</p>
+                  {unanswered > 0 && (
+                    <button
+                      onClick={() => {
+                        const left = needs.filter((i) => !answered(i.report.ref))
+                        setMode((x) => ({ ...x, ...Object.fromEntries(left.map((i) => [i.report.ref, 'joined' as const])) }))
+                        setNights((n) => ({ ...n, ...Object.fromEntries(left.map((i) => [i.report.ref, i.report.eventDate])) }))
+                      }}
+                      style={{ ...S.btn, ...S.ghost, height: '28px', fontSize: '12px' }}
+                    >
+                      ✅ Mark the {unanswered} unanswered as joined
+                    </button>
+                  )}
+                </div>
 
                 {needs.map((i) => (
-                  <div key={i.report.ref} style={{ ...S.row, borderLeft: `3px solid ${answered[i.report.ref] ? '#22c55e' : '#f59e0b'}`, paddingLeft: '8px', background: answered[i.report.ref] ? 'rgba(34,197,94,0.05)' : 'rgba(245,158,11,0.06)' }}>
+                  <div key={i.report.ref} style={{ ...S.row, borderLeft: `3px solid ${answered(i.report.ref) ? '#22c55e' : '#f59e0b'}`, paddingLeft: '8px', background: answered(i.report.ref) ? 'rgba(34,197,94,0.05)' : 'rgba(245,158,11,0.06)' }}>
                     <span style={S.muted}>{day(i.report.eventDate)}</span>
                     <div>
                       <strong>{name(i)}</strong> <span style={S.muted}>· {i.qty} guest{i.qty > 1 ? 's' : ''} · {thb(i.report.net)} · {i.report.ref}</span>
                       {i.flags.map((f) => <p key={f} style={S.flag}>{f}</p>)}
                     </div>
                     {(() => {
-                      // Pick any date + night type. If that night isn't on the
-                      // calendar it's added as an internal (not-for-sale) night.
-                      const [pDate, pSlug] = (nights[i.report.ref] ?? `${i.report.eventDate}|`).split('|')
-                      const set = (d: string, sl: string) => { setNights((n) => ({ ...n, [i.report.ref]: `${d}|${sl}` })); setAnswered((m) => ({ ...m, [i.report.ref]: true })) }
-                      const onCal = (sl: string) => (i.nightOptions ?? []).some((o) => o.slug === sl && (o.date ?? i.report.eventDate) === pDate)
+                      const ref = i.report.ref
+                      const m = mode[ref]
+                      const movedTo = m === 'moved' ? nights[ref] : ''
+                      const pick = (mm: 'joined' | 'moved' | 'no', date: string) => {
+                        setMode((x) => ({ ...x, [ref]: mm }))
+                        setNights((n) => {
+                          const next = { ...n }
+                          if (mm === 'moved' && !date) delete next[ref] // date not picked yet
+                          else next[ref] = mm === 'no' ? '' : date
+                          return next
+                        })
+                      }
+                      const radio = { display: 'flex', gap: '6px', alignItems: 'center', fontSize: '12.5px', cursor: 'pointer', whiteSpace: 'nowrap' } as React.CSSProperties
                       return (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '210px' }}>
-                          <input type="date" value={pDate} onChange={(e) => e.target.value && set(e.target.value, pSlug)} style={{ ...S.select, colorScheme: 'dark' }} />
-                          <select value={pSlug} onChange={(e) => set(pDate, e.target.value)} style={S.select}>
-                            <option value="">Didn&apos;t happen — don&apos;t add</option>
-                            {preview.nightTypes.map((t) => (
-                              <option key={t.slug} value={t.slug}>{t.name}{onCal(t.slug) ? ' ✓' : ''}</option>
-                            ))}
-                          </select>
-                          {pSlug && (
-                            <span style={{ fontSize: '11px', color: onCal(pSlug) ? '#22c55e' : 'rgba(255,255,255,0.5)' }}>
-                              {onCal(pSlug) ? '✓ Night is on your calendar' : '➕ Night will be added (internal only, not on the website)'}
-                            </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '220px' }}>
+                          <label style={radio}>
+                            <input type="radio" name={`ans-${ref}`} checked={m === 'joined'} onChange={() => pick('joined', i.report.eventDate)} />
+                            ✅ Joined on {day(i.report.eventDate)}
+                          </label>
+                          <label style={radio}>
+                            <input type="radio" name={`ans-${ref}`} checked={m === 'moved'} onChange={() => pick('moved', movedTo)} />
+                            ↪️ Rescheduled to
+                          </label>
+                          {m === 'moved' && (
+                            <input type="date" value={movedTo} onChange={(e) => pick('moved', e.target.value)} style={{ ...S.select, colorScheme: 'dark', marginLeft: '22px' }} />
                           )}
-                          {pDate !== i.report.eventDate && <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Moved from {day(i.report.eventDate)}</span>}
+                          <label style={radio}>
+                            <input type="radio" name={`ans-${ref}`} checked={m === 'no'} onChange={() => pick('no', '')} />
+                            ✖️ Didn&apos;t happen
+                          </label>
                         </div>
                       )
                     })()}
@@ -264,7 +284,7 @@ export default function OtaImport() {
                       <strong>{name(i)}</strong> <span style={S.muted}>· {i.qty} guest{i.qty > 1 ? 's' : ''} · {thb(i.report.net)} · {i.report.ref}</span>
                       {i.flags.map((f) => <p key={f} style={S.flag}>{f}</p>)}
                     </div>
-                    <span style={{ ...S.muted, fontSize: '12px' }}>{i.nightSlug}</span>
+                    <span style={{ ...S.muted, fontSize: '12px' }}>{otaNightName(i.nightSlug ?? '')}</span>
                   </div>
                 ))}
               </div>
