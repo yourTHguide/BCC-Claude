@@ -547,3 +547,16 @@ ALTER TABLE bookings
 -- See supabase/migrations/20261106000001_meetup_sent_at.sql
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS meetup_sent_at TIMESTAMPTZ;
 ALTER TABLE ota_bookings ADD COLUMN IF NOT EXISTS meetup_sent_at TIMESTAMPTZ;
+
+-- OTA report import fields (booking ref, money breakdown, payout).
+-- See supabase/migrations/20261114000001_ota_import_fields.sql
+ALTER TABLE ota_bookings
+  ADD COLUMN IF NOT EXISTS booking_ref TEXT,
+  ADD COLUMN IF NOT EXISTS gross_amount NUMERIC(12,2),
+  ADD COLUMN IF NOT EXISTS platform_fee NUMERIC(12,2),
+  ADD COLUMN IF NOT EXISTS payout_ref TEXT,
+  ADD COLUMN IF NOT EXISTS payout_date DATE,
+  ADD COLUMN IF NOT EXISTS booked_on DATE,
+  ADD COLUMN IF NOT EXISTS imported_at TIMESTAMPTZ;
+CREATE UNIQUE INDEX IF NOT EXISTS ota_bookings_source_booking_ref_key
+  ON ota_bookings (source, booking_ref) WHERE booking_ref IS NOT NULL;

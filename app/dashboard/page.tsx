@@ -1199,6 +1199,9 @@ export default function Dashboard() {
           <Link href="/dashboard/team" style={{ ...S.btn, ...S.btnGhost, display:'inline-flex', alignItems:'center', textDecoration:'none' }}>
             👥 Team
           </Link>
+          <Link href="/dashboard/import" style={{ ...S.btn, ...S.btnGhost, display:'inline-flex', alignItems:'center', textDecoration:'none' }}>
+            📥 Import OTA
+          </Link>
         </div>
         <div className="flex items-center justify-center gap-3">
           <button onClick={prevMonth} style={{ ...S.btn, ...S.btnGhost, padding:'0 12px' }}>‹</button>
