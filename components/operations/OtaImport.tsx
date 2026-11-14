@@ -52,6 +52,8 @@ export default function OtaImport() {
   const [fixQty, setFixQty] = useState<Record<string, boolean>>({})
   const [remove, setRemove] = useState<Record<string, boolean>>({})
   const [showMatched, setShowMatched] = useState(false)
+  // Rows in "Needs your eyes" you've answered (green) vs not yet (orange).
+  const [answered, setAnswered] = useState<Record<string, boolean>>({})
 
   async function send(apply: boolean) {
     if (!file) return
@@ -75,6 +77,7 @@ export default function OtaImport() {
         const pre: Record<string, string> = {}
         for (const i of data.plan.items as Item[]) if (i.kind === 'needs_night' && i.nightSlug) pre[i.report.ref] = `${i.report.eventDate}|${i.nightSlug}`
         setNights(pre)
+        setAnswered(Object.fromEntries(Object.keys(pre).map((k) => [k, true])))
         // Report's guest count is ticked by default; removals start unticked.
         const fq: Record<string, boolean> = {}
         for (const i of data.plan.items as Item[]) if (i.suggestedQty) fq[i.report.ref] = true
@@ -97,7 +100,16 @@ export default function OtaImport() {
   const flaggedMatches = matched.filter((i) => i.flags.some((f) => !isMove(f)))
   const moved = matched.filter((i) => i.flags.some(isMove))
   const cancelledSkipped = items.filter((i) => i.kind === 'cancelled_skip')
-  const chosen = needs.filter((i) => nights[i.report.ref] && !nights[i.report.ref].endsWith('|')).length
+  const picked = needs.filter((i) => nights[i.report.ref] && !nights[i.report.ref].endsWith('|'))
+  const chosen = picked.length
+  const unanswered = needs.filter((i) => !answered[i.report.ref]).length
+  // Nights that will be created: picked date+night not already on the calendar.
+  const newNights = new Set(picked.map((i) => nights[i.report.ref]).filter((v) => {
+    const it = needs.find((x) => nights[x.report.ref] === v)!
+    const [d, sl] = v.split('|')
+    return !(it.nightOptions ?? []).some((o) => o.slug === sl && (o.date ?? it.report.eventDate) === d)
+  })).size
+  const removing = Object.values(remove).filter(Boolean).length
 
   const name = (i: Item) => i.report.guestName || i.db?.guest_name || `${preview?.summary.label} guest`
 
@@ -119,7 +131,7 @@ export default function OtaImport() {
         <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)', margin: '0 0 18px', lineHeight: 1.55 }}>
           Upload the report you download from Airbnb (earnings CSV), GetYourGuide or Viator (.xlsx). Each booking is matched to your guests by
           date, name and amount. Matched guests get their booking code, payout and the correct amount. Missing guests are added to their night.
-          Guests you moved to a nearby night still match. Nothing changes until you press Apply, and uploading the same file twice never doubles anyone.
+          Guests you moved to a nearby night still match. Nothing changes until you press Save import, and uploading the same file twice never doubles anyone.
         </p>
 
         <div style={S.card}>
@@ -163,7 +175,7 @@ export default function OtaImport() {
                 <p style={{ ...S.label, color: '#f59e0b' }}>Needs your eyes</p>
 
                 {needs.map((i) => (
-                  <div key={i.report.ref} style={S.row}>
+                  <div key={i.report.ref} style={{ ...S.row, borderLeft: `3px solid ${answered[i.report.ref] ? '#22c55e' : '#f59e0b'}`, paddingLeft: '8px', background: answered[i.report.ref] ? 'rgba(34,197,94,0.05)' : 'rgba(245,158,11,0.06)' }}>
                     <span style={S.muted}>{day(i.report.eventDate)}</span>
                     <div>
                       <strong>{name(i)}</strong> <span style={S.muted}>· {i.qty} guest{i.qty > 1 ? 's' : ''} · {thb(i.report.net)} · {i.report.ref}</span>
@@ -173,7 +185,7 @@ export default function OtaImport() {
                       // Pick any date + night type. If that night isn't on the
                       // calendar it's added as an internal (not-for-sale) night.
                       const [pDate, pSlug] = (nights[i.report.ref] ?? `${i.report.eventDate}|`).split('|')
-                      const set = (d: string, sl: string) => setNights((n) => ({ ...n, [i.report.ref]: `${d}|${sl}` }))
+                      const set = (d: string, sl: string) => { setNights((n) => ({ ...n, [i.report.ref]: `${d}|${sl}` })); setAnswered((m) => ({ ...m, [i.report.ref]: true })) }
                       const onCal = (sl: string) => (i.nightOptions ?? []).some((o) => o.slug === sl && (o.date ?? i.report.eventDate) === pDate)
                       return (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '210px' }}>
@@ -283,13 +295,19 @@ export default function OtaImport() {
             )}
 
             <div style={{ ...S.card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>
-                Update {matched.length + cancelledHere.length} guests, add {toAdd.length + chosen}
-                {Object.values(remove).filter(Boolean).length ? `, remove ${Object.values(remove).filter(Boolean).length}` : ''}
-                {needs.length - chosen > 0 ? ` (${needs.length - chosen} marked didn't happen)` : ''}.
-              </span>
-              <button onClick={() => send(true)} disabled={busy !== null} style={{ ...S.btn, ...S.red, opacity: busy ? 0.6 : 1 }}>
-                {busy === 'apply' ? 'Applying…' : 'Apply'}
+              <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.75)', lineHeight: 1.6 }}>
+                <strong>Will save:</strong> {matched.length + cancelledHere.filter((i) => !remove[i.db!.id]).length} updates · {toAdd.length + chosen} new guests
+                {newNights ? ` · ${newNights} night${newNights > 1 ? 's' : ''} added` : ''}
+                {removing ? ` · ${removing} removed` : ''}
+                {needs.length - chosen > 0 ? ` · ${needs.length - chosen} skipped (didn't happen)` : ''}
+                {unanswered > 0 && <div style={{ color: '#f59e0b', fontSize: '12px' }}>{unanswered} row{unanswered > 1 ? 's' : ''} still orange — not answered yet (will be skipped).</div>}
+              </div>
+              <button
+                onClick={() => { if (unanswered === 0 || window.confirm(`${unanswered} row(s) aren't answered yet and will be skipped. You can upload the same file again later to add them. Save now?`)) send(true) }}
+                disabled={busy !== null}
+                style={{ ...S.btn, ...S.red, opacity: busy ? 0.6 : 1 }}
+              >
+                {busy === 'apply' ? 'Saving…' : 'Save import'}
               </button>
             </div>
           </>
