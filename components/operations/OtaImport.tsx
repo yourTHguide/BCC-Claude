@@ -10,8 +10,9 @@ interface NightOption { slug: string; name: string; date?: string }
 interface Item {
   kind: 'linked' | 'match' | 'new' | 'needs_night' | 'cancelled_skip' | 'cancelled_in_dashboard'
   report: { ref: string; eventDate: string; guestName: string | null; net: number; gross: number | null; payoutDate: string | null }
-  db?: { guest_name: string | null; event_date: string; night_slug: string; quantity: number; total_paid: number | null }
+  db?: { id: string; guest_name: string | null; event_date: string; night_slug: string; quantity: number; total_paid: number | null }
   qty: number
+  suggestedQty?: number
   nightSlug?: string
   nightOptions?: NightOption[]
   flags: string[]
@@ -22,6 +23,7 @@ interface Preview {
     cancelledSkipped: number; cancelledInDashboard: number; dashboardOnly: number; payoutTo: string[]
   }
   plan: { items: Item[]; dashboardOnly: { id: string; event_date: string; guest_name: string | null; total_paid: number | null; quantity: number }[] }
+  nightTypes: { slug: string; name: string }[]
 }
 
 const S = {
@@ -46,7 +48,9 @@ export default function OtaImport() {
   const [nights, setNights] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState<'check' | 'apply' | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [done, setDone] = useState<{ updated: number; added: number; skipped: number; failed: string[] } | null>(null)
+  const [done, setDone] = useState<{ updated: number; added: number; skipped: number; removed: number; nightsAdded: number; failed: string[] } | null>(null)
+  const [fixQty, setFixQty] = useState<Record<string, boolean>>({})
+  const [remove, setRemove] = useState<Record<string, boolean>>({})
   const [showMatched, setShowMatched] = useState(false)
 
   async function send(apply: boolean) {
@@ -57,6 +61,8 @@ export default function OtaImport() {
     fd.append('file', file)
     fd.append('apply', apply ? '1' : '0')
     fd.append('nights', JSON.stringify(nights))
+    fd.append('fixQty', JSON.stringify(Object.keys(fixQty).filter((k) => fixQty[k])))
+    fd.append('remove', JSON.stringify(Object.keys(remove).filter((k) => remove[k])))
     try {
       const res = await fetch('/api/admin/dashboard/ota-import', { method: 'POST', body: fd })
       const data = await res.json().catch(() => ({}))
@@ -69,6 +75,11 @@ export default function OtaImport() {
         const pre: Record<string, string> = {}
         for (const i of data.plan.items as Item[]) if (i.kind === 'needs_night' && i.nightSlug) pre[i.report.ref] = i.nightSlug
         setNights(pre)
+        // Report's guest count is ticked by default; removals start unticked.
+        const fq: Record<string, boolean> = {}
+        for (const i of data.plan.items as Item[]) if (i.suggestedQty) fq[i.report.ref] = true
+        setFixQty(fq)
+        setRemove({})
       }
     } catch {
       setError('Could not reach the server — try again.')
@@ -126,7 +137,10 @@ export default function OtaImport() {
         {done && (
           <div style={{ ...S.card, borderColor: 'rgba(34,197,94,0.4)' }}>
             <p style={{ margin: 0, fontSize: '14px', color: '#22c55e', fontWeight: 600 }}>
-              Done: {done.updated} guests updated, {done.added} added{done.skipped ? `, ${done.skipped} skipped (no night chosen or already imported)` : ''}.
+              Done: {done.updated} guests updated, {done.added} added
+              {done.nightsAdded ? `, ${done.nightsAdded} night${done.nightsAdded > 1 ? 's' : ''} created` : ''}
+              {done.removed ? `, ${done.removed} removed` : ''}
+              {done.skipped ? `, ${done.skipped} not added` : ''}.
             </p>
             {done.failed.length > 0 && <p style={{ color: '#EA003A', fontSize: '12.5px', margin: '8px 0 0' }}>Failed: {done.failed.join('; ')}</p>}
           </div>
@@ -160,11 +174,24 @@ export default function OtaImport() {
                       onChange={(e) => setNights((n) => ({ ...n, [i.report.ref]: e.target.value }))}
                       style={S.select}
                     >
-                      <option value="">Don&apos;t add</option>
-                      {(i.nightOptions ?? []).map((o) => {
-                        const val = o.date && o.date !== i.report.eventDate ? `${o.date}|${o.slug}` : o.slug
-                        return <option key={val} value={val}>{o.date && o.date !== i.report.eventDate ? `${day(o.date)} · ` : ''}{o.name}</option>
-                      })}
+                      <option value="">Didn&apos;t happen — don&apos;t add</option>
+                      {(i.nightOptions ?? []).some((o) => !o.date || o.date === i.report.eventDate) && (
+                        <optgroup label={`Night on ${day(i.report.eventDate)}`}>
+                          {(i.nightOptions ?? []).filter((o) => !o.date || o.date === i.report.eventDate).map((o) => <option key={o.slug} value={o.slug}>{o.name}</option>)}
+                        </optgroup>
+                      )}
+                      {!(i.nightOptions ?? []).some((o) => !o.date || o.date === i.report.eventDate) && (
+                        <optgroup label={`➕ Add a night on ${day(i.report.eventDate)}`}>
+                          {preview.nightTypes.map((t) => <option key={t.slug} value={`new|${t.slug}`}>{t.name} (new night)</option>)}
+                        </optgroup>
+                      )}
+                      {(i.nightOptions ?? []).some((o) => o.date && o.date !== i.report.eventDate) && (
+                        <optgroup label="Moved to a nearby night">
+                          {(i.nightOptions ?? []).filter((o) => o.date && o.date !== i.report.eventDate).map((o) => (
+                            <option key={`${o.date}|${o.slug}`} value={`${o.date}|${o.slug}`}>{day(o.date!)} · {o.name}</option>
+                          ))}
+                        </optgroup>
+                      )}
                     </select>
                   </div>
                 ))}
@@ -174,9 +201,12 @@ export default function OtaImport() {
                     <span style={S.muted}>{day(i.db!.event_date)}</span>
                     <div>
                       <strong>{i.db!.guest_name}</strong> <span style={S.muted}>· {i.report.ref}</span>
-                      <p style={S.flag}>Cancelled on {preview.summary.label}, but still on your guest list. Remove them from the night if they didn&apos;t come.</p>
+                      <p style={S.flag}>Cancelled on {preview.summary.label}, but still on your guest list.</p>
                     </div>
-                    <span />
+                    <label style={{ display: 'flex', gap: '6px', alignItems: 'center', fontSize: '12px', whiteSpace: 'nowrap', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={!!remove[i.db!.id]} onChange={(e) => setRemove((m) => ({ ...m, [i.db!.id]: e.target.checked }))} />
+                      Remove
+                    </label>
                   </div>
                 ))}
 
@@ -187,7 +217,12 @@ export default function OtaImport() {
                       <strong>{name(i)}</strong> <span style={S.muted}>· {i.report.ref}</span>
                       {i.flags.filter((f) => !isMove(f)).map((f) => <p key={f} style={S.flag}>{f}</p>)}
                     </div>
-                    <span style={{ ...S.muted, fontSize: '12px' }}>matched</span>
+                    {i.suggestedQty ? (
+                      <label style={{ display: 'flex', gap: '6px', alignItems: 'center', fontSize: '12px', whiteSpace: 'nowrap', cursor: 'pointer' }}>
+                        <input type="checkbox" checked={!!fixQty[i.report.ref]} onChange={(e) => setFixQty((m) => ({ ...m, [i.report.ref]: e.target.checked }))} />
+                        Change to {i.suggestedQty} guests
+                      </label>
+                    ) : <span style={{ ...S.muted, fontSize: '12px' }}>amount fixed</span>}
                   </div>
                 ))}
 
@@ -196,9 +231,12 @@ export default function OtaImport() {
                     <span style={S.muted}>{day(r.event_date)}</span>
                     <div>
                       <strong>{r.guest_name?.trim() || 'Guest'}</strong> <span style={S.muted}>· {r.quantity} guest{r.quantity > 1 ? 's' : ''} · {thb(r.total_paid)}</span>
-                      <p style={S.flag}>On your guest list as {preview.summary.label}, but not in this report. Check whether it&apos;s a duplicate, another platform, or outside this file&apos;s dates.</p>
+                      <p style={S.flag}>On your guest list as {preview.summary.label}, but not in this report: a leftover from a reschedule, a duplicate, or a booking from another platform.</p>
                     </div>
-                    <span />
+                    <label style={{ display: 'flex', gap: '6px', alignItems: 'center', fontSize: '12px', whiteSpace: 'nowrap', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={!!remove[r.id]} onChange={(e) => setRemove((m) => ({ ...m, [r.id]: e.target.checked }))} />
+                      Remove
+                    </label>
                   </div>
                 ))}
               </div>
@@ -247,7 +285,8 @@ export default function OtaImport() {
             <div style={{ ...S.card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>
                 Update {matched.length + cancelledHere.length} guests, add {toAdd.length + chosen}
-                {needs.length - chosen > 0 ? ` (${needs.length - chosen} left out — no night chosen)` : ''}.
+                {Object.values(remove).filter(Boolean).length ? `, remove ${Object.values(remove).filter(Boolean).length}` : ''}
+                {needs.length - chosen > 0 ? ` (${needs.length - chosen} marked didn't happen)` : ''}.
               </span>
               <button onClick={() => send(true)} disabled={busy !== null} style={{ ...S.btn, ...S.red, opacity: busy ? 0.6 : 1 }}>
                 {busy === 'apply' ? 'Applying…' : 'Apply'}

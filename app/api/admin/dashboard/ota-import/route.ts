@@ -24,8 +24,13 @@ export async function POST(req: NextRequest) {
   if (!(file instanceof File)) return NextResponse.json({ error: 'Upload a file' }, { status: 400 })
   if (file.size > MAX_BYTES) return NextResponse.json({ error: 'File is larger than 5 MB' }, { status: 400 })
   const apply = form.get('apply') === '1'
-  let nightChoices: Record<string, string> = {}
-  try { nightChoices = JSON.parse(String(form.get('nights') || '{}')) } catch { /* ignore */ }
+  // nights: {ref: "slug" | "YYYY-MM-DD|slug" | "new|slug"}  (new = create that night on the report date)
+  // fixQty: [ref]   — use the guest count the report's amount implies
+  // remove: [ota_bookings.id] — leftover / cancelled entries to delete
+  const json = <T,>(k: string, d: T): T => { try { return JSON.parse(String(form.get(k) || '')) as T } catch { return d } }
+  const nightChoices = json<Record<string, string>>('nights', {})
+  const fixQty = new Set(json<string[]>('fixQty', []))
+  const removeIds = new Set(json<string[]>('remove', []))
 
   let parsed
   try {
@@ -84,11 +89,44 @@ export async function POST(req: NextRequest) {
     payoutTo: parsed.payoutTo,
   }
 
-  if (!apply) return NextResponse.json({ summary, plan })
+  // Night types that can be added on a date with no night (OTA listings run
+  // Tue–Sun even when the website calendar doesn't).
+  const typeMap = new Map<string, string>()
+  nightsByDate.forEach((list) => list.forEach((n) => typeMap.set(n.slug, n.name)))
+  const nightTypes = Array.from(typeMap, ([slug, name]) => ({ slug, name })).sort((a, b) => a.name.localeCompare(b.name))
+
+  if (!apply) return NextResponse.json({ summary, plan, nightTypes })
+
+  // Only rows this plan showed as removable can be deleted.
+  const removable = new Set<string>([
+    ...plan.dashboardOnly.map((r) => r.id),
+    ...plan.items.filter((i) => i.kind === 'cancelled_in_dashboard').map((i) => i.db!.id),
+  ])
+
+  // Creates (once) a night on a date the calendar didn't have. Closed to
+  // website sales; it only exists so OTA guests sit on their real night.
+  const sourceLabel = LABEL[parsed.source]
+  const created = new Map<string, boolean>()
+  async function ensureNight(date: string, slug: string): Promise<string | null> {
+    const k = `${date}|${slug}`
+    if (created.has(k) || (nightsByDate.get(date) ?? []).some((n) => n.slug === slug)) return null
+    const { data: product } = await supabase.from('products').select('id, name').eq('slug', slug).maybeSingle()
+    const { error } = await supabase.from('event_dates').insert({
+      event_date: date, night_slug: slug, night_name: product?.name ?? typeMap.get(slug) ?? slug,
+      product_id: product?.id ?? null, is_open: false,
+      notes: `Added from ${sourceLabel} import (OTA-only night)`,
+    })
+    if (error && error.code !== '23505') return error.message
+    created.set(k, true)
+    const list = nightsByDate.get(date) ?? []
+    list.push({ slug, name: product?.name ?? slug })
+    nightsByDate.set(date, list)
+    return null
+  }
 
   // ── Apply ────────────────────────────────────────────────────────────
   const now = new Date().toISOString()
-  const result = { updated: 0, added: 0, skipped: 0, failed: [] as string[] }
+  const result = { updated: 0, added: 0, skipped: 0, removed: 0, nightsAdded: 0, failed: [] as string[] }
   const money = (b: (typeof plan.items)[number]['report']) => ({
     booking_ref: b.ref,
     gross_amount: b.gross,
@@ -102,7 +140,9 @@ export async function POST(req: NextRequest) {
   for (const item of plan.items) {
     const b = item.report
     if (item.kind === 'linked' || item.kind === 'match' || item.kind === 'cancelled_in_dashboard') {
+      if (removeIds.has(item.db!.id)) continue // deleted below
       const patch: Record<string, any> = money(b)
+      if (item.suggestedQty && fixQty.has(b.ref)) patch.quantity = item.suggestedQty
       if (item.kind !== 'cancelled_in_dashboard') patch.total_paid = Math.round(b.net)
       // Fill in a full name when the dashboard only has the first name.
       const dbName = item.db!.guest_name?.trim() ?? ''
@@ -115,10 +155,17 @@ export async function POST(req: NextRequest) {
       continue
     }
     if (item.kind === 'new' || item.kind === 'needs_night') {
-      // Choice is "YYYY-MM-DD|night_slug" (a nearby night) or just a slug.
+      // Choice is a slug, "YYYY-MM-DD|slug" (a nearby night) or "new|slug".
       const choice = item.kind === 'new' ? item.nightSlug : nightChoices[b.ref]
       if (!choice) { result.skipped++; continue }
-      const [chosenDate, chosenSlug] = choice.includes('|') ? choice.split('|') : [b.eventDate, choice]
+      let [chosenDate, chosenSlug] = choice.includes('|') ? choice.split('|') : [b.eventDate, choice]
+      if (chosenDate === 'new') {
+        chosenDate = b.eventDate
+        const before = created.size
+        const failure = await ensureNight(chosenDate, chosenSlug)
+        if (failure) { result.failed.push(`${b.ref}: couldn't add night (${failure})`); continue }
+        if (created.size > before) result.nightsAdded++
+      }
       const valid = (nightsByDate.get(chosenDate) ?? []).some((n) => n.slug === chosenSlug)
       if (!valid) { result.failed.push(`${b.ref}: no ${chosenSlug} night on ${chosenDate}`); continue }
       const { error } = await supabase.from('ota_bookings').insert({
@@ -134,6 +181,14 @@ export async function POST(req: NextRequest) {
       if (error?.code === '23505') result.skipped++ // already imported
       else if (error) result.failed.push(`${b.ref}: ${error.message}`)
       else result.added++
+    }
+  }
+  if (removeIds.size) {
+    const ids = Array.from(removeIds).filter((id) => removable.has(id))
+    if (ids.length) {
+      const { data, error } = await supabase.from('ota_bookings').delete().in('id', ids).eq('source', parsed.source).select('id')
+      if (error) result.failed.push(`remove: ${error.message}`)
+      else result.removed = data?.length ?? 0
     }
   }
   return NextResponse.json({ summary, result })

@@ -34,6 +34,7 @@ export interface PlanItem {
   db?: DbOta
   qty: number
   qtyGuessed: boolean
+  suggestedQty?: number   // report's amount implies a different guest count
   nightSlug?: string
   nightOptions?: NightOption[]
   flags: string[]
@@ -124,9 +125,10 @@ export function buildPlan(
     const flags: string[] = []
     if (row.event_date !== b.eventDate) flags.push(`Moved: booked for ${b.eventDate}, on your ${row.event_date} night`)
     const g = guessQty(source, amountFor(b), learned)
-    if (!g.guessed && g.qty !== row.quantity) flags.push(`Dashboard has ${row.quantity} guest(s), amount suggests ${g.qty}`)
+    const suggestedQty = !g.guessed && g.qty !== row.quantity ? g.qty : undefined
+    if (suggestedQty) flags.push(`Dashboard has ${row.quantity} guest(s), amount suggests ${g.qty}`)
     if (!b.cancelled && row.total_paid && !sameMoney(row.total_paid, b.net)) flags.push(`Amount ฿${row.total_paid} → ฿${Math.round(b.net)} (from report)`)
-    items.push({ kind: b.cancelled ? 'cancelled_in_dashboard' : kind, report: b, db: row, qty: row.quantity, qtyGuessed: false, flags })
+    items.push({ kind: b.cancelled ? 'cancelled_in_dashboard' : kind, report: b, db: row, qty: row.quantity, qtyGuessed: false, suggestedQty: b.cancelled ? undefined : suggestedQty, flags })
   }
 
   // 1. Already linked by reference.
@@ -204,7 +206,7 @@ export function buildPlan(
     else items.push({
       kind: 'needs_night', report: b, qty: g.qty, qtyGuessed: g.guessed, nightOptions: opts.length ? opts : nearby,
       nightSlug: suggestNight(opts, b, db),
-      flags: [...flags, opts.length ? 'More than one night that date — pick one' : `No night on ${b.eventDate} in your calendar — pick the night they joined`],
+      flags: [...flags, opts.length ? 'More than one night that date — pick one' : `No night on ${b.eventDate} in your calendar — add one on that date, or pick the night they joined`],
     })
   }
 
