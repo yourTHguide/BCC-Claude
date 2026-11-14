@@ -78,6 +78,11 @@ function namesMatch(dbName: string | null, reportName: string | null): boolean {
   return a.every((t) => b.includes(t)) || b.every((t) => a.includes(t)) || a[0] === b[0]
 }
 
+function sameFullName(a: string | null, b: string | null): boolean {
+  const x = norm(a), y = norm(b)
+  return x.length > 1 && x.join(' ') === y.join(' ')
+}
+
 function dayDiff(a: string, b: string): number {
   return Math.round((Date.parse(a + 'T00:00:00Z') - Date.parse(b + 'T00:00:00Z')) / 86400000)
 }
@@ -138,8 +143,12 @@ export function buildPlan(
     const cands = db
       .filter((r) => !used.has(r.id) && !r.booking_ref && Math.abs(dayDiff(r.event_date, b.eventDate)) <= MOVE_DAYS && namesMatch(r.guest_name, b.guestName))
       .sort((x, y) =>
-        Math.abs(dayDiff(x.event_date, b.eventDate)) - Math.abs(dayDiff(y.event_date, b.eventDate)) ||
-        Number(!sameMoney(x.total_paid, b.net)) - Number(!sameMoney(y.total_paid, b.net)))
+        // A full-name match wins over a closer date (a rescheduled guest's
+        // new entry often carries the full name, the old one a first name).
+        Number(!sameFullName(y.guest_name, b.guestName)) - Number(!sameFullName(x.guest_name, b.guestName)) === 0
+          ? Math.abs(dayDiff(x.event_date, b.eventDate)) - Math.abs(dayDiff(y.event_date, b.eventDate)) ||
+            Number(!sameMoney(x.total_paid, b.net)) - Number(!sameMoney(y.total_paid, b.net))
+          : Number(!sameFullName(x.guest_name, b.guestName)) - Number(!sameFullName(y.guest_name, b.guestName)))
     if (cands[0]) matched(b, cands[0], 'match')
     else afterName.push(b)
   }
