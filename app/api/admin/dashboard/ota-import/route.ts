@@ -128,15 +128,17 @@ export async function POST(req: NextRequest) {
   // ── Apply ────────────────────────────────────────────────────────────
   const now = new Date().toISOString()
   const result = { updated: 0, added: 0, skipped: 0, removed: 0, nightsAdded: 0, failed: [] as string[] }
-  const money = (b: (typeof plan.items)[number]['report']) => ({
-    booking_ref: b.ref,
-    gross_amount: b.gross,
-    platform_fee: b.fee,
-    payout_ref: b.payoutRef,
-    payout_date: b.payoutDate,
-    booked_on: b.bookedOn,
-    imported_at: now,
-  })
+  // Only fields the file actually has: a payout statement (no price, no
+  // name) must not wipe what a bookings export filled in, and vice versa.
+  const money = (b: (typeof plan.items)[number]['report']) => {
+    const out: Record<string, any> = { booking_ref: b.ref, imported_at: now }
+    if (b.gross !== null) out.gross_amount = b.gross
+    if (b.fee !== null) out.platform_fee = b.fee
+    if (b.payoutRef) out.payout_ref = b.payoutRef
+    if (b.payoutDate) out.payout_date = b.payoutDate
+    if (b.bookedOn) out.booked_on = b.bookedOn
+    return out
+  }
 
   for (const item of plan.items) {
     const b = item.report
@@ -147,9 +149,10 @@ export async function POST(req: NextRequest) {
       if (item.kind !== 'cancelled_in_dashboard') patch.total_paid = Math.round(b.net)
       // Fill in a full name when the dashboard only has the first name.
       const dbName = item.db!.guest_name?.trim() ?? ''
-      if (b.guestName && b.guestName.length > dbName.length && b.guestName.toLowerCase().startsWith(dbName.toLowerCase())) {
+      if (b.guestName && (!dbName || /guest$/i.test(dbName) || dbName.includes(b.ref) || (b.guestName.length > dbName.length && b.guestName.toLowerCase().startsWith(dbName.toLowerCase())))) {
         patch.guest_name = b.guestName
       }
+      if (b.email) patch.guest_email = b.email
       const { error } = await supabase.from('ota_bookings').update(patch).eq('id', item.db!.id)
       if (error) result.failed.push(`${b.ref}: ${error.message}`)
       else result.updated++
@@ -178,6 +181,7 @@ export async function POST(req: NextRequest) {
         event_date: chosenDate,
         night_slug: chosenSlug,
         guest_name: b.guestName || `${LABEL[parsed.source]} ${b.ref}`,
+        guest_email: b.email ?? null,
         quantity: item.qty,
         total_paid: Math.round(b.net),
         notes: `Imported from ${LABEL[parsed.source]} report${chosenDate !== b.eventDate ? ` (report date ${b.eventDate})` : ''}`,

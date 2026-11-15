@@ -11,10 +11,12 @@ export interface ReportBooking {
   source: OtaSource
   ref: string
   eventDate: string            // YYYY-MM-DD, the night attended
-  guestName: string | null     // GYG/Viator reports don't include names
+  guestName: string | null     // payout statements (GYG/Viator) don't include names
   net: number                  // THB paid out to us
-  gross: number | null         // THB the guest paid (Airbnb only)
-  fee: number | null           // platform commission (Airbnb only)
+  gross: number | null         // THB the guest paid (not in GYG/Viator payout statements)
+  fee: number | null           // platform commission
+  qty?: number | null          // exact guest count, when the file has it (booking exports)
+  email?: string | null
   bookedOn: string | null
   payoutRef: string | null
   payoutDate: string | null
@@ -60,6 +62,14 @@ function dmyDate(s: string | undefined): string | null {
   return `${year}-${String(mon).padStart(2, '0')}-${m[1].padStart(2, '0')}`
 }
 
+/** "Nov 3, 2026" → YYYY-MM-DD */
+function monthNameDate(s: string | undefined): string | null {
+  const m = String(s ?? '').trim().match(/^([A-Za-z]{3})[a-z]*\.? (\d{1,2}), (\d{4})$/)
+  if (!m) return usDate(s)
+  const mon = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'].indexOf(m[1].toLowerCase()) + 1
+  return mon ? `${m[3]}-${String(mon).padStart(2, '0')}-${m[2].padStart(2, '0')}` : null
+}
+
 function parseCsv(text: string): string[][] {
   const rows: string[][] = []
   let row: string[] = []
@@ -93,7 +103,7 @@ function parseAirbnb(text: string): ParsedReport {
     ref: col('reference code'), amount: col('amount'), paidOut: col('paid out'), fee: col('service fee'),
     gross: col('gross earnings'),
   }
-  if (C.code < 0 || C.start < 0 || C.amount < 0) throw new Error("This doesn't look like an Airbnb earnings CSV")
+  if (C.code < 0 || C.start < 0 || C.amount < 0) throw new Error("Couldn't recognise this CSV. Upload an Airbnb earnings CSV or a Viator bookings export.")
 
   // The CSV lists each payout followed by the bookings it paid.
   const groups = new Map<string, ReportBooking>()
@@ -190,13 +200,80 @@ function parseViator(rows: string[][]): ParsedReport {
   return { source: 'viator', bookings, payoutTo: [] }
 }
 
+// Viator "Bookings" export (CSV): one row per booking, with the lead
+// traveller's name, guest count, net price and Confirmed/Cancelled status.
+// Ref is stored without "BR-" so it matches the Payment Advice (digits only).
+function parseViatorBookings(rows: string[][]): ParsedReport {
+  const head = rows[0].map((h) => h.trim().toLowerCase())
+  const col = (n: string) => head.indexOf(n)
+  const C = {
+    ref: col('booking reference'), booked: col('booking date'), net: col('net price'), status: col('status'),
+    travel: col('travel date'), name: col('lead traveler name'), pax: col('number of passengers'), product: col('product name'),
+  }
+  const bookings: ReportBooking[] = []
+  for (const r of rows.slice(1)) {
+    const ref = (r[C.ref] ?? '').trim().replace(/^BR-/i, '')
+    const eventDate = monthNameDate(r[C.travel])
+    if (!ref || !eventDate) continue
+    const net = num(r[C.net])
+    bookings.push({
+      source: 'viator', ref, eventDate, guestName: r[C.name]?.trim() || null, net, gross: null, fee: null,
+      qty: num(r[C.pax]) || null, email: null, bookedOn: monthNameDate(r[C.booked]),
+      payoutRef: null, payoutDate: null, listing: r[C.product]?.trim() || null,
+      cancelled: /cancel/i.test(r[C.status] ?? '') || net <= 0,
+    })
+  }
+  return { source: 'viator', bookings, payoutTo: [] }
+}
+
+// GetYourGuide "Bookings" export (.xlsx): one row per booking with traveller
+// name, email, guest counts, price (what the guest paid) and net price.
+// Cancelled bookings aren't in this export.
+function parseGygBookings(rows: string[][]): ParsedReport {
+  const head = rows[0].map((h) => h.trim().toLowerCase())
+  const col = (n: string) => head.indexOf(n)
+  const C = {
+    date: col('date'), booked: col('purchase date (local time)'), ref: col('booking ref #'), product: col('product'),
+    first: col("traveler's first name"), last: col("traveler's last name"), email: col('email'),
+    price: col('price'), net: col('net price'),
+  }
+  const paxCols = ['adult', 'senior', 'student (with id)', 'eu citizens (with id)', 'student eu citizens (with id)',
+    'military (with id)', 'youth', 'child', 'infant'].map(col).filter((i) => i >= 0)
+  const bookings: ReportBooking[] = []
+  for (const r of rows.slice(1)) {
+    const ref = (r[C.ref] ?? '').trim()
+    const eventDate = excelDate(r[C.date])
+    if (!/^GYG/i.test(ref) || !eventDate) continue
+    const net = num(r[C.net]?.replace(/[A-Z]/gi, ''))
+    const gross = r[C.price]?.trim() ? num(r[C.price].replace(/[A-Z]/gi, '')) : null
+    const qty = paxCols.reduce((t, i) => t + num(r[i]), 0)
+    const email = (r[C.email] ?? '').trim()
+    bookings.push({
+      source: 'getyourguide', ref, eventDate,
+      guestName: [r[C.first], r[C.last]].map((x) => (x ?? '').trim()).filter(Boolean).join(' ') || null,
+      net, gross, fee: gross !== null ? round2(gross - net) : null, qty: qty || null,
+      email: email && !/@reply\.getyourguide\.com$/i.test(email) ? email : null,
+      bookedOn: excelDate(r[C.booked]), payoutRef: null, payoutDate: null,
+      listing: r[C.product]?.trim() || null, cancelled: net <= 0,
+    })
+  }
+  return { source: 'getyourguide', bookings, payoutTo: [] }
+}
+
 /** Detects the platform from the file itself; filename is only a fallback hint. */
 export function parseReport(fileName: string, buf: Buffer): ParsedReport {
   const isZip = buf.length > 4 && buf.readUInt32LE(0) === 0x04034b50
-  if (!isZip) return parseAirbnb(buf.toString('utf8'))
+  if (!isZip) {
+    const text = buf.toString('utf8')
+    const rows = parseCsv(text)
+    const head = (rows[0] ?? []).map((h) => h.trim().toLowerCase())
+    if (head.includes('booking reference') && head.includes('lead traveler name')) return parseViatorBookings(rows)
+    return parseAirbnb(text)
+  }
   const rows = readFirstSheet(buf)
   const flat = rows.slice(0, 40).flat().map((c) => c.toUpperCase())
+  if (flat.includes('BOOKING REF #') && flat.includes('NET PRICE')) return parseGygBookings(rows)
   if (flat.includes('VIATOR REFERENCE')) return parseViator(rows)
   if (flat.includes('BOOKING REFERENCE') && flat.includes('TRAVEL DATE')) return parseGyg(rows)
-  throw new Error(`Couldn't recognise ${fileName} as an Airbnb, GetYourGuide or Viator report`)
+  throw new Error(`Couldn't recognise ${fileName}. Upload an Airbnb earnings CSV, a GetYourGuide payment statement or bookings export (.xlsx), or a Viator payment advice (.xlsx) or bookings export (.csv).`)
 }

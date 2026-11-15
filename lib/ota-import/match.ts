@@ -56,6 +56,12 @@ const KNOWN_UNITS: Record<OtaSource, number[]> = {
   viator: [1134, 1008],
 }
 
+// Booking exports carry the exact guest count; payout statements don't, so
+// it's worked out from the amount.
+function qtyFor(b: ReportBooking, source: OtaSource, amount: number | null, learned: number[]): { qty: number; guessed: boolean } {
+  return b.qty ? { qty: b.qty, guessed: false } : guessQty(source, amount, learned)
+}
+
 function guessQty(source: OtaSource, amount: number | null, learned: number[]): { qty: number; guessed: boolean } {
   if (!amount || amount <= 0) return { qty: 1, guessed: true }
   const units = [...KNOWN_UNITS[source], ...learned]
@@ -116,9 +122,11 @@ export function buildPlan(
     used.add(row.id)
     const flags: string[] = []
     if (row.event_date !== b.eventDate) flags.push(`Moved: booked for ${b.eventDate}, on your ${row.event_date} night`)
-    const g = guessQty(source, amountFor(b), learned)
-    const suggestedQty = !g.guessed && g.qty !== row.quantity ? g.qty : undefined
-    if (suggestedQty) flags.push(`Dashboard has ${row.quantity} guest(s), amount suggests ${g.qty}`)
+    const g = qtyFor(b, source, amountFor(b), learned)
+    // A row already linked by reference keeps its count unless the file states one.
+    const trust = b.qty ? true : kind === 'match'
+    const suggestedQty = trust && !g.guessed && g.qty !== row.quantity ? g.qty : undefined
+    if (suggestedQty) flags.push(`Dashboard has ${row.quantity} guest(s), ${b.qty ? 'report says' : 'amount suggests'} ${g.qty}`)
     if (!b.cancelled && row.total_paid && !sameMoney(row.total_paid, b.net)) flags.push(`Amount ฿${row.total_paid} → ฿${Math.round(b.net)} (from report)`)
     items.push({ kind: b.cancelled ? 'cancelled_in_dashboard' : kind, report: b, db: row, qty: row.quantity, qtyGuessed: false, suggestedQty: b.cancelled ? undefined : suggestedQty, flags })
   }
@@ -181,7 +189,7 @@ export function buildPlan(
   // 4. New guests / cancellations.
   for (const b of stillLeft) {
     if (b.cancelled) { items.push({ kind: 'cancelled_skip', report: b, qty: 0, qtyGuessed: false, flags: [] }); continue }
-    const g = guessQty(source, amountFor(b), learned)
+    const g = qtyFor(b, source, amountFor(b), learned)
     const opts = (nightsByDate.get(b.eventDate) ?? []).map((o) => ({ ...o, date: b.eventDate }))
     const flags = g.guessed ? ['Guest count unclear from the amount — set to 1, please check'] : []
     const nearby: NightOption[] = []

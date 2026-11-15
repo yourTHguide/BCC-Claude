@@ -125,7 +125,7 @@ export default function OtaImport() {
           <button onClick={() => setOpen(false)} style={{ ...S.btn, ...S.ghost, height: '28px', fontSize: '12px' }}>Close</button>
         </div>
         <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)', margin: '0 0 18px', lineHeight: 1.55 }}>
-          Upload the report you download from Airbnb (earnings CSV), GetYourGuide or Viator (.xlsx). Each booking is matched to your guests by
+          Upload the files you download from Airbnb (earnings CSV), GetYourGuide (payment statement or bookings export, .xlsx) or Viator (payment advice .xlsx or bookings export .csv). Bookings exports bring guest names and counts; payment statements bring the payout — upload both, in any order. Each booking is matched to your guests by
           date, name and amount. Matched guests get their booking code, payout and the correct amount. Missing guests are added to their night.
           Guests you moved to a nearby night still match. Nothing changes until you press Save import, and uploading the same file twice never doubles anyone.
         </p>
