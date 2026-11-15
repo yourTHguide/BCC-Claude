@@ -23,6 +23,7 @@ export interface DbOta {
   quantity: number
   total_paid: number | null
   booking_ref: string | null
+  booking_status?: string | null
 }
 
 export interface NightOption { slug: string; name: string; date?: string }

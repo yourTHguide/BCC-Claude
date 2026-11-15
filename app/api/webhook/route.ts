@@ -106,6 +106,18 @@ export async function POST(req: NextRequest) {
     // needed below to decide whether the email may reference this booking's
     // ticket at all (an insert failure must never point the customer at a
     // ticket_token that doesn't exist in `bookings`).
+    // Finance matches on the charge id (ch_…/py_…). Best effort only — a
+    // lookup failure must never block saving the booking.
+    let stripeChargeId: string | null = null
+    if (typeof session.payment_intent === 'string') {
+      try {
+        const pi = await stripe.paymentIntents.retrieve(session.payment_intent)
+        stripeChargeId = typeof pi.latest_charge === 'string' ? pi.latest_charge : pi.latest_charge?.id ?? null
+      } catch (e) {
+        console.error('webhook: could not read latest_charge', e)
+      }
+    }
+
     const { data: insertedRows, error: dbError } = await supabase
       .from('bookings')
       .insert({
@@ -129,6 +141,7 @@ export async function POST(req: NextRequest) {
         status: 'confirmed',
         stripe_session_id: session.id,
         stripe_payment_id: session.payment_intent,
+        stripe_charge_id: stripeChargeId,
         ticket_token: ticketToken,
       })
       .select('id')

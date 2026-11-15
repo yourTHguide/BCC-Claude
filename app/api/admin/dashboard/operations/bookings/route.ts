@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
 import { brandForNight } from '@/lib/operations/brand'
+import { BOOKING_STATUS_LABEL, bookingStatus } from '@/lib/operations/status'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,12 +13,15 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 // for the nights in the range. Cancelled/refunded bookings stay in with
 // their status. Plain numbers in THB, dates YYYY-MM-DD, times Asia/Bangkok.
 // Built for finance to reconcile against Stripe / OTA payouts / the bank.
+// status = finance booking status (lib/operations/status): Attended, No-show,
+// Late cancel – paid, Rescheduled, Didn't happen – refund owed, Refunded,
+// Booked (upcoming), Cancelled (website checkout never paid).
 const COLUMNS = [
-  'booking_id', 'night_id', 'event_date', 'brand', 'night_slug', 'night_name',
-  'channel', 'payment_method', 'payment_reference', 'stripe_checkout_session', 'payout_reference', 'payout_date',
-  'guest_name', 'guest_email', 'guest_phone', 'qty',
+  'booking_id', 'night_id', 'event_date', 'booked_for_date', 'brand', 'night_slug', 'night_name',
+  'guest_name', 'qty', 'channel', 'booking_ref', 'stripe_charge_id', 'email', 'guest_phone',
+  'payment_method', 'payout_reference', 'payout_date',
   'unit_price', 'discount_code', 'discount_amount', 'gross_paid', 'platform_fee', 'net_received', 'currency',
-  'booked_at', 'status', 'attendance', 'refund_reference', 'notes',
+  'status', 'booked_at', 'refund_reference', 'notes',
 ] as const
 type Row = Partial<Record<(typeof COLUMNS)[number], string | number | null>>
 
@@ -44,10 +48,10 @@ export async function GET(req: NextRequest) {
   const [ev, bk, ota] = await Promise.all([
     supabase.from('event_dates').select('id, event_date, night_slug, night_name').gte('event_date', start).lte('event_date', end),
     supabase.from('bookings')
-      .select('id, created_at, event_date, night_slug, night_name, guest_name, guest_email, guest_phone, guest_whatsapp, quantity, price_per_person, total_paid, currency, promo_code, discount_amount, status, stripe_session_id, stripe_payment_id, payment_method, attendance_status, notes, is_test')
+      .select('id, created_at, event_date, booked_for_date, night_slug, night_name, guest_name, guest_email, guest_phone, guest_whatsapp, quantity, price_per_person, total_paid, currency, promo_code, discount_amount, status, booking_status, stripe_session_id, stripe_payment_id, stripe_charge_id, payment_method, attendance_status, notes, is_test')
       .gte('event_date', start).lte('event_date', end),
     supabase.from('ota_bookings')
-      .select('id, created_at, event_date, night_slug, source, guest_name, guest_email, quantity, price_per_person, total_paid, attendance_status, notes, booking_ref, gross_amount, platform_fee, payout_ref, payout_date')
+      .select('id, created_at, event_date, booked_for_date, night_slug, source, guest_name, guest_email, quantity, price_per_person, total_paid, attendance_status, booking_status, notes, booking_ref, gross_amount, platform_fee, payout_ref, payout_date, booked_on')
       .gte('event_date', start).lte('event_date', end),
   ])
   const err = ev.error || bk.error || ota.error
@@ -59,6 +63,9 @@ export async function GET(req: NextRequest) {
   const nights = new Map<string, { id: string; name: string }>()
   for (const e of ev.data ?? []) nights.set(`${e.event_date}|${e.night_slug}`, { id: e.id, name: e.night_name })
 
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' })
+  const statusOf = (stored: string | null, attendance: string | null, date: string) =>
+    BOOKING_STATUS_LABEL[bookingStatus(stored, attendance, date, today)]
   const rows: Row[] = []
   for (const b of (bk.data ?? []) as any[]) {
     if (b.is_test) continue
@@ -72,17 +79,18 @@ export async function GET(req: NextRequest) {
       booking_id: b.id,
       night_id: n?.id ?? '',
       event_date: b.event_date,
+      booked_for_date: b.booked_for_date ?? '',
       brand: brandForNight(b.night_slug),
       night_slug: b.night_slug,
       night_name: n?.name ?? b.night_name,
       channel: bokun ? 'bokun' : 'website',
       payment_method: pp ? 'paypal' : bokun ? 'bokun' : b.payment_method === 'promptpay' ? 'stripe_promptpay' : b.stripe_payment_id ? 'stripe_card' : '',
-      payment_reference: bokun ? bokun[1] : b.stripe_payment_id ?? '',
-      stripe_checkout_session: b.stripe_session_id ?? '',
+      booking_ref: bokun ? bokun[1] : '',
+      stripe_charge_id: b.stripe_charge_id ?? '',
       payout_reference: pp?.[1] ?? '',
       payout_date: pp?.[2] ?? '',
       guest_name: b.guest_name,
-      guest_email: b.guest_email,
+      email: b.guest_email,
       guest_phone: b.guest_phone || b.guest_whatsapp || '',
       qty: b.quantity ?? 1,
       unit_price: b.price_per_person ?? '',
@@ -93,8 +101,9 @@ export async function GET(req: NextRequest) {
       net_received: pp ? Number(pp[5]) : '',
       currency: (b.currency || 'thb').toUpperCase(),
       booked_at: bangkok(b.created_at),
-      status: b.status === 'cancelled' ? (refund ? 'refunded' : 'cancelled') : b.status,
-      attendance: b.attendance_status ?? 'expected',
+      status: b.status === 'cancelled' && !b.booking_status
+        ? (refund ? BOOKING_STATUS_LABEL.refunded : 'Cancelled')
+        : statusOf(b.booking_status, b.attendance_status, b.event_date),
       refund_reference: refund?.[1] ?? '',
       notes,
     })
@@ -107,25 +116,25 @@ export async function GET(req: NextRequest) {
       booking_id: o.id,
       night_id: n?.id ?? '',
       event_date: o.event_date,
+      booked_for_date: o.booked_for_date ?? '',
       brand: brandForNight(o.night_slug),
       night_slug: o.night_slug,
       night_name: n?.name ?? o.night_slug,
       channel: o.source,
       payment_method: direct ? 'direct' : 'ota',
-      payment_reference: o.booking_ref ?? noteRef ?? '',
+      booking_ref: o.booking_ref ?? noteRef ?? '',
       payout_reference: o.payout_ref ?? '',
       payout_date: o.payout_date ?? '',
       guest_name: o.guest_name,
-      guest_email: o.guest_email ?? '',
+      email: o.guest_email ?? '',
       qty: o.quantity ?? 1,
       unit_price: o.price_per_person ?? '',
       gross_paid: o.gross_amount ?? (direct ? o.total_paid ?? 0 : ''),
       platform_fee: o.platform_fee ?? '',
       net_received: o.total_paid ?? '',
       currency: 'THB',
-      booked_at: bangkok(o.created_at),
-      status: 'confirmed',
-      attendance: o.attendance_status ?? 'expected',
+      booked_at: o.booked_on ?? bangkok(o.created_at),
+      status: statusOf(o.booking_status, o.attendance_status, o.event_date),
       notes: o.notes ?? '',
     })
   }

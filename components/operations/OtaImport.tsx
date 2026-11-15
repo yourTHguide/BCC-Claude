@@ -221,7 +221,7 @@ export default function OtaImport() {
                           )}
                           <label style={radio}>
                             <input type="radio" name={`ans-${ref}`} checked={m === 'no'} onChange={() => pick('no', '')} />
-                            ✖️ Didn&apos;t happen
+                            ✖️ Didn&apos;t happen (kept, refund owed)
                           </label>
                         </div>
                       )
@@ -234,12 +234,9 @@ export default function OtaImport() {
                     <span style={S.muted}>{day(i.db!.event_date)}</span>
                     <div>
                       <strong>{i.db!.guest_name}</strong> <span style={S.muted}>· {i.report.ref}</span>
-                      <p style={S.flag}>Cancelled on {preview.summary.label}, but still on your guest list.</p>
+                      <p style={S.flag}>Cancelled / reversed on {preview.summary.label}. Kept on your list and marked Refunded.</p>
                     </div>
-                    <label style={{ display: 'flex', gap: '6px', alignItems: 'center', fontSize: '12px', whiteSpace: 'nowrap', cursor: 'pointer' }}>
-                      <input type="checkbox" checked={!!remove[i.db!.id]} onChange={(e) => setRemove((m) => ({ ...m, [i.db!.id]: e.target.checked }))} />
-                      Remove
-                    </label>
+                    <span style={{ ...S.muted, fontSize: '12px', whiteSpace: 'nowrap' }}>→ Refunded</span>
                   </div>
                 ))}
 
@@ -268,7 +265,7 @@ export default function OtaImport() {
                     </div>
                     <label style={{ display: 'flex', gap: '6px', alignItems: 'center', fontSize: '12px', whiteSpace: 'nowrap', cursor: 'pointer' }}>
                       <input type="checkbox" checked={!!remove[r.id]} onChange={(e) => setRemove((m) => ({ ...m, [r.id]: e.target.checked }))} />
-                      Remove
+                      Remove (duplicate)
                     </label>
                   </div>
                 ))}
@@ -320,7 +317,8 @@ export default function OtaImport() {
                 <strong>Will save:</strong> {matched.length + cancelledHere.filter((i) => !remove[i.db!.id]).length} updates · {toAdd.length + chosen} new guests
                 {newNights ? ` · ${newNights} night${newNights > 1 ? 's' : ''} added` : ''}
                 {removing ? ` · ${removing} removed` : ''}
-                {needs.length - chosen > 0 ? ` · ${needs.length - chosen} skipped (didn't happen)` : ''}
+                {needs.filter((i) => nights[i.report.ref] === '').length ? ` · ${needs.filter((i) => nights[i.report.ref] === '').length} didn't happen (kept, refund owed)` : ''}
+                {cancelledHere.length ? ` · ${cancelledHere.length} marked Refunded` : ''}
                 {unanswered > 0 && <div style={{ color: '#f59e0b', fontSize: '12px' }}>{unanswered} row{unanswered > 1 ? 's' : ''} still orange — not answered yet (will be skipped).</div>}
               </div>
               <button

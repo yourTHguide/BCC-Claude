@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
 
   const [{ data: dbRows, error: dbErr }, { data: nights, error: nErr }] = await Promise.all([
     supabase.from('ota_bookings')
-      .select('id, event_date, night_slug, guest_name, quantity, total_paid, booking_ref')
+      .select('id, event_date, night_slug, guest_name, quantity, total_paid, booking_ref, booking_status')
       .eq('source', parsed.source).gte('event_date', from).lte('event_date', to),
     supabase.from('event_dates')
       .select('event_date, night_slug, night_name')
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
   // A ref may already be saved on a row outside the date window (e.g. moved night).
   const refs = parsed.bookings.map((b) => b.ref)
   const { data: refRows } = await supabase.from('ota_bookings')
-    .select('id, event_date, night_slug, guest_name, quantity, total_paid, booking_ref')
+    .select('id, event_date, night_slug, guest_name, quantity, total_paid, booking_ref, booking_status')
     .eq('source', parsed.source).in('booking_ref', refs)
   if (dbErr || nErr) {
     console.error('ota-import: load error', dbErr || nErr)
@@ -100,11 +100,9 @@ export async function POST(req: NextRequest) {
 
   if (!apply) return NextResponse.json({ summary, plan })
 
-  // Only rows this plan showed as removable can be deleted.
-  const removable = new Set<string>([
-    ...plan.dashboardOnly.map((r) => r.id),
-    ...plan.items.filter((i) => i.kind === 'cancelled_in_dashboard').map((i) => i.db!.id),
-  ])
+  // Only true duplicates/leftovers (on your list, not in the report) can be
+  // deleted. A cancelled booking is never removed: it becomes Refunded.
+  const removable = new Set<string>(plan.dashboardOnly.map((r) => r.id))
 
   // Creates (once) a night on a date the calendar didn't have. Closed to
   // website sales; it only exists so OTA guests sit on their real night.
@@ -154,6 +152,12 @@ export async function POST(req: NextRequest) {
       const patch: Record<string, any> = money(b)
       if (item.suggestedQty && fixQty.has(b.ref)) patch.quantity = item.suggestedQty
       if (item.kind !== 'cancelled_in_dashboard') patch.total_paid = Math.round(b.net)
+      // Status rules (finance, Nov 2026). A status someone set by hand wins,
+      // except a refund the platform reports.
+      const current = item.db!.booking_status ?? null
+      if (item.kind === 'cancelled_in_dashboard') patch.booking_status = 'refunded'
+      else if (b.lateCancel && !current) { patch.booking_status = 'late_cancel_paid'; patch.attendance_status = 'no_show' }
+      else if (item.db!.event_date !== b.eventDate && !current) { patch.booking_status = 'rescheduled'; patch.booked_for_date = b.eventDate }
       // Fill in a full name when the dashboard only has the first name.
       const dbName = item.db!.guest_name?.trim() ?? ''
       if (b.guestName && (!dbName || /guest$/i.test(dbName) || dbName.includes(b.ref) || (b.guestName.length > dbName.length && b.guestName.toLowerCase().startsWith(dbName.toLowerCase())))) {
@@ -170,8 +174,11 @@ export async function POST(req: NextRequest) {
       // booking whose night is on the calendar is added there, and an
       // unanswered one is skipped.
       const answer = Object.prototype.hasOwnProperty.call(nightChoices, b.ref) ? nightChoices[b.ref] : undefined
-      if (answer === '' || (answer === undefined && item.kind === 'needs_night')) { result.skipped++; continue }
-      const chosenDate = answer ?? b.eventDate
+      if (answer === undefined && item.kind === 'needs_night') { result.skipped++; continue }
+      // "" = the night didn't happen: keep the booking on its own date (night
+      // marked Didn't run), status Didn't happen – refund owed.
+      const didntHappen = answer === ''
+      const chosenDate = didntHappen ? b.eventDate : answer ?? b.eventDate
       if (!/^\d{4}-\d{2}-\d{2}$/.test(chosenDate)) { result.failed.push(`${b.ref}: invalid date`); continue }
       const chosenSlug = chosenDate === b.eventDate && item.nightSlug
         ? item.nightSlug
@@ -179,7 +186,10 @@ export async function POST(req: NextRequest) {
       if (!(nightsByDate.get(chosenDate) ?? []).some((n) => n.slug === chosenSlug)) {
         const failure = await ensureNight(chosenDate, chosenSlug)
         if (failure) { result.failed.push(`${b.ref}: couldn't add night (${failure})`); continue }
-        if (created.get(`${chosenDate}|${chosenSlug}`)) result.nightsAdded++
+        if (created.get(`${chosenDate}|${chosenSlug}`)) {
+          result.nightsAdded++
+          if (didntHappen) await supabase.from('event_dates').update({ night_status: 'didnt_run' }).eq('event_date', chosenDate).eq('night_slug', chosenSlug)
+        }
       }
       const valid = (nightsByDate.get(chosenDate) ?? []).some((n) => n.slug === chosenSlug)
       if (!valid) { result.failed.push(`${b.ref}: no ${chosenSlug} night on ${chosenDate}`); continue }
@@ -192,7 +202,9 @@ export async function POST(req: NextRequest) {
         quantity: item.qty,
         total_paid: Math.round(b.net),
         notes: `Imported from ${LABEL[parsed.source]} report${chosenDate !== b.eventDate ? ` (report date ${b.eventDate})` : ''}${b.lateCancel ? ' [cancelled after cut-off, still paid — no-show]' : ''}`,
-        ...(b.lateCancel ? { attendance_status: 'no_show' } : {}),
+        ...(didntHappen ? { booking_status: 'didnt_happen_refund_owed' }
+          : b.lateCancel ? { booking_status: 'late_cancel_paid', attendance_status: 'no_show' }
+            : chosenDate !== b.eventDate ? { booking_status: 'rescheduled', booked_for_date: b.eventDate } : {}),
         ...money(b),
       })
       if (error?.code === '23505') result.skipped++ // already imported

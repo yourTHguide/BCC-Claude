@@ -12,11 +12,15 @@ import { getServiceSupabase } from '@/lib/supabase'
 // "other expenses" so host pay is never counted twice. If both exist the
 // row is flagged so the duplicate can be cleaned up.
 
+import { bookingStatus, countsAttended, countsRevenue, type BookingStatus } from './status'
+export { BOOKING_STATUS_LABEL, type BookingStatus } from './status'
+
 export interface OperationsGuest {
   name: string
   source: string // 'website' | OTA source | 'direct'
   quantity: number
   attendance: string // expected | checked_in | no_show
+  status: BookingStatus
   paid: number
 }
 
@@ -44,6 +48,8 @@ export interface OperationsRow {
   guestsBooked: number
   guestsCheckedIn: number
   guestsNoShow: number
+  guestsAttended: number
+  nightStatus: string | null // ran | didnt_run | didnt_run_late_cancel_income
   revenueWebsite: number
   revenueOta: number
   revenueTotal: number
@@ -60,19 +66,19 @@ export async function getOperationsReport(start: string, end: string): Promise<O
   const [ev, bk, ota, ex] = await Promise.all([
     supabase
       .from('event_dates')
-      .select('id, event_date, night_slug, night_name, is_open, operation_verdict, host_assigned, host_fee_final, host_payment_status, meet_up_location, venue_route')
+      .select('id, event_date, night_slug, night_name, is_open, operation_verdict, night_status, host_assigned, host_fee_final, host_payment_status, meet_up_location, venue_route')
       .gte('event_date', start)
       .lte('event_date', end)
       .order('event_date', { ascending: false }),
     supabase
       .from('bookings')
-      .select('event_date, night_slug, guest_name, guest_email, quantity, total_paid, attendance_status, booking_attendees(full_name, position)')
+      .select('event_date, night_slug, guest_name, guest_email, quantity, total_paid, attendance_status, booking_status, booking_attendees(full_name, position)')
       .gte('event_date', start)
       .lte('event_date', end)
       .eq('status', 'confirmed'),
     supabase
       .from('ota_bookings')
-      .select('event_date, night_slug, source, guest_name, quantity, total_paid, attendance_status')
+      .select('event_date, night_slug, source, guest_name, quantity, total_paid, attendance_status, booking_status')
       .gte('event_date', start)
       .lte('event_date', end),
     supabase
@@ -84,6 +90,7 @@ export async function getOperationsReport(start: string, end: string): Promise<O
   const err = ev.error || bk.error || ota.error || ex.error
   if (err) throw err
 
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' })
   const guestsBy = new Map<string, OperationsGuest[]>()
   const expensesBy = new Map<string, OperationsExpense[]>()
   const push = <T,>(m: Map<string, T[]>, k: string, v: T) => { const a = m.get(k); if (a) a.push(v); else m.set(k, [v]) }
@@ -100,6 +107,7 @@ export async function getOperationsReport(start: string, end: string): Promise<O
       source: 'website',
       quantity: b.quantity ?? 1,
       attendance: b.attendance_status ?? 'expected',
+      status: bookingStatus(b.booking_status, b.attendance_status, b.event_date, today),
       paid: b.total_paid ?? 0,
     })
   }
@@ -109,6 +117,7 @@ export async function getOperationsReport(start: string, end: string): Promise<O
       source: o.source,
       quantity: o.quantity ?? 1,
       attendance: o.attendance_status ?? 'expected',
+      status: bookingStatus(o.booking_status, o.attendance_status, o.event_date, today),
       paid: o.total_paid ?? 0,
     })
   }
@@ -126,8 +135,9 @@ export async function getOperationsReport(start: string, end: string): Promise<O
     if (!e.is_open && e.operation_verdict === 'Pending' && guests.length === 0 && expenses.length === 0) continue
 
     const sumQty = (f: (g: OperationsGuest) => boolean) => guests.filter(f).reduce((s, g) => s + g.quantity, 0)
-    const revenueWebsite = guests.filter((g) => g.source === 'website').reduce((s, g) => s + g.paid, 0)
-    const revenueOta = guests.filter((g) => g.source !== 'website').reduce((s, g) => s + g.paid, 0)
+    const paying = guests.filter((g) => countsRevenue(g.status))
+    const revenueWebsite = paying.filter((g) => g.source === 'website').reduce((s, g) => s + g.paid, 0)
+    const revenueOta = paying.filter((g) => g.source !== 'website').reduce((s, g) => s + g.paid, 0)
     const hostPayExpenses = expenses.filter((x) => x.category === 'host_pay').reduce((s, x) => s + x.amount, 0)
     const otherExpenses = expenses.filter((x) => x.category !== 'host_pay').reduce((s, x) => s + x.amount, 0)
     const hostFee = e.host_fee_final as number | null
@@ -150,9 +160,11 @@ export async function getOperationsReport(start: string, end: string): Promise<O
       meetUpLocation: e.meet_up_location || null,
       route,
       routeNotes: vr.notes || null,
-      guestsBooked: sumQty(() => true),
+      guestsBooked: sumQty((g) => countsRevenue(g.status)),
       guestsCheckedIn: sumQty((g) => g.attendance === 'checked_in'),
-      guestsNoShow: sumQty((g) => g.attendance === 'no_show'),
+      guestsNoShow: sumQty((g) => g.status === 'no_show' || g.status === 'late_cancel_paid'),
+      guestsAttended: sumQty((g) => countsAttended(g.status)),
+      nightStatus: e.night_status ?? null,
       revenueWebsite,
       revenueOta,
       revenueTotal: revenueWebsite + revenueOta,

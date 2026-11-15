@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { OperationsRow } from '@/lib/operations/report'
 import { brandForNight } from '@/lib/operations/brand'
+import { BOOKING_STATUS_LABEL } from '@/lib/operations/status'
 
 // Shared Operations Sheet UI. Rendered by the BCC /dashboard "Operations"
 // tab and the BNT /operator/manage/operations page (same codebase, both
@@ -106,20 +107,25 @@ export default function OperationsSheet({ palette: P, eventHref }: { palette: Op
   // dates YYYY-MM-DD, expenses split by category, for finance.
   function exportCsv() {
     const own = ['host_pay', 'van', 'drinks', 'cover_charge'] // own columns; the rest is 'other'
-    const header = ['night_id', 'event_date', 'brand', 'night_slug', 'night_name', 'status', 'host_name', 'host_fee', 'host_paid',
-      'booked', 'checked_in', 'no_show', 'revenue_website', 'revenue_ota_direct', 'revenue_total',
+    const today = iso(new Date())
+    const nightStatus = (r: OperationsRow) =>
+      r.nightStatus === 'didnt_run' ? "Didn't run"
+        : r.nightStatus === 'didnt_run_late_cancel_income' ? "Didn't run – late cancel income only"
+          : r.nightStatus === 'ran' || (r.eventDate < today && r.guestsAttended > 0) ? 'Ran' : ''
+    const header = ['night_id', 'event_date', 'brand', 'night_slug', 'night_name', 'night_status', 'status', 'host_name', 'host_fee', 'host_paid',
+      'booked', 'attended', 'checked_in', 'no_show', 'revenue_website', 'revenue_ota_direct', 'revenue_total',
       'expense_van', 'expense_drinks', 'expense_cover_charge', 'expense_other', 'expenses_total_excl_host', 'profit', 'expense_notes', 'route', 'guests']
     const lines = filtered.map((r) => {
       const byCat = (c: string) => r.expenses.filter((x) => x.category === c).reduce((t, x) => t + x.amount, 0)
       const other = r.expenses.filter((x) => !own.includes(x.category)).reduce((t, x) => t + x.amount, 0)
       return [
-        r.id, r.eventDate, brandForNight(r.nightSlug), r.nightSlug, r.nightName, r.verdict, r.host ?? '', r.hostCost,
+        r.id, r.eventDate, brandForNight(r.nightSlug), r.nightSlug, r.nightName, nightStatus(r), r.verdict, r.host ?? '', r.hostCost,
         r.hostPaymentStatus === 'Paid' ? 'yes' : 'no',
-        r.guestsBooked, r.guestsCheckedIn, r.guestsNoShow, r.revenueWebsite, r.revenueOta, r.revenueTotal,
+        r.guestsBooked, r.guestsAttended, r.guestsCheckedIn, r.guestsNoShow, r.revenueWebsite, r.revenueOta, r.revenueTotal,
         byCat('van'), byCat('drinks'), byCat('cover_charge'), other, r.otherExpenses, r.profit,
         r.expenses.filter((x) => x.category !== 'host_pay').map((x) => `${CATEGORY_LABEL[x.category] ?? x.category} ${x.amount}${x.description ? ` (${x.description})` : ''}`).join('; '),
         r.route.join(' > '),
-        r.guests.map((g) => `${g.name} x${g.quantity} (${g.source}, ${ATTENDANCE_LABEL[g.attendance] ?? g.attendance})`).join('; '),
+        r.guests.map((g) => `${g.name} x${g.quantity} (${g.source}, ${BOOKING_STATUS_LABEL[g.status]})`).join('; '),
       ].map(csvCell).join(',')
     })
     const blob = new Blob(['\uFEFF' + [header.join(','), ...lines].join('\n')], { type: 'text/csv;charset=utf-8' })
