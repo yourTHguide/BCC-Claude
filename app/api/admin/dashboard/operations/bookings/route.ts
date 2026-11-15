@@ -121,7 +121,7 @@ export async function GET(req: NextRequest) {
       night_slug: o.night_slug,
       night_name: n?.name ?? o.night_slug,
       channel: o.source,
-      payment_method: direct ? 'direct' : 'ota',
+      payment_method: /cash/i.test(o.source) ? 'cash' : direct ? 'direct' : 'ota',
       booking_ref: o.booking_ref ?? noteRef ?? '',
       payout_reference: o.payout_ref ?? '',
       payout_date: o.payout_date ?? '',
