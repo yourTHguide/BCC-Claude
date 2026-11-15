@@ -127,6 +127,7 @@ export function buildPlan(
     const trust = b.qty ? true : kind === 'match'
     const suggestedQty = trust && !g.guessed && g.qty !== row.quantity ? g.qty : undefined
     if (suggestedQty) flags.push(`Dashboard has ${row.quantity} guest(s), ${b.qty ? 'report says' : 'amount suggests'} ${g.qty}`)
+    if (b.lateCancel) flags.push('Cancelled after the cut-off but still paid out — keep as a no-show, don\'t remove')
     if (!b.cancelled && row.total_paid && !sameMoney(row.total_paid, b.net)) flags.push(`Amount ฿${row.total_paid} → ฿${Math.round(b.net)} (from report)`)
     items.push({ kind: b.cancelled ? 'cancelled_in_dashboard' : kind, report: b, db: row, qty: row.quantity, qtyGuessed: false, suggestedQty: b.cancelled ? undefined : suggestedQty, flags })
   }

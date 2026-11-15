@@ -191,7 +191,8 @@ export async function POST(req: NextRequest) {
         guest_email: b.email ?? null,
         quantity: item.qty,
         total_paid: Math.round(b.net),
-        notes: `Imported from ${LABEL[parsed.source]} report${chosenDate !== b.eventDate ? ` (report date ${b.eventDate})` : ''}`,
+        notes: `Imported from ${LABEL[parsed.source]} report${chosenDate !== b.eventDate ? ` (report date ${b.eventDate})` : ''}${b.lateCancel ? ' [cancelled after cut-off, still paid — no-show]' : ''}`,
+        ...(b.lateCancel ? { attendance_status: 'no_show' } : {}),
         ...money(b),
       })
       if (error?.code === '23505') result.skipped++ // already imported

@@ -17,6 +17,7 @@ export interface ReportBooking {
   fee: number | null           // platform commission
   qty?: number | null          // exact guest count, when the file has it (booking exports)
   email?: string | null
+  lateCancel?: boolean         // cancelled but still paid out (no refund) → kept as a no-show
   bookedOn: string | null
   payoutRef: string | null
   payoutDate: string | null
@@ -220,7 +221,10 @@ function parseViatorBookings(rows: string[][]): ParsedReport {
       source: 'viator', ref, eventDate, guestName: r[C.name]?.trim() || null, net, gross: null, fee: null,
       qty: num(r[C.pax]) || null, email: null, bookedOn: monthNameDate(r[C.booked]),
       payoutRef: null, payoutDate: null, listing: r[C.product]?.trim() || null,
-      cancelled: /cancel/i.test(r[C.status] ?? '') || net <= 0,
+      // Cancelled with a net price still due = late cancellation, no refund:
+      // the money is real, so keep it (as a no-show).
+      cancelled: net <= 0,
+      lateCancel: /cancel/i.test(r[C.status] ?? '') && net > 0,
     })
   }
   return { source: 'viator', bookings, payoutTo: [] }
