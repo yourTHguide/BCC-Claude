@@ -29,5 +29,7 @@ export function otaNightSlug(date: string, slugsOnDate: string[]): string {
 }
 
 export function otaNightName(slug: string): string {
-  return OTA_NIGHT_NAMES[slug] ?? slug
+  if (OTA_NIGHT_NAMES[slug]) return OTA_NIGHT_NAMES[slug]
+  if (slug.startsWith('halloween')) return 'Halloween Crawl'
+  return slug
 }
