@@ -21,7 +21,7 @@ interface Item {
 interface Preview {
   summary: {
     label: string; bookings: number; linked: number; matched: number; toAdd: number; needsNight: number
-    cancelledSkipped: number; cancelledInDashboard: number; dashboardOnly: number; payoutTo: string[]
+    cancelledSkipped: number; cancelledInDashboard: number; dashboardOnly: number; payoutTo: string[]; beforeStart?: number
   }
   plan: { items: Item[]; dashboardOnly: { id: string; event_date: string; guest_name: string | null; total_paid: number | null; quantity: number }[] }
 }
@@ -163,6 +163,7 @@ export default function OtaImport() {
                 <span>➕ {preview.summary.toAdd} to add</span>
                 {preview.summary.needsNight > 0 && <span style={{ color: '#f59e0b' }}>📅 {preview.summary.needsNight} need a night</span>}
                 {preview.summary.cancelledSkipped > 0 && <span style={S.muted}>✖ {preview.summary.cancelledSkipped} cancelled (skipped)</span>}
+                {!!preview.summary.beforeStart && <span style={S.muted}>⏮ {preview.summary.beforeStart} before 1 Jul 2026 (ignored)</span>}
               </div>
             </div>
 

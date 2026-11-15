@@ -4,6 +4,9 @@
 //   other days → BKK Club Crawl (internal only, never sold on the website),
 //   and a special night (e.g. Halloween) wins when it's on the calendar that date.
 
+/** OTA bookings are only kept from this night on (when website bookings started). */
+export const OTA_START_DATE = '2026-07-01'
+
 export const OTA_NIGHT_NAMES: Record<string, string> = {
   tgif: 'TGIF Bangkok',
   'saturday-signature': 'Signature Night',

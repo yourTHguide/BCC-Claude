@@ -3,7 +3,7 @@ import { requireRole } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
 import { parseReport } from '@/lib/ota-import/parse'
 import { buildPlan, MOVE_DAYS, type DbOta, type NightOption } from '@/lib/ota-import/match'
-import { isOtaNight, otaNightSlug, otaNightName } from '@/lib/ota-import/nights'
+import { isOtaNight, otaNightSlug, otaNightName, OTA_START_DATE } from '@/lib/ota-import/nights'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -41,6 +41,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: e?.message || 'Could not read the file' }, { status: 400 })
   }
   if (!parsed.bookings.length) return NextResponse.json({ error: 'No bookings found in this file' }, { status: 400 })
+  // Only nights from OTA_START_DATE on are kept; older bookings are ignored.
+  const beforeStart = parsed.bookings.filter((b) => b.eventDate < OTA_START_DATE).length
+  parsed.bookings = parsed.bookings.filter((b) => b.eventDate >= OTA_START_DATE)
+  if (!parsed.bookings.length) {
+    return NextResponse.json({ error: `Every booking in this file is before ${OTA_START_DATE}, so there's nothing to import` }, { status: 400 })
+  }
 
   const supabase = getServiceSupabase()
   const dates = parsed.bookings.map((b) => b.eventDate).sort()
@@ -89,6 +95,7 @@ export async function POST(req: NextRequest) {
     cancelledInDashboard: count('cancelled_in_dashboard'),
     dashboardOnly: plan.dashboardOnly.length,
     payoutTo: parsed.payoutTo,
+    beforeStart,
   }
 
   if (!apply) return NextResponse.json({ summary, plan })
