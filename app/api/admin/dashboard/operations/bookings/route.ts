@@ -65,6 +65,8 @@ export async function GET(req: NextRequest) {
     const notes: string = b.notes ?? ''
     const bokun = notes.match(/Bokun widget booking (THE-\d+)/)
     const refund = notes.match(/\((re_[A-Za-z0-9]+)\)/)
+    // Bokun bookings paid through PayPal carry "[paypal <txn> <date> gross= fee= net=]".
+    const pp = notes.match(/\[paypal (\S+) (\d{4}-\d{2}-\d{2}) gross=([\d.]+) fee=([\d.]+) net=([\d.]+)\]/)
     const n = nights.get(`${b.event_date}|${b.night_slug}`)
     rows.push({
       booking_id: b.id,
@@ -74,9 +76,11 @@ export async function GET(req: NextRequest) {
       night_slug: b.night_slug,
       night_name: n?.name ?? b.night_name,
       channel: bokun ? 'bokun' : 'website',
-      payment_method: bokun ? 'bokun' : b.payment_method === 'promptpay' ? 'stripe_promptpay' : b.stripe_payment_id ? 'stripe_card' : '',
+      payment_method: pp ? 'paypal' : bokun ? 'bokun' : b.payment_method === 'promptpay' ? 'stripe_promptpay' : b.stripe_payment_id ? 'stripe_card' : '',
       payment_reference: bokun ? bokun[1] : b.stripe_payment_id ?? '',
       stripe_checkout_session: b.stripe_session_id ?? '',
+      payout_reference: pp?.[1] ?? '',
+      payout_date: pp?.[2] ?? '',
       guest_name: b.guest_name,
       guest_email: b.guest_email,
       guest_phone: b.guest_phone || b.guest_whatsapp || '',
@@ -84,9 +88,9 @@ export async function GET(req: NextRequest) {
       unit_price: b.price_per_person ?? '',
       discount_code: b.promo_code ?? '',
       discount_amount: b.discount_amount ?? '',
-      gross_paid: b.total_paid ?? 0,
-      platform_fee: '', // Stripe's fee is in Stripe's own payout report
-      net_received: '',
+      gross_paid: pp ? Number(pp[3]) : b.total_paid ?? 0,
+      platform_fee: pp ? Number(pp[4]) : '', // Stripe's fee is in Stripe's own payout report
+      net_received: pp ? Number(pp[5]) : '',
       currency: (b.currency || 'thb').toUpperCase(),
       booked_at: bangkok(b.created_at),
       status: b.status === 'cancelled' ? (refund ? 'refunded' : 'cancelled') : b.status,
