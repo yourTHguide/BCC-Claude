@@ -190,6 +190,10 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
   // ── Operations layer state ──
   const [confirmModal, setConfirmModal] = useState<{ title:string, message:string, confirmLabel:string, onConfirm:()=>void } | null>(null)
   const [hostFeeInput, setHostFeeInput] = useState<string>('')
+  // "Pay host" step: van + drinks paid together with the host fee.
+  const [payVan, setPayVan] = useState('')
+  const [payDrinks, setPayDrinks] = useState('')
+  const [payPersonal, setPayPersonal] = useState(false)
   const [briefCopyState, setBriefCopyState] = useState<'idle'|'copied'>('idle')
   const [preConfirmCopyState, setPreConfirmCopyState] = useState<'idle'|'copied'>('idle')
 
@@ -521,17 +525,44 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
   // check-ins) — so the popup showed, and the record kept, the old amount.
   function markHostPaid(suggested: number) {
     const typed = parseInt(hostFeeInput)
-    const fee = isNaN(typed) ? suggested : typed
+    // Ticking "paid on personal card" means Guide hosted: no host fee unless one is typed.
+    const fee = isNaN(typed) ? (payPersonal ? 0 : suggested) : typed
     const mismatch = fee !== suggested
       ? ` Note: the suggested fee for ${checkedInGuests} checked-in guest${checkedInGuests!==1?'s':''} is ฿${suggested.toLocaleString()}.`
       : ''
+    const van = Math.max(0, parseInt(payVan) || 0)
+    const drinks = Math.max(0, parseInt(payDrinks) || 0)
+    const logged = (cat: string) => expenses.filter(e => e.category === cat).reduce((s, e) => s + e.amount, 0)
+    const already = [['van', van, logged('van')], ['drinks', drinks, logged('drinks')]]
+      .filter(([, add, has]) => (add as number) > 0 && (has as number) > 0)
+      .map(([cat, add, has]) => `${cat} ฿${(has as number).toLocaleString()} is already logged — this adds ฿${(add as number).toLocaleString()} more`)
+    const paidOn = new Date().toLocaleDateString('en-GB', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', year: 'numeric' })
+    const parts = [`host fee ฿${fee.toLocaleString()}`, van ? `van / taxi ฿${van.toLocaleString()}` : '', drinks ? `drinks ฿${drinks.toLocaleString()}` : ''].filter(Boolean)
+    const total = fee + van + drinks
     setConfirmModal({
-      title: 'Mark host payment as Paid?',
-      message: `Confirm ${localEvent.host_assigned || 'the assigned host'} has been paid ฿${fee.toLocaleString()} for this date.${mismatch}`,
-      confirmLabel: `Mark ฿${fee.toLocaleString()} Paid`,
+      title: 'Pay host?',
+      message: `Save ${parts.join(' + ')} = ฿${total.toLocaleString()} on this night, and mark ${localEvent.host_assigned || 'the assigned host'} as Paid (${paidOn}).`
+        + (payPersonal ? ' Van / drinks noted as paid on personal K-Bank card.' : '')
+        + (already.length ? ` Note: ${already.join('; ')}.` : '')
+        + mismatch,
+      confirmLabel: `Pay ฿${total.toLocaleString()}`,
       onConfirm: async () => {
         const ok = await saveOpsField({ host_fee_final: fee, host_payment_status: 'Paid' })
-        if (ok) setHostFeeInput(String(fee))
+        if (ok) {
+          setHostFeeInput(String(fee))
+          const desc = `Pay host step, paid ${paidOn}` + (payPersonal ? ' — paid on personal K-Bank card' : '')
+          for (const [category, amount] of [['van', van], ['drinks', drinks]] as const) {
+            if (!amount) continue
+            const res = await fetch('/api/admin/dashboard/expenses', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ eventDate: event.event_date, nightSlug: event.night_slug, category, description: desc, amount }),
+            }).catch(() => null)
+            if (!res || !res.ok) alert(`Host fee saved, but the ${category} cost (฿${amount.toLocaleString()}) didn't save — add it under Expenses.`)
+          }
+          setPayVan(''); setPayDrinks(''); setPayPersonal(false)
+          await loadDetail()
+        }
         setConfirmModal(null)
       },
     })
@@ -612,8 +643,12 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
   const webRev = bookings.reduce((s,b) => s+b.total_paid, 0)
   const otaRev = otaBookings.reduce((s,b) => s+(b.total_paid||0), 0)
   const totalRev = webRev + otaRev
+  // Host cost = the final host fee (same rule as the Operations sheet); a
+  // 'host_pay' expense only counts when no final fee is set.
+  const hostFeeSet = localEvent.host_fee_final != null
   const totalExp = expenses.reduce((s,e) => s+e.amount, 0)
-  const profit = totalRev - totalExp
+  const hostPayExp = expenses.filter(e => e.category === 'host_pay').reduce((s,e) => s+e.amount, 0)
+  const profit = totalRev - totalExp + (hostFeeSet ? hostPayExp - localEvent.host_fee_final! : 0)
   const minMet = totalGuests >= 5
   const checkedInGuests = bookings.filter(b=>b.attendance_status==='checked_in').reduce((s,b)=>s+b.quantity,0)
     + otaBookings.filter(o=>o.attendance_status==='checked_in').reduce((s,o)=>s+o.quantity,0)
@@ -769,10 +804,21 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
                 <option value="Calculated">Calculated</option>
                 <option value="Paid">Paid</option>
               </select>
-              {localEvent.host_payment_status !== 'Paid' && (
-                <button onClick={() => markHostPaid(suggestedFee)} style={{ ...S.btn, ...S.btnRed, whiteSpace:'nowrap' }}>Mark Paid</button>
-              )}
             </div>
+            {localEvent.host_payment_status !== 'Paid' && (
+              <div style={{ marginTop:'12px', paddingTop:'12px', borderTop:'1px solid rgba(255,255,255,0.08)' }}>
+                <p style={{ fontSize:'12px', color:'rgba(255,255,255,0.45)', marginBottom:'8px' }}>Pay host: fee above + this night's van and drinks, saved in one step.</p>
+                <div style={{ display:'flex', gap:'8px', marginBottom:'8px' }}>
+                  <input type="number" min={0} value={payVan} onChange={e=>setPayVan(e.target.value)} style={{...S.input, flex:1}} placeholder="Van / taxi (฿)"/>
+                  <input type="number" min={0} value={payDrinks} onChange={e=>setPayDrinks(e.target.value)} style={{...S.input, flex:1}} placeholder="Drinks (฿)"/>
+                </div>
+                <label style={{ display:'flex', alignItems:'center', gap:'8px', fontSize:'12px', color:'rgba(255,255,255,0.7)', marginBottom:'10px', cursor:'pointer' }}>
+                  <input type="checkbox" checked={payPersonal} onChange={e=>setPayPersonal(e.target.checked)}/>
+                  Paid on personal card (I hosted / paid the van myself)
+                </label>
+                <button onClick={() => markHostPaid(suggestedFee)} style={{ ...S.btn, ...S.btnRed, width:'100%' }}>Pay host</button>
+              </div>
+            )}
           </div>
 
           {/* Guest attendance: same door list as /operator and the Host view */}
@@ -836,7 +882,7 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
               { label:'Website', val:`฿${webRev.toLocaleString()}`, sub:`${webGuests} guests` },
               { label:'OTA / Direct', val:`฿${otaRev.toLocaleString()}`, sub:`${otaGuests} guests` },
               { label:'Total Revenue', val:`฿${totalRev.toLocaleString()}`, sub:`${totalGuests} total` },
-              { label:'Gross Profit', val:`฿${profit.toLocaleString()}`, sub:'after expenses', color: profit>=0?'#22c55e':'#EA003A' },
+              { label:'Gross Profit', val:`฿${profit.toLocaleString()}`, sub:'after host fee + expenses', color: profit>=0?'#22c55e':'#EA003A' },
             ].map(item => (
               <div key={item.label}>
                 <p style={{ ...S.label }}>{item.label}</p>
