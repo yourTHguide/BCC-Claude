@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import SmcLandingPage from '@/components/smc/SmcLandingPage'
 import { canRenderSmcPage, smcPageIndexable } from '@/lib/smc/env'
 import { loadNextSmcEvent } from '@/lib/smc/event'
+import { buildPageMetadata } from '@/lib/seo'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,16 +15,18 @@ export const dynamic = 'force-dynamic'
 const TITLE = 'Single Meet Club | Bangkok Singles Social Night'
 const DESCRIPTION =
   "A monthly social night in Bangkok where everyone happens to be single. The last Thursday of every month at Tony's, Sukhumvit Soi 11."
-const URL = 'https://www.bestnightlifethailand.com/single-meet-club'
 
 // openGraph is set explicitly — otherwise Next.js merges the root layout's
 // BCC-branded og:title/og:url into shared SMC links.
 export function generateMetadata(): Metadata {
   return {
-    title: TITLE,
-    description: DESCRIPTION,
-    alternates: { canonical: URL },
-    openGraph: { title: TITLE, description: DESCRIPTION, url: URL, type: 'website' },
+    ...buildPageMetadata('bnt', {
+      path: '/single-meet-club',
+      title: TITLE,
+      description: DESCRIPTION,
+      image: '/og/single-meet-club.jpg',
+      imageAlt: 'Single Meet Club guests talking at the bar',
+    }),
     robots: smcPageIndexable() ? { index: true, follow: true } : { index: false, follow: false },
   }
 }

@@ -1,9 +1,12 @@
+import type { Metadata } from 'next'
 import NightPage from '@/components/NightPage'
+import { buildPageMetadata } from '@/lib/seo'
 
-export const metadata = {
+export const metadata: Metadata = buildPageMetadata('bcc', {
+  path: '/saturday-signature',
   title: 'BCC Signature Night — Bangkok Club Crawl',
   description: 'The best version of Bangkok after dark. Saturday flagship nights with 24 guests, 2 vans, 2 hosts.',
-}
+})
 
 export default function SaturdaySignature() {
   return (

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
 import { headers } from 'next/headers'
 import { resolveStorefront } from '@/lib/storefront'
+import { buildPageMetadata, CANONICAL_ORIGIN, isIndexableHost, organizationJsonLd } from '@/lib/seo'
 import './globals.css'
 
 const META_PIXEL_ID = '302051565703286'
@@ -13,15 +14,23 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 }
 
-export const metadata: Metadata = {
-  title: 'Bangkok Club Crawl — Bangkok Nights. Done Right.',
-  description: 'Premium structured nightlife experience in Bangkok. Curated venues, VIP entry, and dedicated hosts every weekend.',
-  openGraph: {
-    title: 'Bangkok Club Crawl — Bangkok Nights. Done Right.',
-    description: 'Curated venues. VIP entry. A crowd worth meeting.',
-    url: 'https://bkkclubcrawl.com',
-    type: 'website',
-  },
+// Host-aware defaults (Nov 2026 SEO Phase 1). Previously a static,
+// BCC-branded export, which leaked BCC Open Graph tags onto every BEST page
+// that didn't override them. Pages still set their own title/canonical via
+// buildPageMetadata(); this is the fallback plus metadataBase and robots.
+export async function generateMetadata(): Promise<Metadata> {
+  const host = headers().get('host')
+  const storefront = resolveStorefront(host)
+  const base = buildPageMetadata(storefront, { path: '/' })
+  // Canonical is per-page — never inherit the homepage canonical.
+  delete base.alternates
+  return {
+    ...base,
+    metadataBase: new URL(CANONICAL_ORIGIN[storefront]),
+    // Non-production deployments and non-preferred hosts (e.g.
+    // bcc-claude.vercel.app) are never indexed.
+    ...(isIndexableHost(host) ? {} : { robots: { index: false, follow: false } }),
+  }
 }
 
 export default function RootLayout({
@@ -72,6 +81,11 @@ export default function RootLayout({
             />
           </noscript>
         )}
+        <script
+          type="application/ld+json"
+          // Static, server-built object — no user input reaches it.
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd(storefront)) }}
+        />
         {children}
       </body>
     </html>

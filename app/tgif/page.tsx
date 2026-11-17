@@ -1,9 +1,12 @@
+import type { Metadata } from 'next'
 import NightPage from '@/components/NightPage'
+import { buildPageMetadata } from '@/lib/seo'
 
-export const metadata = {
+export const metadata: Metadata = buildPageMetadata('bcc', {
+  path: '/tgif',
   title: 'TGIF Bangkok — Bangkok Club Crawl',
   description: 'The week is done. Bangkok begins. Friday nights at full energy.',
-}
+})
 
 export default function TGIF() {
   return (

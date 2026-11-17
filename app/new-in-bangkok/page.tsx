@@ -4,12 +4,18 @@ import type { Metadata } from 'next'
 import BntNewInBangkokPage from '@/components/bnt/BntNewInBangkokPage'
 import { resolveStorefront } from '@/lib/storefront'
 import { loadPublicProductPage } from '@/lib/publicProductPage'
+import { buildPageMetadata } from '@/lib/seo'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata('bnt', {
+  path: '/new-in-bangkok',
   title: 'New in Bangkok | BEST NIGHTLIFE THAILAND',
-}
+  description:
+    'New in Bangkok? Start here. A hosted night for people who want to meet someone new — over good drinks, easy conversation and two properly chosen Bangkok venues.',
+  image: '/og/new-in-bangkok.jpg',
+  imageAlt: 'New in Bangkok guests at a Bangkok venue',
+})
 
 // Canonical public alias for the 'new-in-bkk' Product (Stage 10 Phase 4).
 // Replaces a stale, fully hardcoded page that used to live at this same path

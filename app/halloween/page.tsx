@@ -1,20 +1,18 @@
 import type { Metadata } from 'next'
 import Script from 'next/script'
 import HalloweenCrawlPage from '@/components/halloween/HalloweenCrawlPage'
+import { buildPageMetadata } from '@/lib/seo'
 
-export const metadata: Metadata = {
+// BEST-branded event page; bkkclubcrawl.com/halloween redirects here.
+export const metadata: Metadata = buildPageMetadata('bnt', {
+  path: '/halloween',
   title: 'Bangkok Halloween Crawl 2026 | BEST Nightlife Thailand',
   description:
     'Join Bangkok Halloween Crawl 2026 on October 31. A hosted nightlife route with social games, curated venues, group transport and one big Halloween finale.',
-  openGraph: {
-    title: 'Bangkok Halloween Crawl 2026 | BEST Nightlife Thailand',
-    description: 'A hosted Halloween route through Bangkok with social games, curated venues, transport and a final party stop.',
-    type: 'website',
-  },
-  twitter: {
-    card: 'summary_large_image',
-  },
-}
+  ogDescription: 'A hosted Halloween route through Bangkok with social games, curated venues, transport and a final party stop.',
+  image: '/og/halloween.jpg',
+  imageAlt: 'Bangkok Halloween Crawl guests on a Bangkok street',
+})
 
 export default function Page() {
   return (

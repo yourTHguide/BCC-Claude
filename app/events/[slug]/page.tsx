@@ -4,6 +4,12 @@ import ProductPage from '@/components/ProductPage'
 import { resolveStorefront } from '@/lib/storefront'
 import { loadPublicProductPage } from '@/lib/publicProductPage'
 import { brandFor } from '@/lib/storefrontBrand'
+import type { Metadata } from 'next'
+import { buildPageMetadata } from '@/lib/seo'
+import { cache } from 'react'
+
+// One DB load per request, shared by generateMetadata and the page.
+const loadProductPage = cache(loadPublicProductPage)
 
 export const dynamic = 'force-dynamic'
 
@@ -16,10 +22,34 @@ export const dynamic = 'force-dynamic'
 // 404, not a distinguishable error. Shares its query logic with
 // /new-in-bangkok via lib/publicProductPage.ts so the two routes can never
 // drift out of sync on what "canonical and visible" means.
+// Nov 2026 SEO Phase 1. Generic DB-driven product pages duplicate each
+// product's dedicated landing page, so their canonical points there and they
+// are left out of the sitemaps. Unknown/hidden slugs fall through to the
+// page's own notFound().
+const DEDICATED_PAGE: Record<string, string> = {
+  'bangkok-club-crawl': '/weekends',
+  'new-in-bkk': '/new-in-bangkok',
+  smc: '/single-meet-club',
+}
+
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const storefront = resolveStorefront(headers().get('host'))
+  const data = await loadProductPage(params.slug, storefront)
+  if (!data) return {}
+  return buildPageMetadata(storefront, {
+    path: DEDICATED_PAGE[params.slug] ?? `/events/${params.slug}`,
+    // Avoid "Bangkok Club Crawl | Bangkok Club Crawl" when the product is the brand.
+    title:
+      data.product.name === brandFor(storefront).name
+        ? data.product.name
+        : `${data.product.name} | ${brandFor(storefront).name}`,
+  })
+}
+
 export default async function PublicProductPage({ params }: { params: { slug: string } }) {
   const host = headers().get('host')
   const storefront = resolveStorefront(host)
-  const data = await loadPublicProductPage(params.slug, storefront)
+  const data = await loadProductPage(params.slug, storefront)
 
   if (!data) notFound()
 
