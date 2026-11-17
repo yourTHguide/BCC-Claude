@@ -10,7 +10,7 @@ Branch `bcc/phase2-operating-terms`, cut from production `main` (`7b66602`). Sco
 | File | Page / surface | Change |
 |---|---|---|
 | `lib/bccTerms.ts` (new) | n/a | Terms constants plus Included / Not Included lists |
-| `components/WeekendsPage.tsx` | `/weekends` | 9:00 → 9:30 PM; meeting area and map pin moved to Sukhumvit Soi 11; Included / Not Included; Good to Know; dress code; new **Booking Terms** and **Running Late?** sections |
+| `components/WeekendsPage.tsx` | `/weekends` | 9:00 → 9:30 PM; meeting area and map pin moved to Sukhumvit Soi 11; Included / Not Included; Good to Know; dress code; new **Booking Terms** and **Running Late?** content. Good to Know, Dress Code, Booking Terms, Running Late? and This Is For You If are now one **"The Details"** list of collapsible rows, closed by default. The drink rule also stays visible in Not Included and on `/book`. |
 | `components/FAQ.tsx` | `/` (homepage FAQ) | 3 questions → 9, built from the terms |
 | `app/book/BookingCalendarClient.tsx` | `/book` (BCC site only) | New **"Before you book"** summary directly above the Book Now button. The drink rule is shown in bold. |
 | `app/booking-success/BookingSuccessClient.tsx` | `/booking-success` (BCC) | Step 4 added: late-arrival instructions |

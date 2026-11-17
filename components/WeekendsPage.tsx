@@ -297,6 +297,27 @@ const styles = `
       text-align: left;
     }
 
+    /* ─── THE DETAILS: collapsible rows ─── */
+    .weekends-page .info-toggle { border-bottom: 1px solid var(--border); }
+    .weekends-page .info-toggle:first-of-type { border-top: 1px solid var(--border); }
+    .weekends-page .info-toggle > summary {
+      list-style: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      padding: 18px 0;
+      font-size: 15px; font-weight: 600; color: #fff;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .weekends-page .info-toggle > summary::-webkit-details-marker { display: none; }
+    .weekends-page .info-toggle > summary::after {
+      content: '+';
+      display: inline-block; flex-shrink: 0;
+      color: var(--accent); font-size: 22px; font-weight: 400; line-height: 1;
+      transition: transform 0.2s ease;
+    }
+    .weekends-page .info-toggle[open] > summary::after { transform: rotate(45deg); }
+    .weekends-page .info-toggle > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+    .weekends-page .info-body { padding: 0 0 22px; }
+
     /* ─── TIMELINE ─── */
     .weekends-page .timeline { display: flex; flex-direction: column; }
     .weekends-page .tl-item {
@@ -1013,68 +1034,73 @@ export default function WeekendsPage() {
       </div>
 
 
-      {/* ═══ ROW 3: Good to Know | Dress Code (2-col) ═══ */}
-      <div className="grid-2">
-
-        <div className="col">
-          <div className="label">Good to Know</div>
-          <div className="check-list">
-            <div className="check-item">Smart casual dress code — enforced at all venues</div>
-            <div className="check-item">Starts {BCC_TERMS.startTime} — check in when you arrive</div>
-            <div className="check-item">{BCC_TERMS.age}</div>
-            <div className="check-item">Stop 2 serves food — great if you want to eat before the night picks up</div>
-            <div className="check-item">Book at least 3–4 days ahead — nights fill fast</div>
-            <div className="check-item">{BCC_TERMS.drinkRule}</div>
-            <div className="check-item">Meeting area: {BCC_TERMS.meetingArea} — the exact venue is confirmed in your booking instructions and the event WhatsApp group</div>
-          </div>
-        </div>
-
-        <div className="col">
-          <div className="label">Dress Code</div>
-          <div className="dress-icon">👔</div>
-          <div className="dress-title">Smart Casual</div>
-          <div className="dress-desc">{BCC_TERMS.dressCode} {BCC_TERMS.dressCodeNotPermitted}</div>
-        </div>
-
-      </div>{/* /grid-2 row 3 */}
-
-      {/* ═══ ROW 3b: Booking Terms | Running Late (2-col) — Phase 2 terms ═══ */}
-      <div className="grid-2">
-
-        <div className="col">
-          <div className="label">Booking Terms</div>
-          <div className="check-list">
-            <div className="check-item">{BCC_TERMS.priceNote}</div>
-            <div className="check-item">{BCC_TERMS.minimumGroup}</div>
-            <div className="check-item">{BCC_TERMS.organizerCancellation}</div>
-            <div className="check-item">{BCC_TERMS.guestCancellation}</div>
-            <div className="check-item">{BCC_TERMS.rescheduling}</div>
-            <div className="check-item">{BCC_TERMS.thirdParty}</div>
-          </div>
-        </div>
-
-        <div className="col">
-          <div className="label">Running Late?</div>
-          <div className="check-list">
-            {BCC_TERMS.lateArrival.map((line) => (
-              <div className="check-item" key={line}>{line}</div>
-            ))}
-          </div>
-        </div>
-
-      </div>{/* /grid-2 row 3b */}
-
-
-      {/* ═══ ROW 4: This Is For You If (centered, alone) ═══ */}
+      {/* ═══ ROW 3: The Details — collapsible (Good to Know, Dress Code,
+          Booking Terms, Running Late, This Is For You If). Closed by default
+          so the page stays clean; native <details> keeps it accessible and
+          keyboard-friendly with no extra JS. ═══ */}
       <div className="foryou-band">
         <div className="foryou-inner">
-          <div className="label">This Is For You If</div>
-          <div className="check-list">
-            <div className="check-item">You&apos;re visiting Bangkok and want more than a night spent alone at a hotel bar</div>
-            <div className="check-item">You&apos;re an expat or local who wants to meet new people outside your usual circle</div>
-            <div className="check-item">You want to meet people worth meeting — not just whoever happens to be there</div>
-            <div className="check-item">You&apos;re done with overpriced tourist traps and generic club nights</div>
-          </div>
+          <div className="label">The Details</div>
+
+          <details className="info-toggle">
+            <summary>Good to Know</summary>
+            <div className="info-body">
+              <div className="check-list">
+                <div className="check-item">Smart casual dress code — enforced at all venues</div>
+                <div className="check-item">Starts {BCC_TERMS.startTime} — check in when you arrive</div>
+                <div className="check-item">{BCC_TERMS.age}</div>
+                <div className="check-item">Stop 2 serves food — great if you want to eat before the night picks up</div>
+                <div className="check-item">Book at least 3–4 days ahead — nights fill fast</div>
+                <div className="check-item">{BCC_TERMS.drinkRule}</div>
+                <div className="check-item">Meeting area: {BCC_TERMS.meetingArea} — the exact venue is confirmed in your booking instructions and the event WhatsApp group</div>
+              </div>
+            </div>
+          </details>
+
+          <details className="info-toggle">
+            <summary>Dress Code</summary>
+            <div className="info-body">
+              <div className="dress-title">Smart Casual</div>
+              <div className="dress-desc">{BCC_TERMS.dressCode} {BCC_TERMS.dressCodeNotPermitted}</div>
+            </div>
+          </details>
+
+          <details className="info-toggle">
+            <summary>Booking Terms</summary>
+            <div className="info-body">
+              <div className="check-list">
+                <div className="check-item">{BCC_TERMS.priceNote}</div>
+                <div className="check-item">{BCC_TERMS.minimumGroup}</div>
+                <div className="check-item">{BCC_TERMS.organizerCancellation}</div>
+                <div className="check-item">{BCC_TERMS.guestCancellation}</div>
+                <div className="check-item">{BCC_TERMS.rescheduling}</div>
+                <div className="check-item">{BCC_TERMS.thirdParty}</div>
+              </div>
+            </div>
+          </details>
+
+          <details className="info-toggle">
+            <summary>Running Late?</summary>
+            <div className="info-body">
+              <div className="check-list">
+                {BCC_TERMS.lateArrival.map((line) => (
+                  <div className="check-item" key={line}>{line}</div>
+                ))}
+              </div>
+            </div>
+          </details>
+
+          <details className="info-toggle">
+            <summary>This Is For You If</summary>
+            <div className="info-body">
+              <div className="check-list">
+                <div className="check-item">You&apos;re visiting Bangkok and want more than a night spent alone at a hotel bar</div>
+                <div className="check-item">You&apos;re an expat or local who wants to meet new people outside your usual circle</div>
+                <div className="check-item">You want to meet people worth meeting — not just whoever happens to be there</div>
+                <div className="check-item">You&apos;re done with overpriced tourist traps and generic club nights</div>
+              </div>
+            </div>
+          </details>
         </div>
       </div>
 
