@@ -32,7 +32,7 @@ SET
     "Food and personal spending"
   ]'::jsonb,
   important_info = '[
-    "Check-in and start: 9:30 PM in the Sukhumvit Soi 11 area. The exact meet-up venue is shared in our WhatsApp group chat on the day — by 7 PM if you booked before then.",
+    "Check-in and start: 9:30 PM in the Sukhumvit Soi 11 area. The exact meet-up venue is shared in our WhatsApp group chat by 7 PM on the day. Booked after 7 PM? We''ll send it to you directly after you book.",
     "At least one drink purchase is required at each venue, paid separately.",
     "Minimum age 20 — bring valid photo ID. Smart casual dress code.",
     "Running late? Message your host in the WhatsApp group. After 10:20 PM, contact your host there directly — late joining can''t be guaranteed once the group has moved on.",

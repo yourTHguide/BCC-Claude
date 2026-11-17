@@ -12,7 +12,7 @@ Matches the approved terms:
 - **Itinerary:** "9:30 PM — First stop", "Second stop", "Third stop", "Final stop — Late". **No end time.** The old 10:45/12:00/1:30–2:30 timetable is removed.
 - **Removed:** the "marked as a no-show" penalty, the passport-only rule, the DJ cover charge, "bring ฿2,000–3,000".
 
-**The "by 7 PM" statement:** for all 9 nights with logged sends (25 Sep – 13 Nov), the first "Tonight is confirmed" email (venue + WhatsApp link) went out between **2:14 PM and 6:48 PM**, never after 7 PM. But with bookings now open until 9:30 PM, a guest can book *after* 7 PM. So the wording is "shared in our WhatsApp group chat on the day — by 7 PM if you booked before then". The same wording is on `/booking-success`. The reschedule email keeps "by 7 PM", since rescheduled guests are always booked in advance.
+**The "by 7 PM" statement:** for all 9 nights with logged sends (25 Sep – 13 Nov), the first "Tonight is confirmed" email (venue + WhatsApp link) went out between **2:14 PM and 6:48 PM**, never after 7 PM. But with bookings now open until 9:30 PM, a guest can book *after* 7 PM. So the wording (approved 17 Nov) is: "The exact meet-up venue is shared in our WhatsApp group chat by 7 PM on the day. Booked after 7 PM? We'll send it to you directly after you book." That relies on the operator step in section 3 (the "Send to N new guests" button). The same wording is on `/booking-success`. The reschedule email keeps "by 7 PM", since rescheduled guests are always booked in advance.
 
 **Safety guard:** the update only applies if the content is unchanged since review (`updated_at = 2026-08-24 08:43:05.378196+00`). Expected result `UPDATE 1`; `UPDATE 0` means someone edited it, so stop and re-review.
 
@@ -27,8 +27,8 @@ Matches the approved terms:
 - **Never raised automatically.** Only a person changes it.
 
 **Operator checklist:**
-1. Dashboard → **Products** → **Bangkok Club Crawl** → dates table → **Edit** on a date → **Capacity** → **12** (one van) → Save. Repeat for each upcoming date.
-2. Second van confirmed for a date → Edit that date → Capacity **22** → Save.
+1. **Standard is 12 per date** (one van). Set on all upcoming dates at release. Dates added later (schedule extend / Add date) start with **no capacity** = unlimited, so set 12 on each new date: Dashboard → **Products** → **Bangkok Club Crawl** → dates table → **Edit** → **Capacity 12** → Save.
+2. Raise a date to **22** only **after the second van and staffing are confirmed** for that date: Edit → Capacity **22** → Save.
 3. Second van falls through → set it back to **12**. Existing bookings are kept; it only stops new sales above 12.
 4. "Bkgs" in that table counts booking *records* (direct + OTA), not guests. A 3-ticket booking is 1. Check guest numbers in the night's guest list.
 5. Clear the Capacity field (empty) to make a date unlimited again.
@@ -54,10 +54,12 @@ Matches the approved terms:
    **Any failure → stop, then roll back the code (5a).**
 3. **Apply the content update** (Claude, via Supabase, immediately after step 2 passes): run `bcc_phase2_product_content.sql` and expect `UPDATE 1`. Doing it right after the deploy keeps the gap between the new site and old email content to a few minutes. Bookings made in that gap get the old lists in their confirmation email.
 4. **Verify the content:** read back the row; `/events/bangkok-club-crawl` shows the new lists. No test booking or payment is made.
-5. **Done.** Then set capacities when convenient (section 2).
+5. **Set standard capacity** (Claude, approved): run `bcc_phase2_capacity_12.sql` and expect `UPDATE 12` (the 12 upcoming dates, 20 Nov to 26 Dec). Verify on `/api/events` that each date shows 12 seats left (no bookings yet). Rollback: `bcc_phase2_capacity_12_down.sql`.
+6. **Done.** Follow-up (not in this release): make new BCC dates start at 12 automatically instead of unlimited.
 
 ## 5. Rollback plan
 - **5a Code:** Vercel → bcc-claude → Deployments → the previous production deployment (commit `7b66602`, the Phase 1 release) → **Instant Rollback**. This is immediate and needs no rebuild. A git revert of the merge commit is the permanent follow-up.
 - **5b Content:** run `supabase/rollback/bcc_phase2_product_content_down.sql`. It restores the exact original values (dry-run tested). Expect `UPDATE 1`.
-- **Order:** if both are needed, roll back the code first, then the content. Content alone can be rolled back at any time, and the new code works with either version of the content.
+- **5c Capacity:** run `supabase/rollback/bcc_phase2_capacity_12_down.sql` (only resets dates still at 12).
+- **Order:** if everything is needed, roll back the code first, then content and capacity. Content alone can be rolled back at any time, and the new code works with either version of the content.
 - **No data migration** is involved: no tables or columns change, and no bookings are touched.
