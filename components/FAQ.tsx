@@ -1,19 +1,46 @@
 'use client'
 
 import { useState } from 'react'
+import { BCC_TERMS } from '@/lib/bccTerms'
 
+// Phase 2 (Nov 2026): every answer below is built from the founder-confirmed
+// terms in lib/bccTerms.ts so the FAQ can't drift from /weekends or /book.
 const faqs = [
   {
     q: 'Do I need to come with a group?',
     a: 'Not at all. Most people book solo or in pairs. The host actively introduces guests from the first stop — by venue two, you\'ll have people you want to see again.',
   },
   {
-    q: 'How do I book?',
-    a: 'Select your night, pick a date, add your details, and complete checkout. Booking confirmation and meeting point are sent immediately by email.',
+    q: 'When and where do we meet?',
+    a: `${BCC_TERMS.days} at ${BCC_TERMS.startTime} — check in when you arrive. We meet around ${BCC_TERMS.meetingArea}. ${BCC_TERMS.meetingNote}`,
   },
   {
-    q: 'What if it\'s cancelled?',
-    a: 'Events are confirmed or cancelled at 7:00 PM on the night. If cancelled, you receive a full refund within 3–5 business days. You\'ll be notified by WhatsApp and email.',
+    q: 'What\'s included?',
+    a: `Four curated nightlife venues, local hosts and a hosted group night, plus ${BCC_TERMS.shots}. ${BCC_TERMS.noFullDrinks}`,
+  },
+  {
+    q: 'Do I need to buy drinks?',
+    a: `Yes. ${BCC_TERMS.drinkRule}`,
+  },
+  {
+    q: 'What if I\'m running late?',
+    a: BCC_TERMS.lateArrivalShort.replace(/^Running late\? /, ''),
+  },
+  {
+    q: 'How do I book?',
+    a: `Pick your date, complete checkout, and your confirmation arrives by email. ${BCC_TERMS.priceNote}`,
+  },
+  {
+    q: 'What if not enough people book?',
+    a: `${BCC_TERMS.minimumGroup} ${BCC_TERMS.organizerCancellation} We\'ll let you know by email.`,
+  },
+  {
+    q: 'Can I cancel or reschedule?',
+    a: `${BCC_TERMS.guestCancellation} ${BCC_TERMS.rescheduling} ${BCC_TERMS.thirdParty}`,
+  },
+  {
+    q: 'Is there an age limit or dress code?',
+    a: `${BCC_TERMS.age} Dress code: ${BCC_TERMS.dressCode.toLowerCase()} ${BCC_TERMS.dressCodeNotPermitted}`,
   },
 ]
 

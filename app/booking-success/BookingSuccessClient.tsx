@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import type { Storefront } from '@/lib/storefront'
+import { BCC_TERMS } from '@/lib/bccTerms'
 import { brandFor } from '@/lib/storefrontBrand'
 
 declare global {
@@ -23,7 +24,8 @@ function contentIdFor(nightSlug: string): string {
   return CONTENT_IDS_BY_NIGHT_SLUG[nightSlug] ?? nightSlug
 }
 
-// "What happens next" copy, per storefront. BCC's is unchanged (WhatsApp
+// "What happens next" copy, per storefront. BCC's is the original three steps
+// plus the Phase 2 late-arrival step (WhatsApp
 // group by 7 PM, 9:30 PM meet-up) — that's BCC's real, specific run of show.
 // BNT's is deliberately generic (Stage 10 Phase 6 instruction: do not
 // reintroduce BCC-specific run-of-show copy for a BNT purchase unless the
@@ -43,6 +45,8 @@ function nextStepsFor(storefront: Storefront) {
     { step: '1', text: 'Check your email for full booking details and reminders.' },
     { step: '2', text: "By 7 PM on the day, you'll receive a WhatsApp group link with the exact meet-up location." },
     { step: '3', text: 'Show up at 9:30 PM. Your host will be there.' },
+    // Phase 2: founder-confirmed late-arrival process (lib/bccTerms.ts).
+    { step: '4', text: BCC_TERMS.lateArrivalShort },
   ]
 }
 

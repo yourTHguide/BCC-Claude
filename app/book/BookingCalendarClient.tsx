@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import type { Storefront } from '@/lib/storefront'
 import { brandFor } from '@/lib/storefrontBrand'
+import { BCC_TERMS } from '@/lib/bccTerms'
 
 declare global {
   interface Window {
@@ -770,6 +771,39 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                         <p style={{ fontWeight: 700, fontSize: '20px', color: '#fff' }}>
                           {formatPrice(totalPrice)}
                         </p>
+                      </div>
+                    )}
+
+                    {/* Phase 2 (Nov 2026): BCC pre-payment summary of the
+                        founder-confirmed terms — shown before the guest
+                        reaches Stripe. BCC storefront only; BEST products
+                        (New in Bangkok etc.) have their own terms. Copy
+                        only: nothing here affects price or availability. */}
+                    {storefront === 'bcc' && (
+                      <div
+                        style={{
+                          marginBottom: '16px', padding: '14px 16px', borderRadius: '10px',
+                          background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)',
+                        }}
+                      >
+                        <p style={{ fontWeight: 700, fontSize: '11px', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.65)', marginBottom: '10px' }}>
+                          BEFORE YOU BOOK
+                        </p>
+                        <ul style={{ margin: 0, paddingLeft: '18px', display: 'grid', gap: '6px' }}>
+                          {[
+                            `Starts ${BCC_TERMS.startTime} · meeting area ${BCC_TERMS.meetingArea}. The exact venue is confirmed in your booking instructions and the event WhatsApp group.`,
+                            `Includes ${BCC_TERMS.shots}. ${BCC_TERMS.noFullDrinks}`,
+                            BCC_TERMS.drinkRule,
+                            `${BCC_TERMS.minimumGroup} ${BCC_TERMS.organizerCancellation}`,
+                            `${BCC_TERMS.guestCancellation} ${BCC_TERMS.rescheduling}`,
+                            BCC_TERMS.lateArrivalShort,
+                            `${BCC_TERMS.age} ${BCC_TERMS.dressCode} ${BCC_TERMS.dressCodeNotPermitted}`,
+                          ].map((line) => (
+                            <li key={line} style={{ fontSize: '12px', lineHeight: 1.5, color: line === BCC_TERMS.drinkRule ? '#FFFFFF' : 'rgba(255,255,255,0.60)', fontWeight: line === BCC_TERMS.drinkRule ? 600 : 400 }}>
+                              {line}
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     )}
 

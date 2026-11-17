@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Script from 'next/script'
+import { BCC_TERMS } from '@/lib/bccTerms'
 
 declare global {
   interface Window {
@@ -804,7 +805,7 @@ export default function WeekendsPage() {
                     <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
                   </svg>
                 </div>
-                <span>9:00 PM – Late</span>
+                <span>{BCC_TERMS.startTime} – Late</span>
               </div>
               <div className="meta-item">
                 <div className="meta-icon">
@@ -883,7 +884,7 @@ export default function WeekendsPage() {
           <div className="map-placeholder">
             <iframe
               title="Asok Intersection, Bangkok"
-              src="https://maps.google.com/maps?q=Asok%20Intersection%2C%20Bangkok&z=16&output=embed"
+              src="https://maps.google.com/maps?q=Sukhumvit%20Soi%2011%2C%20Bangkok&z=16&output=embed"
               width="100%"
               height="100%"
               style={{ border: 0, display: 'block' }}
@@ -895,8 +896,8 @@ export default function WeekendsPage() {
           <div className="loc-card">
             <div className="loc-card-icon">📍</div>
             <div>
-              <h4>Asoke – Phrompong (Sukhumvit)</h4>
-              <p>Exact meet-up location confirmed via email &amp; WhatsApp after booking. Venues rotate to keep each night fresh.</p>
+              <h4>{BCC_TERMS.meetingArea}</h4>
+              <p>{BCC_TERMS.meetingNote} Venues rotate to keep each night fresh.</p>
             </div>
           </div>
           <div className="loc-card">
@@ -933,13 +934,13 @@ export default function WeekendsPage() {
                     <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z" />
                     <line x1="9" y1="2" x2="9" y2="22" strokeDasharray="2 2" />
                   </svg>
-                  <span>All cover charges + Priority entry</span>
+                  <span>Priority entry at every venue</span>
                 </div>
                 <div className="icon-cell">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent)' }}>
                     <path d="M8 22h8M12 11v11M5 2l2 9h10l2-9z" />
                   </svg>
-                  <span>2–4 Complimentary shots</span>
+                  <span>3–4 Complimentary shots</span>
                 </div>
                 <div className="icon-cell">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent)' }}>
@@ -980,7 +981,8 @@ export default function WeekendsPage() {
             <div>
               <div className="label" style={{ marginBottom: 14 }}>Not Included</div>
               <div className="not-list">
-                <div className="not-item">Additional drinks beyond the complimentary shots</div>
+                <div className="not-item">At least one drink purchased at every venue (required)</div>
+                <div className="not-item">Any other drinks beyond the complimentary shots</div>
                 <div className="not-item">Transport to or from the meet-up point</div>
                 <div className="not-item">Food and personal spending</div>
               </div>
@@ -1018,12 +1020,12 @@ export default function WeekendsPage() {
           <div className="label">Good to Know</div>
           <div className="check-list">
             <div className="check-item">Smart casual dress code — enforced at all venues</div>
-            <div className="check-item">Bring your passport — required for entry at most stops</div>
-            <div className="check-item">Minimum age 20</div>
+            <div className="check-item">Starts {BCC_TERMS.startTime} — check in when you arrive</div>
+            <div className="check-item">{BCC_TERMS.age}</div>
             <div className="check-item">Stop 2 serves food — great if you want to eat before the night picks up</div>
             <div className="check-item">Book at least 3–4 days ahead — nights fill fast</div>
-            <div className="check-item">One drink minimum per venue (your choice)</div>
-            <div className="check-item">Meet-up point confirmed via WhatsApp after booking</div>
+            <div className="check-item">{BCC_TERMS.drinkRule}</div>
+            <div className="check-item">Meeting area: {BCC_TERMS.meetingArea} — the exact venue is confirmed in your booking instructions and the event WhatsApp group</div>
           </div>
         </div>
 
@@ -1031,10 +1033,36 @@ export default function WeekendsPage() {
           <div className="label">Dress Code</div>
           <div className="dress-icon">👔</div>
           <div className="dress-title">Smart Casual</div>
-          <div className="dress-desc">Look the part and every door opens. No shorts, tank tops, sportswear, elephant pants, sandals or flip-flops. Smart shoes required at the nightclub.</div>
+          <div className="dress-desc">{BCC_TERMS.dressCode} {BCC_TERMS.dressCodeNotPermitted}</div>
         </div>
 
       </div>{/* /grid-2 row 3 */}
+
+      {/* ═══ ROW 3b: Booking Terms | Running Late (2-col) — Phase 2 terms ═══ */}
+      <div className="grid-2">
+
+        <div className="col">
+          <div className="label">Booking Terms</div>
+          <div className="check-list">
+            <div className="check-item">{BCC_TERMS.priceNote}</div>
+            <div className="check-item">{BCC_TERMS.minimumGroup}</div>
+            <div className="check-item">{BCC_TERMS.organizerCancellation}</div>
+            <div className="check-item">{BCC_TERMS.guestCancellation}</div>
+            <div className="check-item">{BCC_TERMS.rescheduling}</div>
+            <div className="check-item">{BCC_TERMS.thirdParty}</div>
+          </div>
+        </div>
+
+        <div className="col">
+          <div className="label">Running Late?</div>
+          <div className="check-list">
+            {BCC_TERMS.lateArrival.map((line) => (
+              <div className="check-item" key={line}>{line}</div>
+            ))}
+          </div>
+        </div>
+
+      </div>{/* /grid-2 row 3b */}
 
 
       {/* ═══ ROW 4: This Is For You If (centered, alone) ═══ */}

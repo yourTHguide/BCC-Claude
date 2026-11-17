@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import NightPage from '@/components/NightPage'
+import { BCC_TERMS } from '@/lib/bccTerms'
 import { buildPageMetadata } from '@/lib/seo'
 
 export const metadata: Metadata = buildPageMetadata('bcc', {
@@ -18,7 +19,7 @@ export default function SaturdaySignature() {
       theNightItems={[
         '4 premium venues — the highest-tier lineup of the week',
         'Two private party vans with music and lights — groups converge at each venue',
-        '2–4 complimentary shots during the night',
+        `${BCC_TERMS.shots} — ${BCC_TERMS.noFullDrinks.toLowerCase()}`,
         'VIP entry at all stops — no queue, no negotiation at the door',
         'Two dedicated hosts managing the full night',
         'Capped at 24 guests — larger energy than weekday editions, still curated and controlled',
@@ -39,17 +40,19 @@ export default function SaturdaySignature() {
       }
       logistics={[
         { label: 'DATE & TIME', value: 'Every Saturday · 9:30 PM – Late' },
-        { label: 'LOCATION', value: 'Sukhumvit 11 / Asoke area' },
+        { label: 'LOCATION', value: BCC_TERMS.meetingArea },
         { label: 'PRICE', value: '฿1,200 per person' },
         { label: 'SPOTS', value: 'Limited to 24 guests' },
       ]}
       goodToKnow={[
-        'Smart casual dress code — strictly enforced at premium venues on Saturday',
-        'Minimum age 20 years',
+        `${BCC_TERMS.dressCode} ${BCC_TERMS.dressCodeNotPermitted}`,
+        BCC_TERMS.age,
         'Saturday sells out regularly — book at least 3–5 days ahead',
         'Private group bookings available for 8+ guests',
-        'All guests are required to order 1 drink minimum at each venue',
-        'Event confirmed or cancelled at 7 PM',
+        BCC_TERMS.drinkRule,
+        `${BCC_TERMS.minimumGroup} ${BCC_TERMS.organizerCancellation}`,
+        `${BCC_TERMS.guestCancellation} ${BCC_TERMS.rescheduling}`,
+        BCC_TERMS.lateArrivalShort,
       ]}
       price="฿1,200"
       slug="saturday-signature"
