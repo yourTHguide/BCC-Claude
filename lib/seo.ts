@@ -169,7 +169,7 @@ export function organizationJsonLd(storefront: Storefront): Record<string, unkno
 // Public, canonical pages per sitemap. Transactional, private, retired and
 // cross-brand duplicate routes are deliberately absent.
 export function sitemapPaths(storefront: Storefront, opts: { smcIndexable: boolean }): string[] {
-  if (storefront === 'bcc') return ['/', '/weekends']
+  if (storefront === 'bcc') return ['/', '/weekends', '/booking-terms']
   const paths = ['/', '/new-in-bangkok', '/about', '/contact']
   if (opts.smcIndexable) paths.splice(2, 0, '/single-meet-club')
   return paths

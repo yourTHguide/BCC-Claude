@@ -13,6 +13,8 @@
 -- local hosts, group transport, arranged venue entry and 3–4 shots. No VIP
 -- claims, no drink deals, NO DJ/venue cover charge for guests, no
 -- passport-only ID rule, venues vary by night, no fixed end time.
+-- important_info is shown in the confirmation email, so it holds joining
+-- essentials only; the email links to /booking-terms for the full policy.
 
 UPDATE product_content c
 SET
@@ -30,19 +32,11 @@ SET
     "Food and personal spending"
   ]'::jsonb,
   important_info = '[
-    "Every Friday and Saturday. Check-in and start: 9:30 PM.",
-    "Meeting area: Sukhumvit Soi 11, Bangkok. The exact meet-up venue depends on the route and is shared in our WhatsApp group chat by 7 PM on the event day.",
-    "Each guest is required to purchase at least one drink at every venue. Drinks purchased at the venues are not included in your ticket.",
-    "Please arrive on time. Running late? Let your host know in the event WhatsApp group chat. After 10:20 PM, you must contact your host directly through the WhatsApp group. Late joining cannot be guaranteed once the night is underway, and we cannot offer individual pickups or transfers.",
-    "Minimum 5 participants. If fewer than 5 are booked, we decide at 7:00 PM on the event day whether the night goes ahead. If we cancel, you will be offered a full refund or a move to another available date.",
-    "Direct bookings are non-refundable once the night goes ahead, subject to applicable consumer protection law. You can ask to reschedule; it depends on availability and is not guaranteed. Bookings made through a third-party platform follow that platform''s terms.",
-    "Minimum age 20. Valid photo ID required.",
-    "Dress code: smart casual, suited to upscale nightlife venues. Please skip tank tops, sportswear, flip-flops, sandals and elephant pants.",
-    "Eat before you go — grab a meal before the crawl for energy.",
-    "Bring cash or a card for your drinks at each venue.",
-    "Venues vary by night, depending on that night''s arrangements.",
-    "Charge your phone — WhatsApp is your lifeline for the night.",
-    "Your host is there to help — ask anything during the night."
+    "Check-in and start: 9:30 PM in the Sukhumvit Soi 11 area. The exact meet-up venue is shared in our WhatsApp group chat by 7 PM on the day.",
+    "At least one drink purchase is required at each venue, paid separately.",
+    "Minimum age 20 — bring valid photo ID. Smart casual dress code.",
+    "Running late? Message your host in the WhatsApp group. After 10:20 PM, contact your host there directly.",
+    "Charge your phone — WhatsApp is your lifeline for the night."
   ]'::jsonb,
   itinerary = '[
     {"title": "9:30 – 10:30 PM", "description": "Check in and meet the group at the first bar, with a welcome shot to kick off the night."},

@@ -317,6 +317,11 @@ const styles = `
     .weekends-page .info-toggle[open] > summary::after { transform: rotate(45deg); }
     .weekends-page .info-toggle > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
     .weekends-page .info-body { padding: 0 0 22px; }
+    .weekends-page .terms-link {
+      display: inline-block; margin-top: 20px;
+      font-size: 13px; color: rgba(255,255,255,0.85);
+      text-decoration: underline; text-underline-offset: 3px;
+    }
 
     /* ─── TIMELINE ─── */
     .weekends-page .timeline { display: flex; flex-direction: column; }
@@ -1003,7 +1008,7 @@ export default function WeekendsPage() {
             <div>
               <div className="label" style={{ marginBottom: 14 }}>Not Included</div>
               <div className="not-list">
-                <div className="not-item">At least one drink purchased at every venue (required)</div>
+                <div className="not-item"><span><strong style={{ color: '#fff' }}>Required extra cost:</strong> at least one paid drink at every venue — not included in your ticket</span></div>
                 <div className="not-item">Any other drinks beyond the complimentary shots</div>
                 <div className="not-item">Transport to or from the meet-up point</div>
                 <div className="not-item">Food and personal spending</div>
@@ -1102,6 +1107,8 @@ export default function WeekendsPage() {
               </div>
             </div>
           </details>
+
+          <a className="terms-link" href="/booking-terms">Full booking terms &amp; cancellation policy →</a>
         </div>
       </div>
 

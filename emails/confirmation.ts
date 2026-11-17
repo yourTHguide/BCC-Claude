@@ -135,6 +135,13 @@ export function generateConfirmationEmail({
       </ul>` : ''}
     </div>` : ''
 
+  // BCC Phase 2 (Nov 2026): one link to the full booking terms instead of
+  // repeating policy paragraphs in the email. BEST bookings: unchanged.
+  const termsLinkHtml = storefront === 'bnt' ? '' : `
+    <div style="${sectionDivider}">
+      <a href="${appUrl}/booking-terms" style="font-size:13px;color:#fff;text-decoration:underline">Booking terms &amp; cancellation policy</a>
+    </div>`
+
   const importantInfoHtml = infoItems.length ? `
     <div style="${sectionDivider}">
       <p style="${eyebrow}">Good To Know</p>
@@ -193,6 +200,7 @@ export function generateConfirmationEmail({
     ${itineraryHtml}
     ${inclusionsHtml}
     ${importantInfoHtml}
+    ${termsLinkHtml}
     ${ticketCtaHtml}
 
   </td></tr>

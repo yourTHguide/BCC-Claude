@@ -27,6 +27,8 @@ export const BCC_TERMS = {
 
   shots: '3–4 complimentary shots during the night',
   noFullDrinks: 'No complimentary full-sized drinks are included.',
+  // The one disclosure on /book, next to Book Now (founder wording).
+  drinkShort: 'At least one drink purchase is required at each venue, paid separately.',
   drinkRule:
     'Each guest is required to purchase at least one drink at every venue. Drinks purchased at the venues are not included in your ticket.',
 
@@ -66,3 +68,4 @@ export const BCC_INCLUDED_SUMMARY =
 // Group size wording (founder: usually one van and ~10–12 guests; a second
 // van may be added on busier nights). Never state a fixed cap or guarantee.
 export const BCC_GROUP_SIZE = 'Small groups — usually around 10–12 guests'
+

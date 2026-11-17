@@ -25,7 +25,9 @@ Branch `bcc/phase2-operating-terms`, cut from production `main` (`7b66602`). Sco
 | `lib/bookingAvailability.ts` (new) | n/a | Cutoff, cancelled-night and capacity rules |
 | `app/api/events/route.ts` | Calendar data | Applies the three rules; returns `remaining` seats |
 | `app/api/create-checkout/route.ts` | Checkout | Same three rules, checked before any Stripe call. The Stripe session itself is unchanged. |
-| `app/book/BookingCalendarClient.tsx` | `/book` | "Before you book" summary (BCC only); stepper capped at seats left; refusal messages shown; Saturday tag "FLAGSHIP · SATURDAY" → "SATURDAY NIGHTS" |
+| `app/book/BookingCalendarClient.tsx` | `/book` | One understated line "At least one drink purchase is required at each venue, paid separately." plus a "Booking terms & cancellation policy ↗" link (new tab, keeps the selection), BCC only; event card shows "· Sukhumvit Soi 11"; "1 event tonight" → "1 event available"; stepper capped at seats left; refusal messages shown; Saturday tag "FLAGSHIP · SATURDAY" → "SATURDAY NIGHTS" |
+| `app/booking-terms/page.tsx` (new) | `/booking-terms` | Full BCC booking terms & cancellation policy (BCC host only; in BCC sitemap); linked from `/book`, `/weekends` and the confirmation email |
+| `emails/confirmation.ts` | Booking confirmation email (BCC) | Link to `/booking-terms` instead of long policy paragraphs |
 | `components/WeekendsPage.tsx` | `/weekends` | 9:30 PM; Sukhumvit Soi 11 and map pin; "Small groups — usually around 10–12 guests"; inclusions; drink rule; "Advance booking recommended"; "example route — venues vary by night"; "The Details" collapsible rows; member price and review count removed |
 | `components/FAQ.tsx` | Homepage FAQ | 9 answers built from the terms |
 | `components/Hero.tsx`, `FinalCTA.tsx`, `Reviews.tsx`, `Stops.tsx` | Homepage | Review counts removed; "From ฿1,200" → "฿1,200"; "Venues vary by night" |
@@ -62,7 +64,7 @@ Branch `bcc/phase2-operating-terms`, cut from production `main` (`7b66602`). Sco
 - **Capacity count (mock data):** test and cancelled bookings and "didn't happen" OTA bookings are excluded. Capacity 12 with 8 taken → 4 allowed, 5 refused.
 - **Browser (local production build, sample calendar data, checkout blocked, no Stripe call):**
   - With 2 seats left, the stepper stops at 2.
-  - The "Before you book" summary shows the inclusions and the drink rule, and no member price.
+  - `/book` shows only the drink line and the terms link above Book Now (approved mobile design); the terms page is reachable and BCC-only.
   - The `/weekends` "The Details" rows open and close on mobile and desktop.
 - **Copy sweep (`/`, `/weekends`):** no "฿1,000", "member", 700+/800+/797, "VIP", "drink deals", "Party Van", "cover", "3–4 days", "passport", "From ฿", "9:00 PM" or "2–4".
 - **Redirects:** `/tgif` and `/saturday-signature` → `/weekends` on BCC (308), and → `https://www.bkkclubcrawl.com/weekends` from BEST in one hop.
