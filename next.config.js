@@ -6,14 +6,60 @@ const nextConfig = {
   // Retired themed nights (removed Nov 2026): their old pages send visitors
   // to the main crawl page. Permanent so search engines drop the old URLs.
   async redirects() {
-    return ['girls-night', 'solo-night', 'nomad-nights', '30plus-night', 'lgbtplus-night'].map((slug) => ({
+    const retired = ['girls-night', 'solo-night', 'nomad-nights', '30plus-night', 'lgbtplus-night'].map((slug) => ({
       source: `/${slug}`,
       destination: '/',
       permanent: true,
     }))
+
+    // Nov 2026 SEO Phase 1 — one canonical home per page across the two
+    // storefronts this app serves. Preferred hosts:
+    //   BEST: https://bestnightlifethailand.com   (apex)
+    //   BCC:  https://www.bkkclubcrawl.com        (www; the apex -> www hop
+    //         is a Vercel domain redirect, not code)
+    // All 308 (permanent, method-preserving). /api/* is never redirected, so
+    // Stripe webhooks and checkout calls are untouched; query strings carry
+    // over automatically.
+    const BEST_HOSTS = '(www\\.)?bestnightlifethailand\\.com'
+    const BCC_HOSTS = '(www\\.)?bkkclubcrawl\\.com'
+    const BEST = 'https://bestnightlifethailand.com'
+    const BCC = 'https://www.bkkclubcrawl.com'
+
+    // BCC product pages that BEST used to serve as duplicates.
+    const bccOnBest = ['/weekends', '/tgif', '/saturday-signature'].map((path) => ({
+      source: path,
+      has: [{ type: 'host', value: BEST_HOSTS }],
+      destination: `${BCC}${path}`,
+      permanent: true,
+    }))
+
+    // BEST-exclusive pages requested on the BCC host go to BEST.
+    const bestOnBcc = ['/halloween', '/new-in-bangkok', '/single-meet-club/:path*'].map((path) => ({
+      source: path,
+      has: [{ type: 'host', value: BCC_HOSTS }],
+      destination: `${BEST}${path}`,
+      permanent: true,
+    }))
+
+    // www.bestnightlifethailand.com -> apex, everything except /api.
+    const bestWww = {
+      source: '/:path((?!api/).*)',
+      has: [{ type: 'host', value: 'www.bestnightlifethailand.com' }],
+      destination: `${BEST}/:path`,
+      permanent: true,
+    }
+
+    return [...bccOnBest, ...bestOnBcc, bestWww, ...retired]
   },
   async headers() {
     return [
+      // The project's production *.vercel.app alias serves the BCC site;
+      // keep it out of search so it can't compete with www.bkkclubcrawl.com.
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: 'bcc-claude\\.vercel\\.app' }],
+        headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }],
+      },
       {
         source: '/:all*(jpg|jpeg|png|webp|gif|svg)',
         headers: [

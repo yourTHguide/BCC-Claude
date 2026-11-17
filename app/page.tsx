@@ -14,36 +14,15 @@ import Footer from '@/components/Footer'
 import StickyBar from '@/components/StickyBar'
 import { resolveStorefront } from '@/lib/storefront'
 import BntLandingPage from '@/components/bnt/BntLandingPage'
+import { buildPageMetadata } from '@/lib/seo'
 
 export const dynamic = 'force-dynamic'
 
-// The root layout's static `metadata` export is BCC-branded (it's the
-// long-standing default for bkkclubcrawl.com); this override only replaces
-// it for the BNT host, matching landing.html's own <title>/description
-// exactly. Returning undefined-equivalent (an empty object won't work —
-// Next.js requires a full object) for the BCC case would blank the title,
-// so the BCC branch re-states the layout's existing values verbatim rather
-// than omitting them.
+// Both homepages share this route; metadata is fully per-storefront so BCC
+// share tags never appear on bestnightlifethailand.com (Nov 2026 audit).
 export async function generateMetadata(): Promise<Metadata> {
-  const host = headers().get('host')
-  if (resolveStorefront(host) === 'bnt') {
-    return {
-      title: 'Bangkok Nightlife. Unlocked. | BEST NIGHTLIFE THAILAND',
-      description:
-        'Private parties, luxury yachts, and VIP club access. Perfectly designed for you. BEST NIGHTLIFE THAILAND is your premium nightlife concierge.',
-    }
-  }
-  return {
-    title: 'Bangkok Club Crawl — Bangkok Nights. Done Right.',
-    description:
-      'Premium structured nightlife experience in Bangkok. Curated venues, VIP entry, and dedicated hosts every weekend.',
-    openGraph: {
-      title: 'Bangkok Club Crawl — Bangkok Nights. Done Right.',
-      description: 'Curated venues. VIP entry. A crowd worth meeting.',
-      url: 'https://bkkclubcrawl.com',
-      type: 'website',
-    },
-  }
+  const storefront = resolveStorefront(headers().get('host'))
+  return buildPageMetadata(storefront, { path: '/' })
 }
 
 export default function Home() {

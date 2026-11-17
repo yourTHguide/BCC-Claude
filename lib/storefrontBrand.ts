@@ -53,7 +53,7 @@ export const STOREFRONT_BRAND: Record<Storefront, StorefrontBrand> = {
     supportWhatsappUrl: 'https://wa.me/66660399569',
     supportWhatsappDisplay: '(+66) 66-039-9569',
     supportEmail: 'bestnightlifethailand@gmail.com',
-    siteDomain: 'www.bestnightlifethailand.com',
+    siteDomain: 'bestnightlifethailand.com',
     emailSenderName: 'BEST Nightlife Thailand',
   },
 }
