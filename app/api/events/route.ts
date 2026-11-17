@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
     const { data, error } = await supabase
       .from('event_dates')
       .select(
-        'id, event_date, night_slug, night_name, price_override, start_time_override, capacity, product_id, operation_verdict, night_status, ' +
+        'id, event_date, night_slug, night_name, price_override, start_time_override, capacity, product_id, operation_verdict, ' +
           'products!inner ( id, slug, name, status, default_price, default_start_time, visible_bcc, visible_bnt, ' +
           'early_bird_price, early_bird_cutoff_hours )'
       )

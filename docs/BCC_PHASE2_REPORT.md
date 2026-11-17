@@ -11,8 +11,8 @@ Branch `bcc/phase2-operating-terms`, cut from production `main` (`7b66602`). Sco
 | Rule | Before | After |
 |---|---|---|
 | Same-day cutoff | BCC nights stayed bookable until midnight. Checkout didn't check the date at all, so any still-open past night could be bought directly. | BCC closes at its start time (9:30 PM Bangkok) on the night, in both the calendar and checkout. Past dates are refused for every product. New in Bangkok keeps its date-only rule (BCC-only scope). |
-| Cancelled nights | Choosing "Cancelled / Rescheduled" in the dashboard only recorded the verdict; the night stayed bookable. | Nights with that verdict, or recorded as "didn't run", never appear in the calendar and are refused at checkout. Refund automation is unchanged. |
-| Capacity | `capacity` existed per date (dashboard → Products → dates) but was never enforced. | When a date has a capacity, seats taken (confirmed direct bookings + OTA bookings, the same count the dashboard shows) are subtracted. The calendar caps the ticket stepper at seats left and hides full nights. Checkout refuses orders that don't fit ("Only 2 spots left for this date"). No capacity set = no limit, as before. Capacity is never raised automatically. |
+| Cancelled nights | Choosing "Cancelled / Rescheduled" in the dashboard only recorded the verdict; the night stayed bookable. | Nights with that verdict never appear in the calendar and are refused at checkout. Refund automation is unchanged. |
+| Capacity | `capacity` existed per date (dashboard → Products → dates) but was never enforced. | When a date has a capacity, seats taken (confirmed direct bookings + OTA bookings, exactly the count the dashboard shows) are subtracted. The calendar caps the ticket stepper at seats left and hides full nights. Checkout refuses orders that don't fit ("Only 2 spots left for this date"). No capacity set = no limit, as before. Capacity is never raised automatically. |
 | Error message | Any refusal showed "Something went wrong" | The guest sees checkout's reason (closed / full / not open) |
 
 **Action for you:** set each date's capacity in the dashboard (usually 12; raise to ~22 only when a second van is arranged). Until a capacity is set, a date stays unlimited, as it is today.
@@ -60,8 +60,9 @@ Branch `bcc/phase2-operating-terms`, cut from production `main` (`7b66602`). Sco
 - **Booking rules (unit tests, 14 cases, all pass):**
   - Bookable at 21:29:59 Bangkok time, closed at 21:30:00 and after midnight.
   - Future dates stay open; New in Bangkok keeps its rule; a missing start time falls back to the date rule.
-  - "Cancelled / Rescheduled" and "didn't run" are blocked; "Operation Confirmed" and "Pending" are not.
-- **Capacity count (mock data):** test and cancelled bookings and "didn't happen" OTA bookings are excluded. Capacity 12 with 8 taken → 4 allowed, 5 refused.
+  - "Cancelled / Rescheduled" is blocked; "Operation Confirmed" and "Pending" are not.
+- **Capacity count (mock data):** confirmed direct + OTA seats are counted and cancelled bookings excluded, matching the dashboard's count. With 2 seats left, 4 and 5 are refused.
+- **Preview fix:** the first preview's events feed failed because the Preview database lacks the newer `night_status` column. The rules now use only columns every database has (`operation_verdict`, `capacity`, booking quantities).
 - **Browser (local production build, sample calendar data, checkout blocked, no Stripe call):**
   - With 2 seats left, the stepper stops at 2.
   - `/book` shows only the drink line and the terms link above Book Now (approved mobile design); the terms page is reachable and BCC-only.

@@ -108,7 +108,7 @@ async function createDynamicCheckout({
     let query = supabase
       .from('event_dates')
       .select(
-        'id, event_date, night_slug, night_name, is_open, price_override, start_time_override, product_id, capacity, operation_verdict, night_status, ' +
+        'id, event_date, night_slug, night_name, is_open, price_override, start_time_override, product_id, capacity, operation_verdict, ' +
           'products ( id, slug, name, status, default_price, default_start_time, visible_bcc, visible_bnt, ' +
           'early_bird_price, early_bird_cutoff_hours )'
       )

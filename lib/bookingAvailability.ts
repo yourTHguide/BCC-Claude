@@ -11,7 +11,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 //    9:30 PM start (the event's effective start time), then close. Other
 //    products keep their existing date-only cutoff (BCC-only scope).
 // 3. Capacity: when a date has a capacity set in the dashboard, seats already
-//    taken (paid direct bookings + OTA bookings, the same count the dashboard
+//    taken (confirmed direct bookings + OTA bookings, the same count the dashboard
 //    shows) are subtracted and the night closes when full. No capacity set =
 //    no limit, exactly as before. Capacity is NEVER raised automatically.
 
@@ -19,10 +19,11 @@ export const BCC_PRODUCT_SLUG = 'bangkok-club-crawl'
 
 const CANCELLED_VERDICTS = new Set(['Cancelled / Rescheduled'])
 
-export function isCancelledEvent(row: { operation_verdict?: string | null; night_status?: string | null }): boolean {
-  if (row.operation_verdict && CANCELLED_VERDICTS.has(row.operation_verdict)) return true
-  if (row.night_status && row.night_status.startsWith('didnt_run')) return true
-  return false
+// Keyed on operation_verdict only: night_status ("didn't run") is recorded
+// after the fact for past nights (already closed by the date cutoff), and it
+// doesn't exist in every database (the Preview DB predates it).
+export function isCancelledEvent(row: { operation_verdict?: string | null }): boolean {
+  return !!row.operation_verdict && CANCELLED_VERDICTS.has(row.operation_verdict)
 }
 
 // Current date (YYYY-MM-DD) and time (HH:MM:SS) in Asia/Bangkok.
@@ -63,27 +64,26 @@ interface SeatKey {
   night_slug: string
 }
 
-// Seats already taken per (event_date, night_slug): confirmed, non-test
-// direct bookings + OTA bookings, mirroring the dashboard's guest count
-// (lib/operator/queue.ts). Only called for events that have a capacity.
+// Seats already taken per (event_date, night_slug): confirmed direct
+// bookings + OTA bookings — exactly the dashboard's guest count
+// (lib/operator/queue.ts). Uses only long-standing columns so it works on
+// every database (Preview's schema predates newer status columns). Only
+// called for events that have a capacity.
 export async function seatsTaken(supabase: SupabaseClient, keys: SeatKey[]): Promise<Map<string, number>> {
   const taken = new Map<string, number>()
   if (keys.length === 0) return taken
   const dates = Array.from(new Set(keys.map((k) => k.event_date)))
   const slugs = Array.from(new Set(keys.map((k) => k.night_slug)))
   const [{ data: direct, error: e1 }, { data: ota, error: e2 }] = await Promise.all([
-    supabase.from('bookings').select('event_date, night_slug, quantity, is_test')
+    supabase.from('bookings').select('event_date, night_slug, quantity')
       .in('event_date', dates).in('night_slug', slugs).eq('status', 'confirmed'),
-    supabase.from('ota_bookings').select('event_date, night_slug, quantity, booking_status')
+    supabase.from('ota_bookings').select('event_date, night_slug, quantity')
       .in('event_date', dates).in('night_slug', slugs),
   ])
   if (e1 || e2) throw e1 ?? e2
   const add = (k: string, q: number | null) => taken.set(k, (taken.get(k) ?? 0) + (q ?? 0))
-  for (const b of direct ?? []) if (!b.is_test) add(`${b.event_date}|${b.night_slug}`, b.quantity)
-  for (const o of ota ?? []) {
-    if (o.booking_status === 'didnt_happen_refund_owed') continue
-    add(`${o.event_date}|${o.night_slug}`, o.quantity)
-  }
+  for (const b of direct ?? []) add(`${b.event_date}|${b.night_slug}`, b.quantity)
+  for (const o of ota ?? []) add(`${o.event_date}|${o.night_slug}`, o.quantity)
   return taken
 }
 
