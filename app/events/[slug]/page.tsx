@@ -38,7 +38,11 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   if (!data) return {}
   return buildPageMetadata(storefront, {
     path: DEDICATED_PAGE[params.slug] ?? `/events/${params.slug}`,
-    title: `${data.product.name} | ${brandFor(storefront).name}`,
+    // Avoid "Bangkok Club Crawl | Bangkok Club Crawl" when the product is the brand.
+    title:
+      data.product.name === brandFor(storefront).name
+        ? data.product.name
+        : `${data.product.name} | ${brandFor(storefront).name}`,
   })
 }
 
