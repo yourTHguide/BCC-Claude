@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Script from 'next/script'
-import { BCC_TERMS } from '@/lib/bccTerms'
+import { BCC_GROUP_SIZE, BCC_TERMS } from '@/lib/bccTerms'
 
 declare global {
   interface Window {
@@ -424,6 +424,7 @@ const styles = `
     }
     .weekends-page .dress-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
     .weekends-page .dress-desc  { font-size: 13px; color: var(--muted); line-height: 1.6; }
+    .weekends-page .route-note  { font-size: 12px; color: var(--muted); margin: -8px 0 20px; line-height: 1.5; }
 
     /* ─── STICKY BAR ─── */
     .weekends-page .sticky-bar {
@@ -456,7 +457,6 @@ const styles = `
     .weekends-page .bar-price { display: flex; align-items: baseline; gap: 4px; flex-wrap: nowrap; white-space: nowrap; }
     .weekends-page .bar-amount { font-size: 18px; font-weight: 800; white-space: nowrap; }
     .weekends-page .bar-unit   { font-size: 10px; font-weight: 600; letter-spacing: 0.04em; opacity: 0.8; white-space: nowrap; }
-    .weekends-page .bar-member { font-size: 10px; opacity: 0.7; margin-top: 1px; white-space: nowrap; }
     .weekends-page .btn-book {
       background: #fff; color: #0D0008;
       border: none; border-radius: 8px;
@@ -590,7 +590,7 @@ const styles = `
       .weekends-page .bar-contact { gap: 10px; }
       .weekends-page .bar-divider { height: 30px; margin: 0; }
       .weekends-page .bar-amount { font-size: 24px; }
-      .weekends-page .bar-unit, .weekends-page .bar-member { font-size: 11px; }
+      .weekends-page .bar-unit { font-size: 11px; }
       .weekends-page .btn-book { font-size: 13px; padding: 12px 22px; }
       .weekends-page .btn-book-full { display: inline; }
       .weekends-page .btn-book-short { display: none; }
@@ -834,7 +834,7 @@ export default function WeekendsPage() {
                     <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
                   </svg>
                 </div>
-                <span>Limited to 12 guests</span>
+                <span>{BCC_GROUP_SIZE}</span>
               </div>
             </div>
           </div>
@@ -867,6 +867,7 @@ export default function WeekendsPage() {
         {/* What We'll Do */}
         <div className="col col-whatwedo">
           <div className="label">What We&apos;ll Do</div>
+          <p className="route-note">An example route — venues vary by night, depending on that night&apos;s arrangements.</p>
           <div className="timeline">
             <div className="tl-item">
               <div className="tl-num">1</div>
@@ -893,7 +894,7 @@ export default function WeekendsPage() {
               <div className="tl-num">4</div>
               <div className="tl-body" style={{ paddingBottom: 0 }}>
                 <h4>NIGHTCLUB</h4>
-                <p>VIP entry, no queue, peak sound system. This is the reason Bangkok nights have a reputation.</p>
+                <p>Entry arranged for the group, peak sound system. This is the reason Bangkok nights have a reputation.</p>
               </div>
             </div>
           </div>
@@ -933,7 +934,7 @@ export default function WeekendsPage() {
         {/* Reviews (Elfsight) — mobile: between What We'll Do & Where We Go; desktop: full-width below */}
         <div className="reviews-block">
           <div className="label">What Guests Say</div>
-          <h3 className="reviews-title">700+ nights. All rated 5 stars.</h3>
+          <h3 className="reviews-title">Straight from our guests.</h3>
           <Script src="https://elfsightcdn.com/platform.js" strategy="afterInteractive" />
           <div className="elfsight-app-c9a3552e-9881-4e1c-98f3-0a366fc9e590" data-elfsight-app-lazy></div>
         </div>
@@ -955,7 +956,7 @@ export default function WeekendsPage() {
                     <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z" />
                     <line x1="9" y1="2" x2="9" y2="22" strokeDasharray="2 2" />
                   </svg>
-                  <span>Priority entry at every venue</span>
+                  <span>Arranged venue entry</span>
                 </div>
                 <div className="icon-cell">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent)' }}>
@@ -967,7 +968,7 @@ export default function WeekendsPage() {
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent)' }}>
                     <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                   </svg>
-                  <span>Special drink deals</span>
+                  <span>Four curated venues</span>
                 </div>
                 <div className="icon-cell">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent)' }}>
@@ -985,7 +986,7 @@ export default function WeekendsPage() {
                     <circle cx="7" cy="17" r="3" fill="none" />
                     <circle cx="22" cy="17" r="3" fill="none" />
                   </svg>
-                  <span>Private Party Van (if needed)</span>
+                  <span>Group transport between venues</span>
                 </div>
                 <div className="icon-cell">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent)' }}>
@@ -1050,7 +1051,7 @@ export default function WeekendsPage() {
                 <div className="check-item">Starts {BCC_TERMS.startTime} — check in when you arrive</div>
                 <div className="check-item">{BCC_TERMS.age}</div>
                 <div className="check-item">Stop 2 serves food — great if you want to eat before the night picks up</div>
-                <div className="check-item">Book at least 3–4 days ahead — nights fill fast</div>
+                <div className="check-item">Advance booking recommended</div>
                 <div className="check-item">{BCC_TERMS.drinkRule}</div>
                 <div className="check-item">Meeting area: {BCC_TERMS.meetingArea} — the exact venue is confirmed in your booking instructions and the event WhatsApp group</div>
               </div>
@@ -1128,7 +1129,6 @@ export default function WeekendsPage() {
                 <span className="bar-amount">฿1,200</span>
                 <span className="bar-unit">/ PERSON</span>
               </div>
-              <div className="bar-member">฿1,000 for members</div>
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>

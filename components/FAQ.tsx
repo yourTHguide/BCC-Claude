@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { BCC_TERMS } from '@/lib/bccTerms'
+import { BCC_INCLUDED_SUMMARY, BCC_TERMS } from '@/lib/bccTerms'
 
 // Phase 2 (Nov 2026): every answer below is built from the founder-confirmed
 // terms in lib/bccTerms.ts so the FAQ can't drift from /weekends or /book.
@@ -16,7 +16,7 @@ const faqs = [
   },
   {
     q: 'What\'s included?',
-    a: `Four curated nightlife venues, local hosts and a hosted group night, plus ${BCC_TERMS.shots}. ${BCC_TERMS.noFullDrinks}`,
+    a: `${BCC_INCLUDED_SUMMARY}, plus ${BCC_TERMS.shots}. ${BCC_TERMS.noFullDrinks}`,
   },
   {
     q: 'Do I need to buy drinks?',

@@ -50,29 +50,19 @@ export const BCC_TERMS = {
   thirdParty:
     'Booked through a third-party platform? That platform’s cancellation and amendment terms apply.',
 
-  age: 'Minimum age 20. Please bring valid photo ID — venues may check it at the door.',
+  age: 'Minimum age 20. Valid photo ID required.',
   dressCode: 'Smart casual, suited to upscale nightlife venues.',
   dressCodeNotPermitted: 'Please skip tank tops, sportswear, flip-flops, sandals and elephant pants.',
 } as const
 
-// What's Included — founder-confirmed items, plus existing inclusions that
-// the live product configuration (product_content.whats_included for
-// bangkok-club-crawl: VIP entry at all stops, transport between venues,
-// drink deals) already supports. "All cover charges" was removed: the same
-// configuration lists a cover charge on DJ nights as NOT included.
-export const BCC_INCLUDED = [
-  'Four curated nightlife venues',
-  'Local hosts who run the night for your group',
-  '3–4 complimentary shots during the night',
-  'Priority entry at every venue',
-  'Private Party Van between venues (if needed)',
-  'Special drink deals',
-  'International group',
-] as const
+export const BCC_INCLUDED_SUMMARY =
+  'Four curated nightlife venues, local hosts, group transport between venues and arranged venue entry'
 
-export const BCC_NOT_INCLUDED = [
-  'At least one drink purchased at every venue (required)',
-  'Any other drinks beyond the complimentary shots',
-  'Transport to or from the meeting point',
-  'Food and personal spending',
-] as const
+// What's Included above — founder-confirmed (Phase 2 decisions, 17 Nov 2026):
+// four curated venues, local hosts, group transportation, arranged venue
+// entry, 3–4 complimentary shots. No VIP/priority claims, drink deals or
+// cover charges (there is no DJ/venue cover charge for BCC guests).
+
+// Group size wording (founder: usually one van and ~10–12 guests; a second
+// van may be added on busier nights). Never state a fixed cap or guarantee.
+export const BCC_GROUP_SIZE = 'Small groups — usually around 10–12 guests'

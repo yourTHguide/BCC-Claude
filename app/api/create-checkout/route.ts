@@ -3,6 +3,7 @@ import { stripe, getPriceId, NIGHT_NAMES } from '@/lib/stripe'
 import { isDedicatedFlowProduct } from '@/lib/smc/config'
 import { getServiceSupabase } from '@/lib/supabase'
 import { getAppUrl } from '@/lib/appUrl'
+import { isCancelledEvent, isPastBookingCutoff, seatKey, seatsTaken } from '@/lib/bookingAvailability'
 import { resolveStorefront, VISIBILITY_COLUMN } from '@/lib/storefront'
 import { resolveEventPricing } from '@/lib/pricing'
 import { stripePaymentLabel } from '@/lib/stripePaymentLabel'
@@ -107,7 +108,7 @@ async function createDynamicCheckout({
     let query = supabase
       .from('event_dates')
       .select(
-        'id, event_date, night_slug, night_name, is_open, price_override, start_time_override, product_id, ' +
+        'id, event_date, night_slug, night_name, is_open, price_override, start_time_override, product_id, capacity, operation_verdict, night_status, ' +
           'products ( id, slug, name, status, default_price, default_start_time, visible_bcc, visible_bnt, ' +
           'early_bird_price, early_bird_cutoff_hours )'
       )
@@ -205,6 +206,37 @@ async function createDynamicCheckout({
       { error: 'This experience is not available' },
       { status: 409 }
     )
+  }
+
+  // 5b. BCC Phase 2 availability — the same rules /api/events applies to the
+  //     calendar (lib/bookingAvailability.ts), re-checked here so a stale page
+  //     or a hand-built request can't book around them.
+  //     - a night marked "Cancelled / Rescheduled" never takes bookings
+  //     - Bangkok Club Crawl closes at its start time (9:30 PM) on the night;
+  //       every product closes once its date has passed
+  //     - when the date has a capacity, the order must fit the seats left
+  if (isCancelledEvent(event)) {
+    return NextResponse.json({ error: 'This date is not open for booking' }, { status: 409 })
+  }
+  const startTimeForCutoff = event.start_time_override ?? product.default_start_time ?? null
+  if (isPastBookingCutoff(event.event_date, startTimeForCutoff, product.slug)) {
+    return NextResponse.json({ error: 'Booking for this date has closed' }, { status: 409 })
+  }
+  if (event.capacity != null) {
+    let left: number
+    try {
+      const taken = await seatsTaken(getServiceSupabase(), [event])
+      left = event.capacity - (taken.get(seatKey(event)) ?? 0)
+    } catch (err) {
+      console.error('create-checkout: capacity check failed:', err)
+      return NextResponse.json({ error: 'Booking temporarily unavailable. Please try again.' }, { status: 503 })
+    }
+    if (qty > left) {
+      return NextResponse.json(
+        { error: left > 0 ? `Only ${left} spot${left === 1 ? '' : 's'} left for this date` : 'This date is full' },
+        { status: 409 }
+      )
+    }
   }
 
   // 6. Regular price is a valid positive integer (THB whole units)

@@ -9,26 +9,25 @@
 -- 2:30 AM finish and a "marked as a no-show" penalty — all of which conflict
 -- with the founder-confirmed terms (lib/bccTerms.ts, 17 Nov 2026).
 --
--- Kept from the existing configuration (not contradicted by the terms):
--- transport between venues, VIP entry, drink deals, host, DJ-night cover
--- charge note, ID guidance, cash/eat/phone tips. Those marked FLAG in the
--- Phase 2 report still need Guide's confirmation.
+-- Final founder decisions (17 Nov 2026): inclusions are four curated venues,
+-- local hosts, group transport, arranged venue entry and 3–4 shots. No VIP
+-- claims, no drink deals, NO DJ/venue cover charge for guests, no
+-- passport-only ID rule, venues vary by night, no fixed end time.
 
 UPDATE product_content c
 SET
   whats_included = '[
     "Four curated nightlife venues",
-    "Dedicated local host all night",
-    "3–4 complimentary shots during the night (no complimentary full-sized drinks)",
-    "VIP entry at all stops",
-    "Free transport between venues",
-    "Exclusive drink deals"
+    "Local hosts who run the night for your group",
+    "Group transport between venues",
+    "Arranged venue entry",
+    "3–4 complimentary shots during the night (no complimentary full-sized drinks)"
   ]'::jsonb,
   whats_not_included = '[
     "At least one drink purchased at every venue — required, not included in your ticket",
     "Any other drinks beyond the complimentary shots",
-    "Cover charge on DJ nights only — entry is free on all regular nights",
-    "Ride home"
+    "Transport to or from the meeting point",
+    "Food and personal spending"
   ]'::jsonb,
   important_info = '[
     "Every Friday and Saturday. Check-in and start: 9:30 PM.",
@@ -37,10 +36,11 @@ SET
     "Please arrive on time. Running late? Let your host know in the event WhatsApp group chat. After 10:20 PM, you must contact your host directly through the WhatsApp group. Late joining cannot be guaranteed once the night is underway, and we cannot offer individual pickups or transfers.",
     "Minimum 5 participants. If fewer than 5 are booked, we decide at 7:00 PM on the event day whether the night goes ahead. If we cancel, you will be offered a full refund or a move to another available date.",
     "Direct bookings are non-refundable once the night goes ahead, subject to applicable consumer protection law. You can ask to reschedule; it depends on availability and is not guaranteed. Bookings made through a third-party platform follow that platform''s terms.",
-    "Minimum age 20. Bring valid photo ID — venues may check it at the door. ID: physical passport required for under 25; digital ID may work if 25+.",
+    "Minimum age 20. Valid photo ID required.",
     "Dress code: smart casual, suited to upscale nightlife venues. Please skip tank tops, sportswear, flip-flops, sandals and elephant pants.",
     "Eat before you go — grab a meal before the crawl for energy.",
-    "Bring cash: ฿2,000–3,000 for drinks, cover charges, and tips.",
+    "Bring cash or a card for your drinks at each venue.",
+    "Venues vary by night, depending on that night''s arrangements.",
     "Charge your phone — WhatsApp is your lifeline for the night.",
     "Your host is there to help — ask anything during the night."
   ]'::jsonb,

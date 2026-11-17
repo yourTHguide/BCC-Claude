@@ -25,11 +25,25 @@ const nextConfig = {
     const BEST = 'https://bestnightlifethailand.com'
     const BCC = 'https://www.bkkclubcrawl.com'
 
-    // BCC product pages that BEST used to serve as duplicates.
-    const bccOnBest = ['/weekends', '/tgif', '/saturday-signature'].map((path) => ({
+    // BCC product pages that BEST used to serve as duplicates. /tgif and
+    // /saturday-signature were retired (BCC Phase 2: Friday and Saturday are
+    // the same Bangkok Club Crawl experience), so they go straight to
+    // /weekends in one hop.
+    const bccOnBest = [
+      ['/weekends', '/weekends'],
+      ['/tgif', '/weekends'],
+      ['/saturday-signature', '/weekends'],
+    ].map(([path, target]) => ({
       source: path,
       has: [{ type: 'host', value: BEST_HOSTS }],
-      destination: `${BCC}${path}`,
+      destination: `${BCC}${target}`,
+      permanent: true,
+    }))
+
+    // Retired night pages on the BCC host (and previews) -> /weekends.
+    const retiredNights = ['/tgif', '/saturday-signature'].map((path) => ({
+      source: path,
+      destination: '/weekends',
       permanent: true,
     }))
 
@@ -49,7 +63,7 @@ const nextConfig = {
       permanent: true,
     }
 
-    return [...bccOnBest, ...bestOnBcc, bestWww, ...retired]
+    return [...bccOnBest, ...bestOnBcc, bestWww, ...retiredNights, ...retired]
   },
   async headers() {
     return [

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 
 export default function FinalCTA() {
-  const facts = ['Friday & Saturday nights', 'Meet up 9:30 PM', 'Groups capped', '800+ five-star reviews']
+  const facts = ['Friday & Saturday nights', 'Meet up 9:30 PM', 'Small groups', 'Local hosts']
 
   return (
     <section
@@ -88,7 +88,7 @@ export default function FinalCTA() {
             marginTop: '16px',
           }}
         >
-          From ฿1,200 per person
+          ฿1,200 per person
         </p>
       </div>
 

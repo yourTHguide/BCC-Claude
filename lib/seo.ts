@@ -36,8 +36,8 @@ export const SITE_DEFAULTS: Record<Storefront, SiteDefaults> = {
     siteName: 'Bangkok Club Crawl',
     title: 'Bangkok Club Crawl — Bangkok Nights. Done Right.',
     description:
-      'Premium structured nightlife experience in Bangkok. Curated venues, VIP entry, and dedicated hosts every weekend.',
-    ogDescription: 'Curated venues. VIP entry. A crowd worth meeting.',
+      'Premium structured nightlife experience in Bangkok. Curated venues, arranged entry, and dedicated hosts every weekend.',
+    ogDescription: 'Curated venues. Local hosts. A crowd worth meeting.',
     image: '/og/bcc.jpg',
     imageAlt: 'Bangkok Club Crawl guests at a Bangkok venue',
   },

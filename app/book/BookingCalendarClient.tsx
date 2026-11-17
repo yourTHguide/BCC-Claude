@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import type { Storefront } from '@/lib/storefront'
 import { brandFor } from '@/lib/storefrontBrand'
-import { BCC_TERMS } from '@/lib/bccTerms'
+import { BCC_INCLUDED_SUMMARY, BCC_TERMS } from '@/lib/bccTerms'
 
 declare global {
   interface Window {
@@ -32,6 +32,8 @@ interface EventInstance {
   earlyBirdAvailable: boolean
   effectiveStartTime: string | null // HH:MM:SS
   capacity: number | null
+  // Seats left when the date has a capacity set (null = no limit).
+  remaining?: number | null
 }
 
 // ─── Marketing presentation ONLY (not operational data) ─────────────────────
@@ -43,18 +45,16 @@ interface EventInstance {
 // viewed from.
 const PRESENTATION: Record<string, { tag: string; color: string }> = {
   tgif: { tag: 'FRIDAY NIGHTS', color: '#EA003A' },
-  'saturday-signature': { tag: 'FLAGSHIP · SATURDAY', color: '#EA003A' },
+  'saturday-signature': { tag: 'SATURDAY NIGHTS', color: '#EA003A' },
 }
 function presentationFor(slug: string, storefront: Storefront) {
   return PRESENTATION[slug] ?? { tag: brandFor(storefront).shortName, color: '#EA003A' }
 }
 
-// Per-order transaction safeguard for the quantity selector. This is a checkout
-// UX limit, NOT event/venue capacity. It matches the hard cap the checkout API
-// already enforces (create-checkout rejects qty > 24). Phase 3 governs the
-// stepper ONLY by this safeguard — event.capacity is intentionally not used to
-// drive purchase quantity yet (real capacity enforcement is out of scope); it
-// stays in the API response for future use.
+// Per-order transaction safeguard for the quantity selector (a checkout UX
+// limit matching create-checkout's hard cap of 24). Since BCC Phase 2 the
+// stepper is ALSO capped by the date's seats left (`remaining`) whenever the
+// dashboard has a capacity set for that date; no capacity = this cap only.
 const MAX_TICKETS_PER_ORDER = 24
 function maxTickets(): number {
   return MAX_TICKETS_PER_ORDER
@@ -239,7 +239,10 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
       : selectedEvent?.effectivePrice ?? null
   const totalPrice = unitPrice != null ? unitPrice * quantity : null
   const selectedDateStr = selectedDateISO ? formatDateLabel(selectedDateISO) : null
-  const capMax = maxTickets()
+  // Never offer more tickets than the date has seats left (server re-checks).
+  const capMax = selectedEvent?.remaining != null
+    ? Math.max(1, Math.min(maxTickets(), selectedEvent.remaining))
+    : maxTickets()
   const brand = brandFor(storefront)
 
   return (
@@ -792,7 +795,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                         <ul style={{ margin: 0, paddingLeft: '18px', display: 'grid', gap: '6px' }}>
                           {[
                             `Starts ${BCC_TERMS.startTime} · meeting area ${BCC_TERMS.meetingArea}. The exact venue is confirmed in your booking instructions and the event WhatsApp group.`,
-                            `Includes ${BCC_TERMS.shots}. ${BCC_TERMS.noFullDrinks}`,
+                            `Includes ${BCC_INCLUDED_SUMMARY.charAt(0).toLowerCase()}${BCC_INCLUDED_SUMMARY.slice(1)}, plus ${BCC_TERMS.shots}. ${BCC_TERMS.noFullDrinks}`,
                             BCC_TERMS.drinkRule,
                             `${BCC_TERMS.minimumGroup} ${BCC_TERMS.organizerCancellation}`,
                             `${BCC_TERMS.guestCancellation} ${BCC_TERMS.rescheduling}`,
@@ -848,7 +851,9 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                             })
                             window.location.href = data.url
                           } else {
-                            alert('Something went wrong. Please try again.')
+                            // Show checkout's own reason when it gives one
+                            // (closed, cancelled, full) — Phase 2.
+                            alert(typeof data.error === 'string' ? data.error : 'Something went wrong. Please try again.')
                           }
                         } catch {
                           alert('Something went wrong. Please try again.')

@@ -38,7 +38,7 @@ export function generateConfirmedMeetupEmail({
   // template keep their original wording unchanged (BCC-only scope).
   const isBcc = storefront !== 'bnt'
   const dressReminder = isBcc
-    ? `${BCC_TERMS.dressCode} ${BCC_TERMS.dressCodeNotPermitted} Minimum age 20 — bring valid photo ID.`
+    ? `${BCC_TERMS.dressCode} ${BCC_TERMS.dressCodeNotPermitted} ${BCC_TERMS.age}`
     : 'No shorts, tank tops, sportswear, sandals, or flip-flops for men. No sandals or flip-flops for women (ankle-strap sandals are fine). Bring ID.'
   const lateNote = isBcc
     ? `<p style="margin:14px 0 0;font-size:12px;color:rgba(255,255,255,0.65);line-height:1.6">${BCC_TERMS.lateArrivalShort}</p>`

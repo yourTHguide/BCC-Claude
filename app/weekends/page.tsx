@@ -7,7 +7,7 @@ import { buildPageMetadata } from '@/lib/seo'
 export const metadata: Metadata = buildPageMetadata('bcc', {
   path: '/weekends',
   title: 'Bangkok Club Crawl — Friday & Saturday Nights',
-  description: 'Four venues. A crowd worth meeting. The weekend Bangkok Club Crawl — Friday & Saturday nights, VIP entry, capped at 12 guests.',
+  description: 'Four venues. A crowd worth meeting. The weekend Bangkok Club Crawl — Friday & Saturday nights in small hosted groups.',
 })
 
 export default function Weekends() {

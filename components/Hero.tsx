@@ -102,10 +102,7 @@ export default function Hero() {
 
           <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', color: 'rgba(255,255,255,0.55)' }}>
-              Friday &amp; Saturday · <span className="hero-proof-from">From </span>฿1,200/person
-            </p>
-            <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', color: 'rgba(255,255,255,0.65)' }}>
-              <span style={{ color: '#EA003A' }}>★★★★★</span> 800+ five-star reviews
+              Friday &amp; Saturday · ฿1,200/person
             </p>
           </div>
         </div>
