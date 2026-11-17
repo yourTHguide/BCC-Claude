@@ -3,7 +3,7 @@ export default function Reviews() {
     <section id="reviews" className="section-pad" style={{ background: '#120009' }}>
       <div className="reviews-intro">
         <p className="eyebrow" style={{ marginBottom: '12px' }}>
-          800+ FIVE-STAR REVIEWS
+          WHAT GUESTS SAY
         </p>
         <h2
           style={{
@@ -19,12 +19,6 @@ export default function Reviews() {
           <br />
           Remembered the people.
         </h2>
-        <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', color: 'rgba(255,255,255,0.45)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M12 2l2.6 6.6L21 10l-5.2 4.3L17.5 21 12 17.3 6.5 21l1.7-6.7L3 10l6.4-1.4L12 2z" stroke="#EA003A" strokeWidth="1.5" strokeLinejoin="round" />
-          </svg>
-          Excellent on Airbnb · 797 reviews
-        </p>
       </div>
       <div className="reviews-widget">
         <script src="https://elfsightcdn.com/platform.js" async></script>

@@ -3,6 +3,7 @@ import { getServiceSupabase } from '@/lib/supabase'
 import { VISIBILITY_COLUMN } from '@/lib/storefront'
 import { resolveEventPricing } from '@/lib/pricing'
 import { isDedicatedFlowProduct } from '@/lib/smc/config'
+import { isCancelledEvent, isPastBookingCutoff, seatKey, seatsTaken } from '@/lib/bookingAvailability'
 
 // Canonical event-availability layer (Phase 3).
 //
@@ -14,6 +15,8 @@ import { isDedicatedFlowProduct } from '@/lib/smc/config'
 //   • event_dates.event_date >= today (Asia/Bangkok)
 //   • products.status = 'active'
 //   • products.visible_<storefront> = true
+//   • not cancelled, not past its booking cutoff (BCC: the 9:30 PM start on
+//     the night), and not full when a capacity is set — lib/bookingAvailability.ts
 //
 // The response preserves Product vs Event-Instance identity explicitly.
 // `nightSlug` is a legacy per-event variant identifier (e.g. 'tgif',
@@ -47,6 +50,7 @@ export async function GET(req: NextRequest) {
   const today = bangkokToday()
 
   let rows: any[]
+  let taken: Map<string, number> = new Map()
   try {
     const supabase = getServiceSupabase()
     // !inner drops any event whose joined product fails the product-side gates,
@@ -54,7 +58,7 @@ export async function GET(req: NextRequest) {
     const { data, error } = await supabase
       .from('event_dates')
       .select(
-        'id, event_date, night_slug, night_name, price_override, start_time_override, capacity, product_id, ' +
+        'id, event_date, night_slug, night_name, price_override, start_time_override, capacity, product_id, operation_verdict, ' +
           'products!inner ( id, slug, name, status, default_price, default_start_time, visible_bcc, visible_bnt, ' +
           'early_bird_price, early_bird_cutoff_hours )'
       )
@@ -74,6 +78,9 @@ export async function GET(req: NextRequest) {
       )
     }
     rows = data ?? []
+    // Seats already taken, only for dates that have a capacity set.
+    const capped = rows.filter((r: any) => r.capacity != null)
+    taken = capped.length ? await seatsTaken(supabase, capped) : new Map()
   } catch (err: any) {
     console.error('api/events: Supabase unavailable:', err)
     return NextResponse.json(
@@ -97,6 +104,12 @@ export async function GET(req: NextRequest) {
     if (!Number.isInteger(regularPrice) || regularPrice <= 0) return []
 
     const effectiveStartTime = row.start_time_override ?? product?.default_start_time ?? null
+
+    // Phase 2 availability gates — same functions checkout enforces.
+    if (isCancelledEvent(row)) return []
+    if (isPastBookingCutoff(row.event_date, effectiveStartTime, product?.slug)) return []
+    const remaining = row.capacity != null ? Math.max(0, row.capacity - (taken.get(seatKey(row)) ?? 0)) : null
+    if (remaining === 0) return []
 
     // Same tiering resolver checkout uses (lib/pricing.ts) — the calendar's
     // displayed price is always exactly what checkout would charge right
@@ -132,9 +145,11 @@ export async function GET(req: NextRequest) {
       earlyBirdPrice: pricing.earlyBirdPrice,
       earlyBirdAvailable: pricing.earlyBirdAvailable,
       effectiveStartTime,
-      // Per-event capacity; NULL = no defined capacity. Surfaced for future use;
-      // it does NOT drive the calendar's purchase quantity in Phase 3.
+      // Per-event capacity; NULL = no defined capacity (no limit).
       capacity: row.capacity ?? null,
+      // Seats left when a capacity is set (null = no limit). The calendar
+      // caps the ticket quantity at this; checkout re-checks it.
+      remaining,
     }]
   })
 

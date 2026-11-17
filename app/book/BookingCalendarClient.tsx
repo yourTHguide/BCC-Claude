@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import type { Storefront } from '@/lib/storefront'
 import { brandFor } from '@/lib/storefrontBrand'
+import { BCC_TERMS } from '@/lib/bccTerms'
 
 declare global {
   interface Window {
@@ -31,6 +32,8 @@ interface EventInstance {
   earlyBirdAvailable: boolean
   effectiveStartTime: string | null // HH:MM:SS
   capacity: number | null
+  // Seats left when the date has a capacity set (null = no limit).
+  remaining?: number | null
 }
 
 // ─── Marketing presentation ONLY (not operational data) ─────────────────────
@@ -42,18 +45,16 @@ interface EventInstance {
 // viewed from.
 const PRESENTATION: Record<string, { tag: string; color: string }> = {
   tgif: { tag: 'FRIDAY NIGHTS', color: '#EA003A' },
-  'saturday-signature': { tag: 'FLAGSHIP · SATURDAY', color: '#EA003A' },
+  'saturday-signature': { tag: 'SATURDAY NIGHTS', color: '#EA003A' },
 }
 function presentationFor(slug: string, storefront: Storefront) {
   return PRESENTATION[slug] ?? { tag: brandFor(storefront).shortName, color: '#EA003A' }
 }
 
-// Per-order transaction safeguard for the quantity selector. This is a checkout
-// UX limit, NOT event/venue capacity. It matches the hard cap the checkout API
-// already enforces (create-checkout rejects qty > 24). Phase 3 governs the
-// stepper ONLY by this safeguard — event.capacity is intentionally not used to
-// drive purchase quantity yet (real capacity enforcement is out of scope); it
-// stays in the API response for future use.
+// Per-order transaction safeguard for the quantity selector (a checkout UX
+// limit matching create-checkout's hard cap of 24). Since BCC Phase 2 the
+// stepper is ALSO capped by the date's seats left (`remaining`) whenever the
+// dashboard has a capacity set for that date; no capacity = this cap only.
 const MAX_TICKETS_PER_ORDER = 24
 function maxTickets(): number {
   return MAX_TICKETS_PER_ORDER
@@ -238,7 +239,10 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
       : selectedEvent?.effectivePrice ?? null
   const totalPrice = unitPrice != null ? unitPrice * quantity : null
   const selectedDateStr = selectedDateISO ? formatDateLabel(selectedDateISO) : null
-  const capMax = maxTickets()
+  // Never offer more tickets than the date has seats left (server re-checks).
+  const capMax = selectedEvent?.remaining != null
+    ? Math.max(1, Math.min(maxTickets(), selectedEvent.remaining))
+    : maxTickets()
   const brand = brandFor(storefront)
 
   return (
@@ -534,7 +538,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                   <div>
                     <p style={{ fontWeight: 600, fontSize: '14px', color: '#fff' }}>{selectedDateStr}</p>
                     <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', marginTop: '2px' }}>
-                      {eventsOnSelected.length} event{eventsOnSelected.length > 1 ? 's' : ''} tonight
+                      {eventsOnSelected.length} event{eventsOnSelected.length > 1 ? 's' : ''} available
                     </p>
                   </div>
                 </div>
@@ -573,6 +577,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                           </p>
                           <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)' }}>
                             {formatTime(event.effectiveStartTime)}
+                            {storefront === 'bcc' && ` · ${BCC_TERMS.meetingArea.replace(', Bangkok', '')}`}
                           </p>
                         </div>
                         <div style={{ textAlign: 'right', marginLeft: '16px' }}>
@@ -773,6 +778,31 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                       </div>
                     )}
 
+                    {/* Phase 2 (Nov 2026): the one mandatory-spend disclosure
+                        plus a link to the full BCC booking terms (opens in a
+                        new tab so the guest keeps their selection). Detail
+                        lives on /booking-terms and /weekends. BCC only; copy
+                        only — nothing here affects price or availability. */}
+                    {storefront === 'bcc' && (
+                      <div style={{ marginBottom: '16px', paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                        <p style={{ fontSize: '12.5px', lineHeight: 1.5, color: 'rgba(255,255,255,0.55)', margin: 0 }}>
+                          {BCC_TERMS.drinkShort}
+                        </p>
+                        <a
+                          href="/booking-terms"
+                          target="_blank"
+                          rel="noopener"
+                          style={{
+                            display: 'inline-block', marginTop: '10px', fontSize: '12.5px',
+                            color: 'rgba(255,255,255,0.85)', textDecoration: 'underline', textUnderlineOffset: '3px',
+                          }}
+                        >
+                          Booking terms &amp; cancellation policy <span aria-hidden="true">↗</span>
+                          <span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}> (opens in a new tab)</span>
+                        </a>
+                      </div>
+                    )}
+
                     <button
                       onClick={async () => {
                         try {
@@ -814,7 +844,9 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                             })
                             window.location.href = data.url
                           } else {
-                            alert('Something went wrong. Please try again.')
+                            // Show checkout's own reason when it gives one
+                            // (closed, cancelled, full) — Phase 2.
+                            alert(typeof data.error === 'string' ? data.error : 'Something went wrong. Please try again.')
                           }
                         } catch {
                           alert('Something went wrong. Please try again.')

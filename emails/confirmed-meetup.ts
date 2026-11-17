@@ -1,5 +1,6 @@
 import type { Storefront } from '@/lib/storefront'
 import { brandFor } from '@/lib/storefrontBrand'
+import { BCC_TERMS } from '@/lib/bccTerms'
 
 function formatLocalDate(dateStr: string): string {
   const [y, m, d] = dateStr.split('-').map(Number)
@@ -32,6 +33,16 @@ export function generateConfirmedMeetupEmail({
   const formattedDate = formatLocalDate(eventDate)
   const firstName = guestName?.split(' ')[0] || 'Guest'
   const brand = brandFor(storefront)
+  // Phase 2 (Nov 2026): BCC guests get the founder-confirmed dress code and
+  // late-arrival process from lib/bccTerms.ts. BEST bookings that reuse this
+  // template keep their original wording unchanged (BCC-only scope).
+  const isBcc = storefront !== 'bnt'
+  const dressReminder = isBcc
+    ? `${BCC_TERMS.dressCode} ${BCC_TERMS.dressCodeNotPermitted} ${BCC_TERMS.age}`
+    : 'No shorts, tank tops, sportswear, sandals, or flip-flops for men. No sandals or flip-flops for women (ankle-strap sandals are fine). Bring ID.'
+  const lateNote = isBcc
+    ? `<p style="margin:14px 0 0;font-size:12px;color:rgba(255,255,255,0.65);line-height:1.6">${BCC_TERMS.lateArrivalShort}</p>`
+    : ''
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -83,14 +94,14 @@ We've got enough of a crew tonight — it's happening. Here's where to be.</p>
 <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(234,0,58,0.08);border:1px solid rgba(234,0,58,0.20);border-left:3px solid #EA003A;border-radius:10px">
 <tr><td style="padding:20px 24px;text-align:center">
 <p style="margin:0 0 12px;font-size:13px;color:rgba(255,255,255,0.80)">Please join the group chat — this is where tonight's updates go out.</p>
-<a href="${whatsappGroupLink}" style="display:inline-block;background:#EA003A;color:#fff;font-weight:700;font-size:14px;text-decoration:none;padding:12px 28px;border-radius:8px">Join WhatsApp group</a>
+<a href="${whatsappGroupLink}" style="display:inline-block;background:#EA003A;color:#fff;font-weight:700;font-size:14px;text-decoration:none;padding:12px 28px;border-radius:8px">Join WhatsApp group</a>${lateNote}
 </td></tr>
 </table>
 </td></tr>
 
 <tr><td style="background:#1A0015;padding:0 32px 24px;border-left:1px solid rgba(255,255,255,0.06);border-right:1px solid rgba(255,255,255,0.06)">
 <p style="margin:0 0 12px;font-size:11px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.40)">QUICK DRESS CODE REMINDER</p>
-<p style="margin:0;font-size:13px;color:rgba(255,255,255,0.65);line-height:1.7">No shorts, tank tops, sportswear, sandals, or flip-flops for men. No sandals or flip-flops for women (ankle-strap sandals are fine). Bring ID.</p>
+<p style="margin:0;font-size:13px;color:rgba(255,255,255,0.65);line-height:1.7">${dressReminder}</p>
 </td></tr>
 
 <tr><td style="background:#0D000A;border:1px solid rgba(255,255,255,0.06);border-radius:0 0 12px 12px;padding:28px 32px;text-align:center">

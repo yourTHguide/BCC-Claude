@@ -12,6 +12,9 @@ export default function Stops() {
     <section id="stops" className="section-pad" style={{ background: '#1D0010' }}>
       <div className="stops-intro">
         <p className="eyebrow">FOUR STOPS. FOUR DIFFERENT MOODS.</p>
+        <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', color: 'rgba(255,255,255,0.50)', marginTop: '8px' }}>
+          Venues vary by night.
+        </p>
       </div>
 
       <div className="scrollbar-hide stops-row">
