@@ -32,18 +32,22 @@ SET
     "Food and personal spending"
   ]'::jsonb,
   important_info = '[
-    "Check-in and start: 9:30 PM in the Sukhumvit Soi 11 area. The exact meet-up venue is shared in our WhatsApp group chat by 7 PM on the day.",
+    "Check-in and start: 9:30 PM in the Sukhumvit Soi 11 area. The exact meet-up venue is shared in our WhatsApp group chat on the day — by 7 PM if you booked before then.",
     "At least one drink purchase is required at each venue, paid separately.",
     "Minimum age 20 — bring valid photo ID. Smart casual dress code.",
-    "Running late? Message your host in the WhatsApp group. After 10:20 PM, contact your host there directly.",
+    "Running late? Message your host in the WhatsApp group. After 10:20 PM, contact your host there directly — late joining can''t be guaranteed once the group has moved on.",
     "Charge your phone — WhatsApp is your lifeline for the night."
   ]'::jsonb,
   itinerary = '[
-    {"title": "9:30 – 10:30 PM", "description": "Check in and meet the group at the first bar, with a welcome shot to kick off the night."},
-    {"title": "10:45 – 11:45 PM", "description": "Move to the second venue — unique décor and great atmosphere."},
-    {"title": "12:00 – 1:00 AM", "description": "Hit an upbeat venue to dance and soak in the Bangkok nightlife energy."},
-    {"title": "1:30 AM – Late", "description": "Wrap up at a high-energy spot to end the night on a memorable note."}
+    {"title": "9:30 PM — First stop", "description": "Check in and meet the group at the first bar, with a welcome shot to kick off the night."},
+    {"title": "Second stop", "description": "Move to the second venue — unique décor and great atmosphere."},
+    {"title": "Third stop", "description": "Hit an upbeat venue to dance and soak in the Bangkok nightlife energy."},
+    {"title": "Final stop — Late", "description": "Wrap up at a high-energy spot to end the night on a memorable note."}
   ]'::jsonb,
   updated_at = now()
 FROM products p
-WHERE p.id = c.product_id AND p.slug = 'bangkok-club-crawl';
+WHERE p.id = c.product_id AND p.slug = 'bangkok-club-crawl'
+  -- Safety guard: only applies if nobody has edited this content since it was
+  -- reviewed (17 Nov 2026). "UPDATE 0" = it changed; stop and re-review.
+  AND c.updated_at = '2026-08-24 08:43:05.378196+00';
+-- Expected result: UPDATE 1

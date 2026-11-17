@@ -43,7 +43,7 @@ function nextStepsFor(storefront: Storefront) {
   }
   return [
     { step: '1', text: 'Check your email for full booking details and reminders.' },
-    { step: '2', text: "By 7 PM on the day, you'll receive a WhatsApp group link with the exact meet-up location." },
+    { step: '2', text: "On the day, you'll receive a WhatsApp group link with the exact meet-up location — by 7 PM if you booked before then." },
     { step: '3', text: 'Show up at 9:30 PM. Your host will be there.' },
     // Phase 2: founder-confirmed late-arrival process (lib/bccTerms.ts).
     { step: '4', text: BCC_TERMS.lateArrivalShort },
