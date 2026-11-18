@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
 import { normalizeWhatsApp } from '@/lib/whatsapp'
 import { Resend } from 'resend'
+import { resendFromHeader } from '@/lib/storefrontBrand'
 
 function getResend() {
   return new Resend(process.env.RESEND_API_KEY)
@@ -90,7 +91,7 @@ export async function POST(req: NextRequest) {
       if (process.env.RESEND_API_KEY) {
         const resend = getResend()
         const response = await resend.emails.send({
-          from: 'BEST Lead Alerts <onboarding@resend.dev>',
+          from: resendFromHeader('bnt'),
           to: ADMIN_EMAIL,
           subject: emailSubject,
           html: emailHTML,

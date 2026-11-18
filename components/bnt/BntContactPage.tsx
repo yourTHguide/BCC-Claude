@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import BntNav from './BntNav'
 import BntFooter from './BntFooter'
+import { BNT_COUNTRY_CODES, BNT_RESPONSE_PROMISE } from '@/lib/bnt/contact'
 
 // Port of NightlifeAntigravity's contact.html. Markup/copy/behavior ported
 // 1:1; the original's getElementById + innerHTML-swap submit handler is
@@ -17,16 +18,18 @@ export default function BntContactPage() {
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState('')
 
   const handleSubmit = async () => {
     const trimmedName = name.trim()
     const trimmedPhone = phone.trim()
 
     if (!trimmedName || !trimmedPhone) {
-      alert('Please fill out both your Name and WhatsApp number.')
+      setError('Please add your name and WhatsApp number.')
       return
     }
 
+    setError('')
     setSubmitting(true)
     try {
       const response = await fetch('/api/contact', {
@@ -40,15 +43,19 @@ export default function BntContactPage() {
       })
 
       if (response.ok) {
+        const w = window as unknown as { fbq?: (...args: unknown[]) => void }
+        if (typeof w.fbq === 'function') {
+          w.fbq('track', 'Lead', { content_name: 'Contact Form', content_category: 'contact' })
+        }
         setSubmitted(true)
       } else {
         const errData = await response.json().catch(() => ({}))
-        alert(errData.error || 'Failed to send message. Please check your inputs and try again.')
+        setError(errData.error || 'We couldn\u2019t send your message. Please check your details and try again.')
         setSubmitting(false)
       }
     } catch (err) {
       console.error('Error submitting contact form:', err)
-      alert('A network error occurred. Please try again.')
+      setError('Connection problem. Please try again, or message us on WhatsApp.')
       setSubmitting(false)
     }
   }
@@ -221,7 +228,7 @@ export default function BntContactPage() {
                 Message Received
               </h3>
               <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', color: '#AEAEB2', lineHeight: 1.6 }}>
-                Your message has been sent successfully. A nightlife director will WhatsApp you within 2 hours.
+                Your message has been sent successfully. A nightlife director will WhatsApp you {BNT_RESPONSE_PROMISE}.
               </p>
             </div>
           ) : (
@@ -242,12 +249,11 @@ export default function BntContactPage() {
                 <div className="phone-wrapper">
                   <div className="phone-prefix">
                     <select value={countryCode} onChange={(e) => setCountryCode(e.target.value)}>
-                      <option value="+66">🇹🇭 +66</option>
-                      <option value="+1">🇺🇸 +1</option>
-                      <option value="+44">🇬🇧 +44</option>
-                      <option value="+61">🇦🇺 +61</option>
-                      <option value="+65">🇸🇬 +65</option>
-                      <option value="+971">🇦🇪 +971</option>
+                      {BNT_COUNTRY_CODES.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <input
@@ -270,6 +276,11 @@ export default function BntContactPage() {
                   onChange={(e) => setMessage(e.target.value)}
                 />
               </div>
+              {error && (
+                <div className="form-submit-error" role="alert" style={{ display: 'block' }}>
+                  {error}
+                </div>
+              )}
               <button className="btn-submit" onClick={handleSubmit} disabled={submitting}>
                 {submitting ? 'Sending Message... ⏳' : 'Send Message →'}
               </button>
