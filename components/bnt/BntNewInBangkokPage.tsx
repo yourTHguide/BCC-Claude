@@ -25,6 +25,7 @@
 // Not yet wired to any route (Stage 2 scope) — app/new-in-bangkok/page.tsx
 // still renders ProductPage until a later stage swaps it in.
 
+import BntWaitlistForm from './BntWaitlistForm'
 import type {
   ProductPageProduct,
   ProductPageContent,
@@ -127,6 +128,9 @@ function durationLabel(minutes: number | null): string | null {
 export default function BntNewInBangkokPage({ product, content, upcomingEvents }: BntNewInBangkokPageProps) {
   const brand = brandFor('bnt')
   const bookHref = `/book?night=${product.slug}`
+  // Phase 3 (Nov 2026): with no open dates, every CTA leads to the email
+  // waitlist on this page instead of an empty calendar.
+  const waitlistHref = '#waitlist'
 
   // ── Canonical operational facts — every value below comes from
   // upcomingEvents[0] (already resolved by resolveEventPricing() inside
@@ -153,7 +157,7 @@ export default function BntNewInBangkokPage({ product, content, upcomingEvents }
   // Hero/meta copy — never claims a date/price when there isn't a real
   // upcoming event. hasUpcoming=false renders generic, non-committal
   // language instead of fabricating "next Wednesday."
-  const heroDateLine = hasUpcoming ? dateLabel : 'DATES TBA'
+  const heroDateLine = hasUpcoming ? dateLabel : 'COMING SOON'
   const priceHeadline =
     hasUpcoming && effectivePrice != null
       ? isEarlyBird
@@ -163,12 +167,13 @@ export default function BntNewInBangkokPage({ product, content, upcomingEvents }
 
   const heroCtaLabel = hasUpcoming
     ? `Book this ${weekday ?? 'night'}`
-    : 'Check upcoming dates'
-  const finalCtaLabel = hasUpcoming ? 'Book New in Bangkok' : 'Check upcoming dates'
+    : 'Get notified of new dates'
+  const finalCtaLabel = hasUpcoming ? 'Book New in Bangkok' : 'Get notified'
+  const ctaHref = hasUpcoming ? bookHref : waitlistHref
 
   return (
     <main style={{ position: 'relative', overflowX: 'hidden', background: '#070707', color: '#FFFFFF' }}>
-      <SiteHeader brand={brand} bookHref={bookHref} />
+      <SiteHeader brand={brand} bookHref={ctaHref} ctaLabel={hasUpcoming ? 'Book' : 'Notify me'} />
 
       {/* 01 HERO */}
       <section
@@ -264,7 +269,7 @@ export default function BntNewInBangkokPage({ product, content, upcomingEvents }
               </p>
             )}
 
-            <a href={bookHref} className="nib-btn-neon nib-btn-neon-filled" style={{ marginTop: '24px', width: '100%', maxWidth: '340px' }}>
+            <a href={ctaHref} className="nib-btn-neon nib-btn-neon-filled" style={{ marginTop: '24px', width: '100%', maxWidth: '340px' }}>
               <span>{heroCtaLabel}</span>
             </a>
             <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', color: 'rgba(255,255,255,0.50)', marginTop: '14px' }}>
@@ -541,9 +546,15 @@ export default function BntNewInBangkokPage({ product, content, upcomingEvents }
             <em style={emStyle}>You just have to show up.</em>
           </SectionHeadline>
 
-          <a href={bookHref} className="nib-btn-neon nib-btn-neon-filled" style={{ marginTop: '32px', width: '100%', maxWidth: '340px' }}>
-            <span>{finalCtaLabel}</span>
-          </a>
+          {hasUpcoming ? (
+            <a href={bookHref} className="nib-btn-neon nib-btn-neon-filled" style={{ marginTop: '32px', width: '100%', maxWidth: '340px' }}>
+              <span>{finalCtaLabel}</span>
+            </a>
+          ) : (
+            <div id="waitlist" style={{ scrollMarginTop: '96px' }}>
+              <BntWaitlistForm product={product.slug} eventName="New in Bangkok" />
+            </div>
+          )}
 
           {hasUpcoming && (
             <p className="nib-micro-caps" style={{ color: 'rgba(255,255,255,0.60)', marginTop: '28px' }}>
@@ -575,8 +586,8 @@ export default function BntNewInBangkokPage({ product, content, upcomingEvents }
             'New dates coming soon'
           )}
         </p>
-        <a href={bookHref} className="nib-sticky-cta">
-          {hasUpcoming ? 'Book' : 'View dates'}
+        <a href={ctaHref} className="nib-sticky-cta">
+          {hasUpcoming ? 'Book' : 'Notify me'}
         </a>
       </div>
 
@@ -664,7 +675,7 @@ const neonTextStyle: React.CSSProperties = {
 }
 const emStyle: React.CSSProperties = { ...neonTextStyle, fontStyle: 'italic' }
 
-function SiteHeader({ brand, bookHref }: { brand: ReturnType<typeof brandFor>; bookHref: string }) {
+function SiteHeader({ brand, bookHref, ctaLabel }: { brand: ReturnType<typeof brandFor>; bookHref: string; ctaLabel: string }) {
   return (
     <header
       style={{
@@ -688,7 +699,7 @@ function SiteHeader({ brand, bookHref }: { brand: ReturnType<typeof brandFor>; b
           <a href="/new-in-bangkok" className="nib-micro-caps" style={{ color: '#FFFFFF', textDecoration: 'none' }}>New in Bangkok</a>
         </nav>
         <a href={bookHref} className="nib-btn-neon" style={{ padding: '10px 20px', fontSize: '11px' }}>
-          <span>Book</span>
+          <span>{ctaLabel}</span>
         </a>
       </div>
       <style>{`@media (min-width: 768px) { .nib-header-nav { display: flex !important; } }`}</style>

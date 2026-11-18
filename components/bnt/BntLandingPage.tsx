@@ -1,7 +1,10 @@
 import Script from 'next/script'
 import BntNav from './BntNav'
 import BntFooter from './BntFooter'
+import BntStickyBar from './BntStickyBar'
 import { canRenderSmcPage } from '@/lib/smc/env'
+import { loadNextOpenDates, shortEventDate } from '@/lib/bnt/upcoming'
+import { BNT_COUNTRY_CODES, BNT_RESPONSE_PROMISE } from '@/lib/bnt/contact'
 
 // Port of NightlifeAntigravity's landing.html (live BNT homepage). Markup is
 // a direct JSX transcription of the original HTML — the Private Experiences
@@ -11,17 +14,26 @@ import { canRenderSmcPage } from '@/lib/smc/env'
 // to /public/bnt/js and loaded below, so it runs unmodified against this
 // same markup/element IDs. Only asset paths inside that file were rewritten
 // (assets/... -> /bnt/images/...) to match where the files now live.
-export default function BntLandingPage() {
+export default async function BntLandingPage() {
   // Single Meet Club joins the Signature Events once its page is visible to
   // this visitor (published, or the owner's private-access cookie), so the
   // card never links to a 404.
   const showSmc = canRenderSmcPage()
 
+  // Phase 3 (Nov 2026): each public event card shows its next real open date
+  // straight from the database (never invented). No date → the card shows
+  // its schedule line only, or "Coming soon" for New in Bangkok.
+  const next = await loadNextOpenDates(['bangkok-club-crawl', 'smc', 'new-in-bkk'])
+  const nextLabel = (slug: string) => (next[slug] ? `Next: ${shortEventDate(next[slug]!)}` : null)
+  const bccNext = nextLabel('bangkok-club-crawl')
+  const smcNext = nextLabel('smc')
+  const nibNext = nextLabel('new-in-bkk')
+
   return (
     <>
       <link rel="stylesheet" href="/bnt/css/luxury-landing.css" />
 
-      <BntNav />
+      <BntNav showSmc={showSmc} />
 
       {/* Section 1: Hero */}
       <section className="hero" id="home">
@@ -45,9 +57,14 @@ export default function BntLandingPage() {
             <br />
             Perfectly designed for you.
           </p>
-          <a href="#master-deck" className="btn-glow" style={{ fontSize: '0.7rem', padding: '12px 24px' }}>
-            EXPLORE PRIVATE EXPERIENCES ↓
-          </a>
+          <div className="hero-ctas">
+            <a href="#signature-events" className="btn-glow">
+              UPCOMING EVENTS ↓
+            </a>
+            <a href="#master-deck" className="btn-outline">
+              PRIVATE EXPERIENCES ↓
+            </a>
+          </div>
         </div>
       </section>
 
@@ -59,7 +76,7 @@ export default function BntLandingPage() {
             Our Signature <span className="hero-emphasis">Events</span>
           </h2>
           <p className="section-subtitle">
-            We don&apos;t just book tables. We create the party. Join our legendary public events in the city.
+            We don&apos;t just book tables. We create the party. Join our public events in the city, or let us design a private night around you.
           </p>
         </div>
 
@@ -76,7 +93,10 @@ export default function BntLandingPage() {
               <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
                 The ultimate Bangkok nightlife tour.
               </p>
-              {showSmc && <span className="event-cta">See details →</span>}
+              <span className="event-meta">
+                Every weekend{bccNext && <> · <span className="event-meta-accent">{bccNext}</span></>}
+              </span>
+              <span className="event-cta">See dates →</span>
             </div>
           </a>
 
@@ -91,6 +111,9 @@ export default function BntLandingPage() {
                 <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
                   A monthly social night where singles meet naturally.
                 </p>
+                <span className="event-meta">
+                  Last Thursday monthly{smcNext && <> · <span className="event-meta-accent">{smcNext}</span></>}
+                </span>
                 <span className="event-cta">See details →</span>
               </div>
             </a>
@@ -106,28 +129,72 @@ export default function BntLandingPage() {
               <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
                 A hosted night for anyone new to Bangkok.
               </p>
-              {showSmc && <span className="event-cta">See details →</span>}
+              <span className="event-meta">
+                {nibNext ? <span className="event-meta-accent">{nibNext}</span> : 'Coming soon'}
+              </span>
+              <span className="event-cta">{nibNext ? 'See details →' : 'Get notified →'}</span>
             </div>
           </a>
 
-          <div className="event-card" style={{ backgroundImage: "url('/bnt/images/bangkok-masquerade-218.jpg')" }}>
+          <div
+            className="event-card event-card--static"
+            style={{ backgroundImage: "url('/bnt/images/bangkok-masquerade-218.jpg')" }}
+          >
             <div className="event-info">
               <h3>Bangkok Masquerade</h3>
               <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
                 Our annual secret society gala.
               </p>
+              <span className="event-meta">Annual · By invitation</span>
             </div>
           </div>
         </div>
 
-        <div style={{ textAlign: 'center', marginTop: '40px' }}>
+        <div className="section-cross-link">
+          <p>Planning something of your own?</p>
           <a href="#master-deck" className="btn-outline">
-            EXPLORE UPCOMING SCHEDULES →
+            EXPLORE PRIVATE EXPERIENCES →
           </a>
         </div>
       </section>
 
-      {/* Section 3: The Method (Pillars) */}
+      {/* Section 3: Private Experiences */}
+      <section className="master-deck-section" id="master-deck">
+        <div className="radial-glow glow-bottom-right" />
+        <div className="deck-header-group">
+          <h2 className="deck-title">
+            Private <span className="deck-emphasis">Experiences</span>
+          </h2>
+          <p className="section-subtitle" style={{ margin: '12px auto 0', textAlign: 'center' }}>
+            Tell us the night you want. We reply with a custom proposal {BNT_RESPONSE_PROMISE}.
+          </p>
+        </div>
+
+        <div className="swipe-hint">→ SWIPE OR CLICK TO EXPLORE</div>
+
+        <div className="deck-viewport">
+          <button className="btn-nav btn-nav-prev" id="btn-prev" aria-label="Previous Experience">
+            ←
+          </button>
+          <div className="deck-wrapper">
+            <div className="deck-container" id="deck-container" />
+          </div>
+          <button className="btn-nav btn-nav-next" id="btn-next" aria-label="Next Experience">
+            →
+          </button>
+        </div>
+
+        <div className="deck-nav-mobile">
+          <button className="btn-nav btn-nav-prev-m" id="btn-prev-m" aria-label="Previous Experience">
+            ←
+          </button>
+          <button className="btn-nav btn-nav-next-m" id="btn-next-m" aria-label="Next Experience">
+            →
+          </button>
+        </div>
+      </section>
+
+      {/* Section 4: The Method (Pillars) — moved below Private Experiences in Phase 3 */}
       <section className="three-pillars" id="pillars">
         <div className="radial-glow glow-top-left" />
         <div className="section-header" style={{ textAlign: 'center', marginBottom: '60px' }}>
@@ -185,39 +252,6 @@ export default function BntLandingPage() {
         </div>
       </section>
 
-      {/* Section 4: Private Experiences */}
-      <section className="master-deck-section" id="master-deck">
-        <div className="radial-glow glow-bottom-right" />
-        <div className="deck-header-group">
-          <h2 className="deck-title">
-            Private <span className="deck-emphasis">Experiences</span>
-          </h2>
-        </div>
-
-        <div className="swipe-hint">→ SWIPE OR CLICK TO EXPLORE</div>
-
-        <div className="deck-viewport">
-          <button className="btn-nav btn-nav-prev" id="btn-prev" aria-label="Previous Experience">
-            ←
-          </button>
-          <div className="deck-wrapper">
-            <div className="deck-container" id="deck-container" />
-          </div>
-          <button className="btn-nav btn-nav-next" id="btn-next" aria-label="Next Experience">
-            →
-          </button>
-        </div>
-
-        <div className="deck-nav-mobile">
-          <button className="btn-nav btn-nav-prev-m" id="btn-prev-m" aria-label="Previous Experience">
-            ←
-          </button>
-          <button className="btn-nav btn-nav-next-m" id="btn-next-m" aria-label="Next Experience">
-            →
-          </button>
-        </div>
-      </section>
-
       {/* Native Multi-Step Overlay Modal */}
       <div className="multi-step-modal-overlay" id="multi-step-modal-overlay">
         <div className="multi-step-modal" id="multi-step-modal">
@@ -251,17 +285,23 @@ export default function BntLandingPage() {
               <div className="input-group">
                 <label>WHATSAPP NUMBER</label>
                 <div className="phone-input-wrapper">
-                  <select id="country-code">
-                    <option value="+66">🇹🇭 +66</option>
-                    <option value="+1">🇺🇸 +1</option>
-                    <option value="+44">🇬🇧 +44</option>
-                    <option value="+61">🇦🇺 +61</option>
-                    <option value="+65">🇸🇬 +65</option>
-                    <option value="+971">🇦🇪 +971</option>
+                  <select id="country-code" aria-label="Country code">
+                    {BNT_COUNTRY_CODES.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.label}
+                      </option>
+                    ))}
                   </select>
                   <input type="tel" id="guest-phone" placeholder="e.g. 81 234 5678" />
                 </div>
                 <div className="error-msg">Please enter your WhatsApp number.</div>
+              </div>
+
+              <div className="input-group">
+                <label>
+                  EMAIL <span className="optional-tag">(optional)</span>
+                </label>
+                <input type="email" id="guest-email" placeholder="you@example.com" autoComplete="email" />
               </div>
 
               <div className="input-group">
@@ -382,6 +422,8 @@ export default function BntLandingPage() {
                 />
               </div>
 
+              <div className="form-submit-error" id="submit-error" role="alert" />
+
               <div className="step-actions">
                 <button className="step-btn-secondary" id="btn-prev-4">
                   ← Back
@@ -417,8 +459,7 @@ export default function BntLandingPage() {
                   color: '#AEAEB2',
                 }}
               >
-                Your request is with the BEST team. Expect a personal WhatsApp message or email from us within 24
-                hours. A real human who knows Thailand nightlife is handling your inquiry
+                Your request is with the BEST team. Expect a personal WhatsApp message from us {BNT_RESPONSE_PROMISE}. A real human who knows Thailand nightlife is handling your inquiry
               </p>
               <button className="step-btn-close" id="btn-finish">
                 Close &times;
@@ -429,6 +470,7 @@ export default function BntLandingPage() {
       </div>
 
       <BntFooter />
+      <BntStickyBar />
 
       <Script src="/bnt/js/luxury-landing.js" strategy="afterInteractive" />
     </>

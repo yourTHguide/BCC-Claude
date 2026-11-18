@@ -3,7 +3,7 @@ const initLuxuryLanding = () => {
         { 
             tier: "EXPERIENCE 01 / 14",
             title: "Immersive Themed Productions", 
-            price: "Pricing on inquiry — submit details for a custom proposal within 4 hours.", 
+            price: "Pricing on inquiry — submit details for a custom proposal within 24 hours.", 
             pills: ["Bangkok Mob", "Masquerade", "100+ Guests"], 
             category: "PRODUCTION",
             img: "/bnt/images/immersive-productions.jpg", 
@@ -12,7 +12,7 @@ const initLuxuryLanding = () => {
         { 
             tier: "EXPERIENCE 02 / 14",
             title: "VIP Table Bookings", 
-            price: "Pricing on inquiry — submit details for a custom proposal within 4 hours.", 
+            price: "Pricing on inquiry — submit details for a custom proposal within 24 hours.", 
             pills: ["Top Clubs", "Skip Lines", "Best Tables"], 
             category: "LUXURY",
             img: "/bnt/images/vip-table-bookings.jpg", 
@@ -48,7 +48,7 @@ const initLuxuryLanding = () => {
         { 
             tier: "EXPERIENCE 06 / 14",
             title: "Rooftop Private Buyout", 
-            price: "Pricing on inquiry — submit details for a custom proposal within 4 hours.", 
+            price: "Pricing on inquiry — submit details for a custom proposal within 24 hours.", 
             pills: ["Skyline Views", "Full Venue", "Custom Budget"], 
             category: "LUXURY",
             img: "/bnt/images/card-rooftop.jpeg", 
@@ -56,8 +56,8 @@ const initLuxuryLanding = () => {
         },
         { 
             tier: "EXPERIENCE 07 / 14",
-            title: "Brand & Creator Events", 
-            price: "Pricing on inquiry — submit details for a custom proposal within 4 hours.", 
+            title: "Brand & Creator Events", occasion: "Corporate", 
+            price: "Pricing on inquiry — submit details for a custom proposal within 24 hours.", 
             pills: ["Agencies", "Launch Party", "Media Ready"], 
             category: "PRODUCTION",
             img: "/bnt/images/brand-event.jpg", 
@@ -65,7 +65,7 @@ const initLuxuryLanding = () => {
         },
         { 
             tier: "EXPERIENCE 08 / 14",
-            title: "Corporate Night Out", 
+            title: "Corporate Night Out", occasion: "Corporate", 
             price: "From 1,800 THB / person", 
             pills: ["Companies", "Team Building", "Full Transport"], 
             category: "CELEBRATION",
@@ -74,7 +74,7 @@ const initLuxuryLanding = () => {
         },
         { 
             tier: "EXPERIENCE 09 / 14",
-            title: "Surprise Proposal", 
+            title: "Surprise Proposal", occasion: "Romantic", 
             price: "From 20,000 THB flat", 
             pills: ["Rooftop VIP", "Champagne", "Photographer"], 
             category: "CELEBRATION",
@@ -83,7 +83,7 @@ const initLuxuryLanding = () => {
         },
         { 
             tier: "EXPERIENCE 10 / 14",
-            title: "Anniversary Dinner/Night", 
+            title: "Anniversary Dinner/Night", occasion: "Romantic", 
             price: "From 10,000 THB flat", 
             pills: ["Rooftop Dinner", "Cocktails", "Couples"], 
             category: "CELEBRATION",
@@ -317,12 +317,17 @@ const initLuxuryLanding = () => {
     
     let currentStep = 1;
     let selectedOccasion = null;
+    let selectedExperience = '';
 
     // Helper: Reset and open modal
-    const openModal = (occasionMatch = null) => {
+    const openModal = (occasionMatch = null, experienceTitle = '') => {
+        selectedOccasion = null;
+        selectedExperience = experienceTitle;
+        const submitErr = document.getElementById('submit-error');
+        if (submitErr) { submitErr.textContent = ''; submitErr.style.display = 'none'; }
         // Reset all selections
         document.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
-        document.querySelectorAll('input[type="text"], input[type="tel"], input[type="date"], textarea').forEach(el => el.value = '');
+        document.querySelectorAll('input[type="text"], input[type="tel"], input[type="email"], input[type="date"], textarea').forEach(el => el.value = '');
         document.querySelectorAll('.error-msg').forEach(el => el.style.display = 'none');
         document.querySelectorAll('.error-shake').forEach(el => el.classList.remove('error-shake'));
         document.getElementById('flexible-date').checked = false;
@@ -571,8 +576,17 @@ const initLuxuryLanding = () => {
     });
     document.getElementById('btn-prev-4').addEventListener('click', () => { currentStep = 3; updateStepView(); });
     
+    const showSubmitError = (msg) => {
+        const el = document.getElementById('submit-error');
+        if (!el) return;
+        el.textContent = msg;
+        el.style.display = 'block';
+    };
+
     document.getElementById('btn-submit').addEventListener('click', async () => {
         if (!validateStep4()) return;
+        const submitErr = document.getElementById('submit-error');
+        if (submitErr) { submitErr.textContent = ''; submitErr.style.display = 'none'; }
 
         const btnSubmit = document.getElementById('btn-submit');
         const originalText = btnSubmit.innerHTML;
@@ -585,6 +599,7 @@ const initLuxuryLanding = () => {
             const countryCode = document.getElementById('country-code').value;
             const guestPhone = document.getElementById('guest-phone').value.trim();
             const whatsapp = countryCode + guestPhone;
+            const email = (document.getElementById('guest-email')?.value || '').trim();
             const occasion = document.querySelector('.occasion-item.selected')?.dataset.value || 'Celebration';
 
             // Step 2
@@ -648,20 +663,25 @@ const initLuxuryLanding = () => {
                     occasion,
                     preferredVibe: vibeNotes,
                     budgetRange,
-                    inquiryType: 'Private Inquiry'
+                    inquiryType: 'Private Inquiry',
+                    experience: selectedExperience,
+                    email
                 })
             });
 
             if (response.ok) {
+                if (typeof window.fbq === 'function') {
+                    window.fbq('track', 'Lead', { content_name: selectedExperience || 'Private Inquiry', content_category: 'private_experience' });
+                }
                 currentStep = 5; // Success state
                 updateStepView();
             } else {
                 const errData = await response.json().catch(() => ({}));
-                alert(errData.error || 'Failed to submit inquiry. Please check your connection and try again.');
+                showSubmitError(errData.error || 'We couldn\u2019t send your request. Please check your details and try again.');
             }
         } catch (err) {
             console.error('Error submitting form:', err);
-            alert('A network error occurred. Please try again.');
+            showSubmitError('Connection problem. Please try again, or message us on WhatsApp.');
         } finally {
             btnSubmit.disabled = false;
             btnSubmit.innerHTML = originalText;
@@ -675,13 +695,12 @@ const initLuxuryLanding = () => {
 
         if (clickedCard.classList.contains('front') || e.target.closest('.card-cta')) {
             const idx = clickedCard.dataset.index;
-            const category = experiences[idx].category;
-            // Map category to occasion
+            const exp = experiences[idx];
+            // Map card to occasion (explicit per-card occasion wins)
             let occ = 'Celebration';
-            if(category === 'PRODUCTION') occ = 'Production';
-            if(category === 'LUXURY') occ = 'Celebration';
-            if(category === 'CELEBRATION') occ = 'Celebration';
-            openModal(occ);
+            if (exp.category === 'PRODUCTION') occ = 'Production';
+            if (exp.occasion) occ = exp.occasion;
+            openModal(occ, exp.title);
         } else if (clickedCard.classList.contains('middle')) {
             nextCard();
         }

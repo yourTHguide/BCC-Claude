@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
 import { normalizeWhatsApp } from '@/lib/whatsapp'
 import { Resend } from 'resend'
+import { resendFromHeader } from '@/lib/storefrontBrand'
 
 // Lazily instantiated so importing this route doesn't run the Resend
 // constructor during Next.js's build-time "collecting page data" step
@@ -32,6 +33,13 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { name, whatsapp, date, groupSize, occasion, preferredVibe, budgetRange, inquiryType } = body
 
+    // Phase 3 (Nov 2026): which experience card the guest opened, and an
+    // optional email. Both are stored in existing columns (no schema change):
+    // the experience in inquiry_type, the email at the top of preferred_vibe.
+    const experience = typeof body.experience === 'string' ? body.experience.trim().slice(0, 80) : ''
+    const rawEmail = typeof body.email === 'string' ? body.email.trim().slice(0, 200) : ''
+    const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail) ? rawEmail : ''
+
     if (!name || !whatsapp) {
       return NextResponse.json({ error: 'Name and WhatsApp number are required.' }, { status: 400 })
     }
@@ -58,9 +66,11 @@ export async function POST(req: NextRequest) {
       flexibleText = '[Flexible Date] '
     }
 
+    const vibeWithEmail = [email ? `Email: ${email}` : '', preferredVibe || ''].filter(Boolean).join('\n')
     const fullPreferredVibe = flexibleText
-      ? (flexibleText + (preferredVibe || '')).trim()
-      : preferredVibe || null
+      ? (flexibleText + vibeWithEmail).trim()
+      : vibeWithEmail || null
+    const leadType = [inquiryType || 'Private Inquiry', experience].filter(Boolean).join(' · ')
 
     const supabase = getServiceSupabase()
     const { data: inquiry, error: inquiryError } = await supabase
@@ -74,7 +84,7 @@ export async function POST(req: NextRequest) {
         group_size: groupSize ? String(groupSize) : null,
         preferred_vibe: fullPreferredVibe,
         budget_range: budgetRange ? String(budgetRange) : null,
-        inquiry_type: inquiryType || 'Private Inquiry',
+        inquiry_type: leadType,
       })
       .select('id')
       .single()
@@ -84,7 +94,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to record experience inquiry.' }, { status: 500 })
     }
 
-    const leadType = inquiryType || 'Private Inquiry'
     const emailSubject = `🚨 VIP LEAD: ${name} - ${leadType}`
     const emailHTML = `
 <!DOCTYPE html>
@@ -118,6 +127,9 @@ export async function POST(req: NextRequest) {
                   </a>
                 </td></tr>
             <tr><td colspan="2" style="border-bottom:1px solid rgba(255,255,255,0.06);"></td></tr>
+            <tr><td style="padding:8px 0;font-size:13px;color:#8E8E93;text-transform:uppercase;letter-spacing:0.08em;">Email</td>
+                <td style="padding:8px 0;font-size:14px;color:#FFFFFF;font-weight:600;">${escapeHTML(email || 'Not provided')}</td></tr>
+            <tr><td colspan="2" style="border-bottom:1px solid rgba(255,255,255,0.06);"></td></tr>
             <tr><td style="padding:8px 0;font-size:13px;color:#8E8E93;text-transform:uppercase;letter-spacing:0.08em;">Event Date</td>
                 <td style="padding:8px 0;font-size:14px;color:#FFFFFF;font-weight:600;">${escapeHTML(date || 'TBD')}</td></tr>
             <tr><td colspan="2" style="border-bottom:1px solid rgba(255,255,255,0.06);"></td></tr>
@@ -147,11 +159,11 @@ export async function POST(req: NextRequest) {
       if (process.env.RESEND_API_KEY) {
         const resend = getResend()
         const response = await resend.emails.send({
-          from: 'BEST Lead Alerts <onboarding@resend.dev>',
+          from: resendFromHeader('bnt'),
           to: ADMIN_EMAIL,
           subject: emailSubject,
           html: emailHTML,
-          text: `New VIP Lead:\nName: ${name}\nWhatsApp: ${normalizedPhone}\nExperience: ${leadType}\nDate: ${date || 'TBD'}\nPax: ${groupSize || 'TBD'}\nOccasion: ${occasion || 'N/A'}\nVibe: ${preferredVibe || 'N/A'}\nBudget: ${budgetRange || 'TBD'}`,
+          text: `New VIP Lead:\nName: ${name}\nWhatsApp: ${normalizedPhone}\nEmail: ${email || 'Not provided'}\nExperience: ${leadType}\nDate: ${date || 'TBD'}\nPax: ${groupSize || 'TBD'}\nOccasion: ${occasion || 'N/A'}\nVibe: ${preferredVibe || 'N/A'}\nBudget: ${budgetRange || 'TBD'}`,
         })
         if (response.error) {
           console.error('vip-inquiry email send failed (non-blocking):', response.error)
