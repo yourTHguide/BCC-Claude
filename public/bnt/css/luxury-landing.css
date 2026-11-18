@@ -765,6 +765,7 @@ section {
 }
 .input-group input[type="text"],
 .input-group input[type="tel"],
+.input-group input[type="email"],
 .input-group input[type="date"],
 .input-group input[type="number"],
 .input-group select,
