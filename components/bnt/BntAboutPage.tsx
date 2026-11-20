@@ -10,7 +10,7 @@ import BntFooter from './BntFooter'
 export default function BntAboutPage() {
   return (
     <>
-      <link rel="stylesheet" href="/bnt/css/luxury-landing.css" />
+      <link rel="stylesheet" href="/bnt/css/luxury-landing.css?v=20261120" />
       {/* dangerouslySetInnerHTML, not JSX text children. style is a raw-text
           HTML element the browser never entity-decodes, but React's SSR
           serializer HTML-escapes plain text children, which caused a real

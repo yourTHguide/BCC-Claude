@@ -31,7 +31,7 @@ export default async function BntLandingPage() {
 
   return (
     <>
-      <link rel="stylesheet" href="/bnt/css/luxury-landing.css" />
+      <link rel="stylesheet" href="/bnt/css/luxury-landing.css?v=20261120" />
 
       <BntNav showSmc={showSmc} />
 
@@ -112,7 +112,10 @@ export default async function BntLandingPage() {
                   A monthly social night where singles meet naturally.
                 </p>
                 <span className="event-meta">
-                  Last Thursday monthly{smcNext && <> · <span className="event-meta-accent">{smcNext}</span></>}
+                  {/* "Usually": the last-Thursday rhythm is the plan, not a promise —
+                      a month can be skipped (e.g. December). Only the "Next" date
+                      comes from a real, open date in the database. */}
+                  Usually last Thursday{smcNext && <> · <span className="event-meta-accent">{smcNext}</span></>}
                 </span>
                 <span className="event-cta">See details →</span>
               </div>
@@ -278,7 +281,7 @@ export default async function BntLandingPage() {
 
               <div className="input-group">
                 <label>YOUR NAME</label>
-                <input type="text" id="guest-name" placeholder="Enter your name" />
+                <input type="text" id="guest-name" placeholder="Enter your name" autoComplete="name" />
                 <div className="error-msg">Please enter your name.</div>
               </div>
 
@@ -292,7 +295,13 @@ export default async function BntLandingPage() {
                       </option>
                     ))}
                   </select>
-                  <input type="tel" id="guest-phone" placeholder="e.g. 81 234 5678" />
+                  <input
+                    type="tel"
+                    id="guest-phone"
+                    placeholder="81 234 5678"
+                    autoComplete="tel-national"
+                    inputMode="tel"
+                  />
                 </div>
                 <div className="error-msg">Please enter your WhatsApp number.</div>
               </div>
@@ -301,7 +310,16 @@ export default async function BntLandingPage() {
                 <label>
                   EMAIL <span className="optional-tag">(optional)</span>
                 </label>
-                <input type="email" id="guest-email" placeholder="you@example.com" autoComplete="email" />
+                <input
+                  type="email"
+                  id="guest-email"
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                  inputMode="email"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                />
+                <div className="error-msg">Please check your email, or leave it blank.</div>
               </div>
 
               <div className="input-group">
@@ -459,7 +477,7 @@ export default async function BntLandingPage() {
                   color: '#AEAEB2',
                 }}
               >
-                Your request is with the BEST team. Expect a personal WhatsApp message from us {BNT_RESPONSE_PROMISE}. A real human who knows Thailand nightlife is handling your inquiry
+                Your request is with the BEST team. Expect a personal WhatsApp message from us {BNT_RESPONSE_PROMISE}. A real human who knows Thailand nightlife is handling your inquiry.
               </p>
               <button className="step-btn-close" id="btn-finish">
                 Close &times;
@@ -472,7 +490,7 @@ export default async function BntLandingPage() {
       <BntFooter />
       <BntStickyBar />
 
-      <Script src="/bnt/js/luxury-landing.js" strategy="afterInteractive" />
+      <Script src="/bnt/js/luxury-landing.js?v=20261120" strategy="afterInteractive" />
     </>
   )
 }
