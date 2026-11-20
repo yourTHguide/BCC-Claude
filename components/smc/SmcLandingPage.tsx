@@ -109,7 +109,10 @@ export default function SmcLandingPage({ next }: { next: SmcBookableEvent }) {
     priceThb: next.priceThb,
     capacity: next.capacity ?? baseEdition.capacity,
   }
-  const shortDate = formatShortDate(edition)
+  // Only a date that exists in the database is shown as the next edition.
+  // If none could be loaded, say so rather than showing a computed one.
+  const dateKnown = next.source === 'database'
+  const shortDate = dateKnown ? formatShortDate(edition) : 'DATE TO BE ANNOUNCED'
   const startTime = formatStartTime(edition)
   const price = formatPrice(edition)
 
@@ -245,7 +248,7 @@ export default function SmcLandingPage({ next }: { next: SmcBookableEvent }) {
               </p>
               {edition.editionTagline && <p className="smc-ticket-tagline">{edition.editionTagline}</p>}
               <h2 id="smc-next-title" className="smc-ticket-date">
-                {formatLongDate(edition)}
+                {dateKnown ? formatLongDate(edition) : 'Next date to be announced'}
               </h2>
               <ul className="smc-ticket-list">
                 <li>

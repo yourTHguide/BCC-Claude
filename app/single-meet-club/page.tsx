@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic'
 
 const TITLE = 'Single Meet Club | Bangkok Singles Social Night'
 const DESCRIPTION =
-  "A monthly social night in Bangkok where everyone happens to be single. The last Thursday of every month at Tony's, Sukhumvit Soi 11."
+  "A monthly social night in Bangkok where everyone happens to be single. Usually the last Thursday of the month at Tony's, Sukhumvit Soi 11."
 
 // openGraph is set explicitly — otherwise Next.js merges the root layout's
 // BCC-branded og:title/og:url into shared SMC links.

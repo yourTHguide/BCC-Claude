@@ -69,7 +69,7 @@ export default async function SmcBookPage({ searchParams }: { searchParams: { ca
           <ul>
             <li>
               <CalendarDays aria-hidden size={20} strokeWidth={1.7} />
-              <span>{formatLongDate(display)}</span>
+              <span>{event.source === 'database' ? formatLongDate(display) : 'Next date to be announced'}</span>
             </li>
             <li>
               <Clock aria-hidden size={20} strokeWidth={1.7} />
