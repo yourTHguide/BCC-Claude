@@ -1,11 +1,12 @@
 import type { Metadata, Viewport } from 'next'
+import Script from 'next/script'
 import ConsentManager from '@/components/consent/ConsentManager'
+import { META_PIXEL_ID, earlyPixelScript } from '@/lib/consentConfig'
 import { headers } from 'next/headers'
 import { resolveStorefront } from '@/lib/storefront'
 import { buildPageMetadata, CANONICAL_ORIGIN, isIndexableHost, organizationJsonLd } from '@/lib/seo'
 import './globals.css'
 
-const META_PIXEL_ID = '302051565703286'
 
 // Hosts where advertising tracking may run (after consent). Previews,
 // bcc-claude.vercel.app and local development never load the pixel.
@@ -64,6 +65,14 @@ export default function RootLayout({
 
   return (
     <html lang="en">
+      {trackingHost && (
+        <head>
+          {/* Loads Meta only for visitors who already accepted (cookie); see lib/consentConfig.ts. */}
+          <Script id="meta-pixel-consented" strategy="beforeInteractive">
+            {earlyPixelScript()}
+          </Script>
+        </head>
+      )}
       <body style={{ overflowX: 'hidden', maxWidth: '100vw' }}>
         <script
           type="application/ld+json"

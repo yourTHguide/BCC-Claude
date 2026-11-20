@@ -14,15 +14,12 @@ import { useEffect, useState } from 'react'
 
 export type Consent = 'all' | 'necessary' | null
 
-export const CONSENT_COOKIE = 'snx_consent'
-export const CONSENT_VERSION = '1'
+import { CONSENT_COOKIE, CONSENT_VERSION, PRIVATE_PATH_RE } from '@/lib/consentConfig'
+export { PRIVATE_PATH_RE }
 const MAX_AGE_DAYS = 365
 export const CONSENT_CHANGE_EVENT = 'snx:consent-change'
 export const CONSENT_OPEN_EVENT = 'snx:consent-open'
 
-// Pages where no advertising tracking or consent banner runs: staff tools
-// and guest pages whose URL carries a private token.
-export const PRIVATE_PATH_RE = /^\/(dashboard|operator|login|set-password|ticket|waitlist\/unsubscribe)(\/|$)/
 
 export function readConsent(): Consent {
   if (typeof document === 'undefined') return null

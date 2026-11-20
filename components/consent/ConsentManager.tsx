@@ -76,6 +76,18 @@ export default function ConsentManager({
   const [ready, setReady] = useState(false)
   const [open, setOpen] = useState(false)
   const pixelLoaded = useRef(false)
+  const bannerRef = useRef<HTMLDivElement>(null)
+  // The BEST private-inquiry modal sets body.bnt-modal-open. While a
+  // visitor is filling it in, the banner steps aside (it returns on close)
+  // so it never covers the form's buttons.
+  const [modalOpen, setModalOpen] = useState(false)
+  useEffect(() => {
+    const update = () => setModalOpen(document.body.classList.contains('bnt-modal-open'))
+    update()
+    const mo = new MutationObserver(update)
+    mo.observe(document.body, { attributes: true, attributeFilter: ['class'] })
+    return () => mo.disconnect()
+  }, [])
 
   useEffect(() => {
     const c = readConsent()
@@ -113,7 +125,56 @@ export default function ConsentManager({
     }
   }
 
-  if (!ready || isPrivate || !open) return null
+  const visible = ready && !isPrivate && open && !modalOpen
+  // Reserve space at the bottom of the page while the banner is up, so the
+  // end of any page (e.g. a booking form's submit button) can scroll clear.
+  useEffect(() => {
+    if (!visible) return
+    const h = bannerRef.current?.offsetHeight ?? 0
+    const prev = document.body.style.paddingBottom
+    document.body.style.paddingBottom = `${h + 24}px`
+    return () => {
+      document.body.style.paddingBottom = prev
+    }
+  }, [visible])
+
+  // Sit above any fixed bar at the bottom of the screen (BCC's sticky "Book"
+  // bar, BEST's mobile bar, SMC's reserve bar) instead of covering it, so the
+  // booking path is never blocked while the visitor hasn't chosen yet.
+  const [lift, setLift] = useState(0)
+  useEffect(() => {
+    if (!visible) return
+    const measure = () => {
+      const banner = bannerRef.current
+      if (!banner) return
+      const prev = banner.style.visibility
+      banner.style.visibility = 'hidden'
+      const hits = document.elementsFromPoint(window.innerWidth / 2, window.innerHeight - 4)
+      banner.style.visibility = prev
+      let top = window.innerHeight
+      for (const el of hits) {
+        for (let n: Element | null = el; n && n !== document.body; n = n.parentElement) {
+          const cs = getComputedStyle(n)
+          if ((cs.position === 'fixed' || cs.position === 'sticky') && cs.visibility !== 'hidden' && cs.display !== 'none') {
+            const r = n.getBoundingClientRect()
+            if (r.bottom >= window.innerHeight - 8 && r.height < window.innerHeight / 2) top = Math.min(top, r.top)
+          }
+        }
+      }
+      setLift(Math.max(0, window.innerHeight - top))
+    }
+    measure()
+    const t = window.setInterval(measure, 700)
+    window.addEventListener('resize', measure)
+    window.addEventListener('scroll', measure, { passive: true })
+    return () => {
+      window.clearInterval(t)
+      window.removeEventListener('resize', measure)
+      window.removeEventListener('scroll', measure)
+    }
+  }, [visible])
+
+  if (!visible) return null
   const st = STYLES[brand]
   const btn: React.CSSProperties = {
     flex: '1 1 0',
@@ -129,6 +190,7 @@ export default function ConsentManager({
 
   return (
     <div
+      ref={bannerRef}
       role="dialog"
       aria-modal="false"
       aria-labelledby="consent-title"
@@ -137,7 +199,7 @@ export default function ConsentManager({
         position: 'fixed',
         left: 12,
         right: 12,
-        bottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
+        bottom: lift ? lift + 8 : 'calc(12px + env(safe-area-inset-bottom, 0px))',
         zIndex: 2000,
         maxWidth: 520,
         margin: '0 auto',

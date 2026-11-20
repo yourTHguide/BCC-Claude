@@ -48,7 +48,7 @@ export default function ConsentEmbed({
       }}
     >
       <span>
-        {what} {provider} may set cookies, so it loads only if you allow it.
+        {what} {provider}. It may set its own cookies, so it only loads if you allow it.
       </span>
       <button
         type="button"
