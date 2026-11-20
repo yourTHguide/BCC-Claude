@@ -55,6 +55,19 @@ const nextConfig = {
       permanent: true,
     }))
 
+    // bkkclubcrawl.com (apex) -> www, everything except /api. Inert today:
+    // Vercel's domain-level apex->www redirect runs first. Once that domain
+    // setting is switched to "serve the project" (Phase 3 finalization,
+    // needs owner approval), this rule takes over, and BEST-only paths
+    // (bestOnBcc above, which matches the apex too) go to BEST in one hop
+    // instead of apex -> www -> BEST.
+    const bccApex = {
+      source: '/:path((?!api/).*)',
+      has: [{ type: 'host', value: 'bkkclubcrawl\\.com' }],
+      destination: `${BCC}/:path`,
+      permanent: true,
+    }
+
     // www.bestnightlifethailand.com -> apex, everything except /api.
     const bestWww = {
       source: '/:path((?!api/).*)',
@@ -63,7 +76,7 @@ const nextConfig = {
       permanent: true,
     }
 
-    return [...bccOnBest, ...bestOnBcc, bestWww, ...retiredNights, ...retired]
+    return [...bccOnBest, ...bestOnBcc, bccApex, bestWww, ...retiredNights, ...retired]
   },
   async headers() {
     return [
