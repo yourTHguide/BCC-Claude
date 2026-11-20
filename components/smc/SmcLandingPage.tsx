@@ -28,6 +28,7 @@ import type { SmcBookableEvent } from '@/lib/smc/event'
 import SmcGallery, { type SmcGalleryPhoto } from './SmcGallery'
 import SmcStickyCta from './SmcStickyCta'
 import './smc.css'
+import CookieSettingsLink from '@/components/consent/CookieSettingsLink'
 
 const IMAGE_QUALITY = 90
 
@@ -348,7 +349,7 @@ export default function SmcLandingPage({ next }: { next: SmcBookableEvent }) {
             </a>
           </nav>
           <p className="smc-footer-legal">
-            © {new Date().getFullYear()} BEST Nightlife Thailand. Single Meet Club.
+            © {new Date().getFullYear()} BEST Nightlife Thailand. Single Meet Club. · <CookieSettingsLink />
           </p>
         </div>
       </footer>
