@@ -25,6 +25,7 @@
 // Not yet wired to any route (Stage 2 scope) — app/new-in-bangkok/page.tsx
 // still renders ProductPage until a later stage swaps it in.
 
+import LegalLinks from '@/components/consent/LegalLinks'
 import BntWaitlistForm from './BntWaitlistForm'
 import type {
   ProductPageProduct,
@@ -715,7 +716,7 @@ function NibFooter({ brand }: { brand: ReturnType<typeof brandFor> }) {
           BEST NIGHTLIFE <span style={neonTextStyle}>THAILAND</span>
         </a>
         <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', color: 'rgba(255,255,255,0.45)', margin: 0 }}>
-          © {new Date().getFullYear()} — Bangkok · Pattaya · By inquiry only.
+          © {new Date().getFullYear()} — Bangkok · Pattaya · By inquiry only. · <LegalLinks />
         </p>
       </div>
     </footer>

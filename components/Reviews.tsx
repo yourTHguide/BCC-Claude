@@ -1,3 +1,7 @@
+import Script from 'next/script'
+import ConsentEmbed from '@/components/consent/ConsentEmbed'
+
+// Elfsight loads only after cookie consent (or a click on "Show reviews").
 export default function Reviews() {
   return (
     <section id="reviews" className="section-pad" style={{ background: '#120009' }}>
@@ -21,11 +25,10 @@ export default function Reviews() {
         </h2>
       </div>
       <div className="reviews-widget">
-        <script src="https://elfsightcdn.com/platform.js" async></script>
-        <div
-          className="elfsight-app-c9a3552e-9881-4e1c-98f3-0a366fc9e590"
-          data-elfsight-app-lazy
-        ></div>
+        <ConsentEmbed provider="Elfsight" what="Guest reviews are shown by" showLabel="Show reviews">
+          <Script src="https://elfsightcdn.com/platform.js" strategy="afterInteractive" />
+          <div className="elfsight-app-c9a3552e-9881-4e1c-98f3-0a366fc9e590" data-elfsight-app-lazy></div>
+        </ConsentEmbed>
       </div>
 
       <style>{`

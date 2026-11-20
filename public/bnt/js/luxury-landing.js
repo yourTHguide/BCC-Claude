@@ -352,10 +352,12 @@ const initLuxuryLanding = () => {
         }
         
         modalOverlay.classList.add('active');
+        document.body.classList.add('bnt-modal-open');
     };
 
     const closeModal = () => {
         modalOverlay.classList.remove('active');
+        document.body.classList.remove('bnt-modal-open');
     };
 
     modalClose.addEventListener('click', closeModal);
@@ -407,14 +409,47 @@ const initLuxuryLanding = () => {
         if(errorMsg) errorMsg.style.display = 'none';
     };
 
+    // Same rules as composeWhatsApp() in lib/whatsapp.ts (the server checks
+    // again): a number typed with "+" or "00" wins over the dropdown; otherwise
+    // one leading trunk "0" is dropped (not for Italy). 8-15 digits.
+    const composeWhatsApp = (countryCode, local) => {
+        const typed = (local || '').replace(/\(0\)/g, '').trim();
+        if (!typed) return null;
+        let digits;
+        if (/^(\+|00)/.test(typed)) {
+            digits = typed.replace(/^(\+|00)/, '').replace(/\D/g, '');
+        } else {
+            const cc = (countryCode || '').replace(/\D/g, '');
+            let national = typed.replace(/\D/g, '');
+            if (cc !== '39') national = national.replace(/^0/, '');
+            digits = cc + national;
+        }
+        return digits.length >= 8 && digits.length <= 15 ? '+' + digits : null;
+    };
+    const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    const setErrorText = (elementId, text) => {
+        const el = document.getElementById(elementId);
+        const msg = el && (el.closest('.input-group') || el.parentElement).querySelector('.error-msg');
+        if (msg) msg.textContent = text;
+    };
+
     const validateStep1 = () => {
         let valid = true;
         const name = document.getElementById('guest-name');
         const phone = document.getElementById('guest-phone');
+        const email = document.getElementById('guest-email');
         const occasion = document.querySelector('.occasion-item.selected');
         
         if (!name.value.trim()) { showError('guest-name'); valid = false; } else { hideError('guest-name'); }
-        if (!phone.value.trim()) { showError('guest-phone'); valid = false; } else { hideError('guest-phone'); }
+        if (!phone.value.trim()) {
+            setErrorText('guest-phone', 'Please enter your WhatsApp number.');
+            showError('guest-phone'); valid = false;
+        } else if (!composeWhatsApp(document.getElementById('country-code').value, phone.value)) {
+            setErrorText('guest-phone', 'That number looks too short or too long. Check the country code and number.');
+            showError('guest-phone'); valid = false;
+        } else { hideError('guest-phone'); }
+        if (email && email.value.trim() && !EMAIL_RE.test(email.value.trim())) { showError('guest-email'); valid = false; } else if (email) { hideError('guest-email'); }
         if (!occasion) { showError('occasion-stack'); valid = false; } else { hideError('occasion-stack'); }
         return valid;
     };
@@ -598,7 +633,6 @@ const initLuxuryLanding = () => {
             const name = document.getElementById('guest-name').value.trim();
             const countryCode = document.getElementById('country-code').value;
             const guestPhone = document.getElementById('guest-phone').value.trim();
-            const whatsapp = countryCode + guestPhone;
             const email = (document.getElementById('guest-email')?.value || '').trim();
             const occasion = document.querySelector('.occasion-item.selected')?.dataset.value || 'Celebration';
 
@@ -645,10 +679,10 @@ const initLuxuryLanding = () => {
             const budgetRange = document.querySelector('.budget-option.selected')?.innerText || '';
             const additionalNotes = document.getElementById('additional-notes').value.trim();
 
-            // Construct preferred_vibe text to capture everything from Step 2, 3, and 4
-            let vibeNotes = `Vibe: ${preferredVibe}`;
-            if (step3Info) vibeNotes += `\n${step3Info}`;
-            if (additionalNotes) vibeNotes += `\nNotes: ${additionalNotes}`;
+            // Each answer goes to its own field (Phase 3 finalization): vibe on
+            // its own; step-3 answers + free-text notes as request details.
+            const requestDetails = [step3Info, additionalNotes ? `Notes: ${additionalNotes}` : '']
+                .filter(Boolean).join('\n');
 
             const response = await fetch('/api/vip-inquiry', {
                 method: 'POST',
@@ -657,15 +691,16 @@ const initLuxuryLanding = () => {
                 },
                 body: JSON.stringify({
                     name,
-                    whatsapp,
+                    countryCode,
+                    phone: guestPhone,
+                    email,
                     date,
                     groupSize,
                     occasion,
-                    preferredVibe: vibeNotes,
-                    budgetRange,
-                    inquiryType: 'Private Inquiry',
-                    experience: selectedExperience,
-                    email
+                    vibe: preferredVibe.trim(),
+                    requestDetails,
+                    budgetRange: budgetRange.trim(),
+                    experience: selectedExperience
                 })
             });
 
