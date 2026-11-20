@@ -1,181 +1,130 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
-import { normalizeWhatsApp } from '@/lib/whatsapp'
-import { Resend } from 'resend'
-import { resendFromHeader } from '@/lib/storefrontBrand'
+import { composeWhatsApp, normalizeWhatsApp } from '@/lib/whatsapp'
+import { EMAIL_RE, isMissingColumnError, recordAlert, sendLeadAlert } from '@/lib/bnt/leads'
+import { buildInquiryAlert, type InquiryRow } from '@/lib/bnt/leadEmails'
 
-// Lazily instantiated so importing this route doesn't run the Resend
-// constructor during Next.js's build-time "collecting page data" step
-// (same pattern as app/api/webhook/route.ts).
-function getResend() {
-  return new Resend(process.env.RESEND_API_KEY)
-}
+// BEST private-experience inquiry (homepage modal, public/bnt/js/luxury-landing.js).
+//
+// Phase 3 finalization (Nov 2026): every answer goes in its own column
+// (email, experience, preferred_vibe, request_details, source, status) instead
+// of being packed into preferred_vibe. form_version 2 = structured payload
+// from the current form; form_version 1 = the older payload (a browser that
+// still has the previous script cached), stored the way it always was.
+// The row is saved before the team alert is sent, and the alert outcome is
+// written back (alert_status) so a failed email never loses the inquiry.
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'bestnightlifethailand@gmail.com'
+const clip = (v: unknown, n: number): string => (typeof v === 'string' ? v.trim().slice(0, n) : '')
 
-function escapeHTML(str: unknown): string {
-  if (str === null || str === undefined) return ''
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
-
-// Ported from NightlifeAntigravity's POST /api/vip-inquiry (server.js).
-// The old app upserted a `guests` profile before inserting the inquiry —
-// this canonical table is denormalized (no guests table here yet), so that
-// step is dropped; everything else (validation, date parsing, email alert)
-// is preserved.
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { name, whatsapp, date, groupSize, occasion, preferredVibe, budgetRange, inquiryType } = body
+    const body = await req.json().catch(() => ({}))
+    const name = clip(body.name, 120)
 
-    // Phase 3 (Nov 2026): which experience card the guest opened, and an
-    // optional email. Both are stored in existing columns (no schema change):
-    // the experience in inquiry_type, the email at the top of preferred_vibe.
-    const experience = typeof body.experience === 'string' ? body.experience.trim().slice(0, 80) : ''
-    const rawEmail = typeof body.email === 'string' ? body.email.trim().slice(0, 200) : ''
-    const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail) ? rawEmail : ''
+    // Current form sends countryCode + phone; older cached form sends whatsapp.
+    const whatsapp =
+      body.phone !== undefined
+        ? composeWhatsApp(body.countryCode, body.phone)
+        : normalizeWhatsApp(typeof body.whatsapp === 'string' ? body.whatsapp.replace(/^.*(?=\+[^+]*$)/, '') : body.whatsapp)
 
-    if (!name || !whatsapp) {
+    if (!name || (!body.phone && !body.whatsapp)) {
       return NextResponse.json({ error: 'Name and WhatsApp number are required.' }, { status: 400 })
     }
-
-    const normalizedPhone = normalizeWhatsApp(whatsapp)
-    if (!normalizedPhone) {
+    if (!whatsapp) {
       return NextResponse.json(
-        { error: 'Please enter a valid WhatsApp phone number (e.g. +66812345678 or 0812345678).' },
+        { error: 'Please check your WhatsApp number — choose your country code and enter the rest of the number.' },
         { status: 400 }
       )
     }
 
-    // Sanitize event_date / flexible date, same as the original handler.
-    let parsedDate: string | null = null
-    let flexibleText = ''
-    if (date && date !== 'flexible' && date !== '') {
-      const dateObj = new Date(date)
-      if (!isNaN(dateObj.getTime())) {
-        parsedDate = dateObj.toISOString().split('T')[0]
-      } else {
-        flexibleText = `[Flexible Date Requested: ${date}] `
-      }
-    } else {
-      flexibleText = '[Flexible Date] '
+    const rawEmail = clip(body.email, 200).toLowerCase()
+    if (rawEmail && !EMAIL_RE.test(rawEmail)) {
+      return NextResponse.json({ error: 'Please check your email address, or leave it blank.' }, { status: 400 })
+    }
+    const email = rawEmail || null
+
+    let eventDate: string | null = null
+    let dateNote = ''
+    const date = clip(body.date, 40)
+    if (date && date !== 'flexible') {
+      const d = /^\d{4}-\d{2}-\d{2}$/.test(date) ? new Date(`${date}T00:00:00Z`) : new Date(date)
+      if (!isNaN(d.getTime())) eventDate = d.toISOString().slice(0, 10)
+      else dateNote = `Requested date: ${date}`
     }
 
-    const vibeWithEmail = [email ? `Email: ${email}` : '', preferredVibe || ''].filter(Boolean).join('\n')
-    const fullPreferredVibe = flexibleText
-      ? (flexibleText + vibeWithEmail).trim()
-      : vibeWithEmail || null
-    const leadType = [inquiryType || 'Private Inquiry', experience].filter(Boolean).join(' · ')
+    const structured = typeof body.requestDetails === 'string' || typeof body.vibe === 'string'
+    const experience = clip(body.experience, 80) || null
+    const occasion = clip(body.occasion, 60) || null
+    const groupSize = body.groupSize ? String(body.groupSize).slice(0, 20) : null
+    const budget = body.budgetRange ? String(body.budgetRange).slice(0, 60) : null
+
+    let preferredVibe: string | null
+    let requestDetails: string | null
+    if (structured) {
+      preferredVibe = clip(body.vibe, 120) || null
+      requestDetails = [dateNote, clip(body.requestDetails, 4000)].filter(Boolean).join('\n') || null
+    } else {
+      // Legacy payload: preferredVibe already holds "Vibe: …\n<details>\nNotes: …".
+      // Kept as-is in preferred_vibe (no email prefix any more: email has a column).
+      preferredVibe = [dateNote || (!eventDate ? '[Flexible Date]' : ''), clip(body.preferredVibe, 4000)].filter(Boolean).join(' ').trim() || null
+      requestDetails = null
+    }
+
+    const legacyRow = {
+      name,
+      whatsapp,
+      occasion,
+      event_date: eventDate,
+      is_flexible_date: !eventDate,
+      group_size: groupSize,
+      budget_range: budget,
+      // Category only; the chosen experience has its own column now.
+      inquiry_type: 'Private Inquiry',
+    }
+    const fullRow = {
+      ...legacyRow,
+      preferred_vibe: preferredVibe,
+      request_details: requestDetails,
+      email,
+      experience,
+      source: 'bnt_home_private_inquiry',
+      form_version: structured ? 2 : 1,
+      status: 'new',
+      alert_status: 'pending',
+    }
 
     const supabase = getServiceSupabase()
-    const { data: inquiry, error: inquiryError } = await supabase
-      .from('bnt_experience_inquiries')
-      .insert({
-        name,
-        whatsapp: normalizedPhone,
-        occasion: occasion || null,
-        event_date: parsedDate,
-        is_flexible_date: !parsedDate,
-        group_size: groupSize ? String(groupSize) : null,
-        preferred_vibe: fullPreferredVibe,
-        budget_range: budgetRange ? String(budgetRange) : null,
-        inquiry_type: leadType,
-      })
-      .select('id')
-      .single()
+    let { data: inserted, error } = await supabase.from('bnt_experience_inquiries').insert(fullRow).select('id').single()
 
-    if (inquiryError) {
-      console.error('vip-inquiry insert error:', inquiryError)
-      return NextResponse.json({ error: 'Failed to record experience inquiry.' }, { status: 500 })
+    let alertTracked = true
+    if (error && isMissingColumnError(error)) {
+      // Migration 20261118000002 not applied yet: save the lead the pre-migration
+      // way (email/experience/details folded into text columns) so it isn't lost.
+      console.error('vip-inquiry: lead-operations columns missing, saving in legacy format')
+      alertTracked = false
+      const packed = [email ? `Email: ${email}` : '', preferredVibe ? `Vibe: ${preferredVibe}` : '', requestDetails || '']
+        .filter(Boolean)
+        .join('\n')
+      ;({ data: inserted, error } = await supabase
+        .from('bnt_experience_inquiries')
+        .insert({ ...legacyRow, preferred_vibe: packed || null, inquiry_type: ['Private Inquiry', experience].filter(Boolean).join(' · ') })
+        .select('id')
+        .single())
     }
 
-    const emailSubject = `🚨 VIP LEAD: ${name} - ${leadType}`
-    const emailHTML = `
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"><title>${emailSubject}</title></head>
-<body style="margin:0;padding:0;background-color:#08080A;font-family:'Inter',sans-serif;color:#FFFFFF;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#08080A;">
-    <tr><td align="center" style="padding:40px 20px;">
-      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
-        <tr><td align="center" style="padding-bottom:24px;">
-          <h1 style="margin:0;font-family:'Montserrat',sans-serif;font-size:24px;font-weight:700;color:#FFFFFF;letter-spacing:0.05em;text-transform:uppercase;">🚨 NEW VIP LEAD</h1>
-          <p style="margin:6px 0 0;font-size:11px;color:#FF2D95;letter-spacing:0.15em;text-transform:uppercase;">BEST Nightlife Thailand — Premium Pipeline</p>
-        </td></tr>
-        <tr><td style="background-color:#121216;border-radius:16px;border:1px solid rgba(255,255,255,0.06);padding:32px;box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
-            <tr><td>
-              <div style="display:inline-block;background:linear-gradient(135deg,#FF2D95,#FF6B9D);color:#FFFFFF;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;padding:6px 16px;border-radius:9999px;">
-                ${escapeHTML(leadType)}
-              </div>
-            </td></tr>
-          </table>
-          <h2 style="margin:0 0 20px;font-size:20px;font-family:'Montserrat',sans-serif;color:#D4AF37;font-weight:600;">Inquiry Details</h2>
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#1C1C22;border-radius:12px;padding:20px;border:1px solid rgba(255,255,255,0.04);">
-            <tr><td style="padding:8px 0;font-size:13px;color:#8E8E93;text-transform:uppercase;letter-spacing:0.08em;width:35%;">Guest Name</td>
-                <td style="padding:8px 0;font-size:14px;color:#FFFFFF;font-weight:600;">${escapeHTML(name)}</td></tr>
-            <tr><td colspan="2" style="border-bottom:1px solid rgba(255,255,255,0.06);"></td></tr>
-            <tr><td style="padding:8px 0;font-size:13px;color:#8E8E93;text-transform:uppercase;letter-spacing:0.08em;">WhatsApp</td>
-                <td style="padding:8px 0;font-size:14px;color:#FFFFFF;font-weight:600;">
-                  <a href="https://wa.me/${escapeHTML(normalizedPhone).replace('+', '')}" style="color:#00E676;text-decoration:none;font-weight:700;">
-                    ${escapeHTML(normalizedPhone)} 💬 (Click to Chat)
-                  </a>
-                </td></tr>
-            <tr><td colspan="2" style="border-bottom:1px solid rgba(255,255,255,0.06);"></td></tr>
-            <tr><td style="padding:8px 0;font-size:13px;color:#8E8E93;text-transform:uppercase;letter-spacing:0.08em;">Email</td>
-                <td style="padding:8px 0;font-size:14px;color:#FFFFFF;font-weight:600;">${escapeHTML(email || 'Not provided')}</td></tr>
-            <tr><td colspan="2" style="border-bottom:1px solid rgba(255,255,255,0.06);"></td></tr>
-            <tr><td style="padding:8px 0;font-size:13px;color:#8E8E93;text-transform:uppercase;letter-spacing:0.08em;">Event Date</td>
-                <td style="padding:8px 0;font-size:14px;color:#FFFFFF;font-weight:600;">${escapeHTML(date || 'TBD')}</td></tr>
-            <tr><td colspan="2" style="border-bottom:1px solid rgba(255,255,255,0.06);"></td></tr>
-            <tr><td style="padding:8px 0;font-size:13px;color:#8E8E93;text-transform:uppercase;letter-spacing:0.08em;">Group Size</td>
-                <td style="padding:8px 0;font-size:14px;color:#FFFFFF;font-weight:600;">${escapeHTML(groupSize || 'TBD')} pax</td></tr>
-            <tr><td colspan="2" style="border-bottom:1px solid rgba(255,255,255,0.06);"></td></tr>
-            <tr><td style="padding:8px 0;font-size:13px;color:#8E8E93;text-transform:uppercase;letter-spacing:0.08em;">Occasion</td>
-                <td style="padding:8px 0;font-size:14px;color:#FFFFFF;font-weight:600;">${escapeHTML(occasion || 'N/A')}</td></tr>
-            <tr><td colspan="2" style="border-bottom:1px solid rgba(255,255,255,0.06);"></td></tr>
-            <tr><td style="padding:8px 0;font-size:13px;color:#8E8E93;text-transform:uppercase;letter-spacing:0.08em;">Preferred Vibe</td>
-                <td style="padding:8px 0;font-size:14px;color:#FFFFFF;font-weight:600;">${escapeHTML(preferredVibe || 'N/A')}</td></tr>
-            <tr><td colspan="2" style="border-bottom:1px solid rgba(255,255,255,0.06);"></td></tr>
-            <tr><td style="padding:8px 0;font-size:13px;color:#8E8E93;text-transform:uppercase;letter-spacing:0.08em;">Estimated Budget</td>
-                <td style="padding:8px 0;font-size:15px;color:#D4AF37;font-weight:700;">${escapeHTML(budgetRange || 'TBD')}</td></tr>
-          </table>
-        </td></tr>
-        <tr><td align="center" style="padding-top:24px;">
-          <p style="margin:0;font-size:11px;color:#55555C;letter-spacing:0.05em;text-transform:uppercase;">BEST Nightlife Thailand Database Management System</p>
-        </td></tr>
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>`
-
-    try {
-      if (process.env.RESEND_API_KEY) {
-        const resend = getResend()
-        const response = await resend.emails.send({
-          from: resendFromHeader('bnt'),
-          to: ADMIN_EMAIL,
-          subject: emailSubject,
-          html: emailHTML,
-          text: `New VIP Lead:\nName: ${name}\nWhatsApp: ${normalizedPhone}\nEmail: ${email || 'Not provided'}\nExperience: ${leadType}\nDate: ${date || 'TBD'}\nPax: ${groupSize || 'TBD'}\nOccasion: ${occasion || 'N/A'}\nVibe: ${preferredVibe || 'N/A'}\nBudget: ${budgetRange || 'TBD'}`,
-        })
-        if (response.error) {
-          console.error('vip-inquiry email send failed (non-blocking):', response.error)
-        }
-      }
-    } catch (emailErr) {
-      console.error('vip-inquiry email dispatch failed (non-blocking):', emailErr)
+    if (error || !inserted) {
+      console.error('vip-inquiry insert error:', error)
+      return NextResponse.json({ error: 'We couldn’t send your request. Please try again, or message us on WhatsApp.' }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, message: 'Inquiry submitted successfully', inquiryId: inquiry.id })
+    const alert = buildInquiryAlert({ ...fullRow, id: inserted.id } as InquiryRow)
+    const result = await sendLeadAlert(alert)
+    if (alertTracked) await recordAlert(supabase, 'bnt_experience_inquiries', inserted.id, result)
+    else if (!result.ok) console.error('vip-inquiry alert failed:', result.error)
+
+    return NextResponse.json({ success: true, inquiryId: inserted.id })
   } catch (error) {
     console.error('vip-inquiry server error:', error)
-    return NextResponse.json({ error: 'Internal server error processing inquiry.' }, { status: 500 })
+    return NextResponse.json({ error: 'We couldn’t send your request. Please try again, or message us on WhatsApp.' }, { status: 500 })
   }
 }
