@@ -45,6 +45,8 @@ export default function RootLayout({
   const host = headers().get('host')
   const storefront = resolveStorefront(host)
   const hasPixel = storefront === 'bcc' || storefront === 'bnt'
+  // Set by middleware for /dashboard, /operator and /api/admin only.
+  const isStaffPath = /^\/(dashboard|operator)(\/|$)/.test(headers().get('x-pathname') || '')
 
   return (
     <html lang="en">
@@ -53,8 +55,14 @@ export default function RootLayout({
           /* Meta Pixel base code — fires on both bkkclubcrawl.com and
              bestnightlifethailand.com. URL/button event rules in Meta Events
              Manager distinguish BCC vs BNT conversions by domain + content_id. */
+          /* Phase 3 finalization: the pixel does not load on staff/admin
+             pages or on guest pages whose URL carries a private token
+             (/ticket/<token>, unsubscribe links) — those URLs would
+             otherwise be sent to Meta with every PageView. Public pages,
+             /book and the booking-success Purchase event are unchanged. */
           <Script id="meta-pixel" strategy="beforeInteractive">
             {`
+              if (!/^\\/(dashboard|operator|login|set-password|ticket|waitlist\\/unsubscribe)(\\/|$)/.test(location.pathname)) {
               !function(f,b,e,v,n,t,s)
               {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
               n.callMethod.apply(n,arguments):n.queue.push(arguments)};
@@ -65,21 +73,22 @@ export default function RootLayout({
               'https://connect.facebook.net/en_US/fbevents.js');
               fbq('init', '${META_PIXEL_ID}');
               fbq('track', 'PageView');
+              }
             `}
           </Script>
         )}
       </head>
       <body style={{ overflowX: 'hidden', maxWidth: '100vw' }}>
-        {hasPixel && (
-          <noscript>
-            <img
-              height="1"
-              width="1"
-              style={{ display: 'none' }}
-              src={`https://www.facebook.com/tr?id=${META_PIXEL_ID}&ev=PageView&noscript=1`}
-              alt=""
-            />
-          </noscript>
+        {hasPixel && !isStaffPath && (
+          /* Phase 3 finalization: raw HTML on purpose. As a JSX <img>, React
+             also emitted <link rel="preload" as="image"> for this URL in
+             <head>, so every browser — with JavaScript on — fetched it and
+             Meta received a second ("noscript") PageView on every page. */
+          <noscript
+            dangerouslySetInnerHTML={{
+              __html: `<img height="1" width="1" style="display:none" alt="" src="https://www.facebook.com/tr?id=${META_PIXEL_ID}&amp;ev=PageView&amp;noscript=1" />`,
+            }}
+          />
         )}
         <script
           type="application/ld+json"
