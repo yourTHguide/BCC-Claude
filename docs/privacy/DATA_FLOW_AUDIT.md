@@ -16,7 +16,7 @@ Both sites are served by **one Next.js app** (Vercel project `bcc-claude`), one 
 | 6 | QR ticket `/ticket/<token>` | BCC | Booking reference, name, date | `bookings` (token) | Entry check-in | — |
 | 7 | OTA bookings (GetYourGuide/Viator/Airbnb/Klook etc., imported by staff from spreadsheets) | BCC | Guest name, email (where the platform provides it), notes | `ota_bookings` | Door list, capacity | — (data arrives *from* the platform) |
 | 8 | WhatsApp links/buttons | Both | Whatever the guest sends on WhatsApp | WhatsApp (Meta), the team's phone | Conversation | Meta/WhatsApp |
-| 9 | Meta Pixel | Both | Cookies `_fbp` (and `_fbc` from ad clicks), IP, user agent, page URL, events: PageView, ViewContent, InitiateCheckout, Purchase (value, quantity), Lead, custom SelectNight | — (Meta) | Ad measurement / audiences | Meta Platforms |
+| 9 | Meta Pixel (**after PR #11: only with consent, production hosts, never on private pages**) | Both | Cookies `_fbp` (and `_fbc` from ad clicks), IP, user agent, page URL, events: PageView, ViewContent, InitiateCheckout, Purchase (value, quantity), Lead, custom SelectNight | — (Meta) | Ad measurement / audiences | Meta Platforms |
 | 10 | Google Fonts (CSS `@import`) | Both | IP, user agent | — | Fonts | Google |
 | 11 | Elfsight reviews widget (`components/Reviews.tsx`, `WeekendsPage.tsx`) | BCC | IP, user agent; may set its own storage (not verified) | — | Show reviews | Elfsight |
 | 12 | Google Maps embed (`/weekends`) | BCC | IP, user agent, Google cookies | — | Show meeting area | Google |
@@ -47,11 +47,13 @@ There is **no automated deletion anywhere**. Every table keeps rows indefinitely
 
 Before this release: only by hand in Supabase. After this release: `/dashboard/leads` can unsubscribe or permanently delete an inquiry, contact message or waitlist address. Bookings (`bookings`, `smc_registrations`, `ota_bookings`) still require a manual process because of accounting/payment records — see the policy drafts' rights section and the decisions list.
 
-## 5. Risks found
+## 5. Risks found → status after PR #11
 
-1. **Meta Pixel runs before any notice or consent** on every page of both sites (release-critical — see `CONSENT_AND_TRACKING.md`).
-2. **Duplicate PageView**: the noscript pixel image was preloaded by React in every browser → two PageViews per page view. *Fixed in this branch.*
-3. **Token URLs sent to Meta**: `/ticket/<token>` and staff pages sent full URLs with PageView. *Fixed in this branch.*
-4. **No privacy notice on either site** while collecting the data above.
-5. **No retention limits.**
-6. **Two lead alerts go to one personal Gmail inbox** (`bestnightlifethailand@gmail.com`). Fine operationally; note it in the policy as where staff read inquiries.
+1. Meta Pixel ran before any notice or consent → **fixed**: loads only after Accept, production hosts only (`CONSENT_AND_TRACKING.md`).
+2. Duplicate PageView via preloaded noscript image → **fixed** (noscript pixel removed entirely).
+3. Token URLs (ticket, unsubscribe, staff pages) sent to Meta → **fixed**, including the server-rendered noscript path.
+4. Elfsight / Google Maps loaded without consent (BCC) → **fixed**: consent or per-view click.
+5. No privacy notice on either site → **drafts v2 ready**, not published (`PRIVACY_NOTICE_*_DRAFT.md`, `OPEN_QUESTIONS.md`).
+6. No retention limits → **manual schedule + monthly review** (`RETENTION_SCHEDULE.md`); not automated.
+7. Google Fonts load before consent → **open question 8** (recommend self-hosting).
+8. Lead alerts go to one Gmail inbox → unchanged by design; no new recipients.

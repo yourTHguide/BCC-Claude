@@ -1,59 +1,59 @@
-# Meta Pixel & consent readiness — audit and recommendation
+# Meta Pixel & consent — what was found, what PR #11 changes, effect on reporting
 
-Phase 3 finalization, 20 Nov 2026. Scope: what runs today, what this branch fixes, and what needs your decision before Phase 4 (Conversion Tracking & Attribution). Phase 4 implementation work is **not** included here.
+Updated after the pre-release review (approved 20 Nov 2026: remove duplicate PageView, exclude private pages, implement Accept / Only necessary consent, production hosts only). No Google Analytics, new pixels, new events or Phase 4 tracking added.
 
-## 1. Audit findings
+## 1. Before (production today)
 
-| Question | Finding (verified) |
+| | |
 |---|---|
-| Where does the base pixel load? | `app/layout.tsx`, `strategy="beforeInteractive"`, on **every page of both hosts** (and on any unknown host such as Vercel previews, which fall back to the BCC storefront). One pixel ID for both brands. |
-| Cookies? | Yes. Meta's script sets the first-party `_fbp` cookie and `_fbc` when the visitor arrives from an ad click (`fbclid`). It also sends IP, user agent and full page URL to Meta. |
-| PageView? | Yes, immediately on load. **Bug, fixed here:** the `<noscript>` fallback image was also preloaded by React in every normal browser, so each page sent **two** PageViews. |
-| Lead events only after genuine success? | Yes. Private inquiry, contact and waitlist fire `Lead` only after the server returns success (verified in tests: one `Lead` per successful submit, none on validation errors or failures). |
-| Duplicate Lead events? | Waitlist: a repeat sign-up for an address already on the list fired a second `Lead`. **Fixed here** (server returns `duplicate`, no event). Inquiry/contact: a guest who genuinely submits twice produces two Leads — acceptable; proper dedup (`eventID`) belongs to Phase 4 with the Conversions API. |
-| Consent collected? | **No.** No banner, no notice, no privacy page, no opt-out. |
-| Tracking active before consent? | **Yes — all of it.** |
-| BEST vs BCC differences | Same pixel and base code. BCC pages additionally fire `ViewContent`, `InitiateCheckout`, `Purchase` (value/qty from the verified Stripe session) and custom `SelectNight`. BEST fires `Lead` on its three forms; New in Bangkok/SMC booking flows reuse BCC's checkout events. |
-| Other third parties before consent | Google Fonts (all pages, IP to Google), Elfsight reviews widget and Google Maps embed (BCC `/weekends`). |
-| Sensitive URLs to Meta | `/ticket/<token>` and staff pages were sent with PageView. **Fixed here** — pixel no longer loads on `/dashboard`, `/operator`, `/login`, `/set-password`, `/ticket/*`, unsubscribe pages. |
+| Pixel | `302051565703286`, one pixel for BEST and BCC, loaded `beforeInteractive` on **every** page of both sites and on previews (`*.vercel.app` fell back to BCC) |
+| Consent | None. Cookies `_fbp`/`_fbc` set and PageView sent on page load |
+| Duplicate PageView | The `<noscript>` fallback `<img>` was also **preloaded by React in every JS browser** → two PageViews per page view |
+| Private URLs | Staff pages, `/ticket/<token>` and (in the first PR #11 version) the server-rendered `<noscript>` image could still send private URLs |
+| Third parties | Elfsight reviews and Google Maps embed loaded without consent on BCC |
 
-## 2. Release-critical issue
+## 2. After (PR #11)
 
-**Non-essential advertising tracking (Meta Pixel) runs on both sites before any notice or consent, and neither site has a privacy notice.**
+| Visitor state | Meta | Elfsight / Google Maps (BCC) |
+|---|---|---|
+| No choice yet (banner showing) | Nothing loads, no cookie, no event | Placeholder with "Show reviews" / "Show map" (per page view) |
+| "Only necessary" | Nothing loads | Placeholder |
+| "Accept" | Pixel loads; PageView; existing ViewContent / InitiateCheckout / Purchase / Lead / SelectNight unchanged | Load normally |
+| Withdraws later ("Cookie settings" → Only necessary) | Page reloads without the pixel; `_fbp`/`_fbc` removed | Placeholder |
+| Private pages (`/dashboard`, `/operator`, `/login`, `/set-password`, `/ticket/*`, `/waitlist/unsubscribe`) | Never, even with consent; no banner | n/a |
+| No JavaScript | Never (no `<noscript>` pixel exists any more — such visitors can't consent) | n/a |
+| Preview / `bcc-claude.vercel.app` / local | Never (no loader in the HTML) | Consent-gated as above (for QA) |
 
-Under Thailand's PDPA, consent (s.19) is the lawful basis normally relied on for advertising/targeting cookies and pixels; such tracking can't generally be justified as "strictly necessary", contract or legitimate interest, and the PDPC's cookie guidance treats marketing cookies as consent-based. Visitors from the EU/UK are additionally covered by GDPR/ePrivacy rules that require prior consent. This is my assessment, not legal advice — please have it confirmed.
+Implementation:
+- `components/consent/ConsentManager.tsx` — banner per brand (BEST black/pink, BCC plum), two equal-weight buttons, brand-accurate purposes; loads the pixel when a visitor accepts.
+- `lib/consentConfig.ts` — on production hosts only, a tiny inline loader. It checks the `snx_consent` cookie and loads the pixel early **only for visitors who already accepted**, so page-load events such as BCC's `ViewContent` keep their original timing.
+- The banner never blocks forms or the Book button: it sits above fixed bottom bars and steps aside while the BEST inquiry modal is open.
+- "Cookie settings" link in every storefront footer.
+- The choice is stored in a first-party cookie `snx_consent=1:all|necessary`, kept 12 months, separately per site.
 
-I have **not** added a banner or changed when the pixel loads, because that will reduce what Meta reports and you asked for that to be explained first.
+## 3. Verified (local production build, phone viewports, both brands)
 
-## 3. Recommended remediation (least disruptive that's compliant)
+- Raw HTML for `/`, `/contact`, `/weekends`, `/book`, ticket and unsubscribe pages: **no** `facebook.com/tr`, **no** `<noscript>` pixel, no Elfsight script tag, no Maps iframe.
+- First visit: banner shown, zero requests to Meta/Elfsight/Google Maps.
+- "Only necessary": zero requests, on this page and the next.
+- Accept via Cookie settings: one fbevents load, one PageView. On BCC, Elfsight and Maps load.
+- Reload after Accept: pixel loads immediately. BCC `/weekends` fires PageView + ViewContent (as before).
+- Ticket and unsubscribe pages with consent: no Meta.
+- Withdrawal: reload, no Meta, `_fbp` removed.
+- Preview host: Accept → still no Meta.
+- Forms: inquiry/contact/waitlist all work with no choice made. `Lead` fires only with consent, once per genuine submission. Repeat waitlist sign-ups: no `Lead`.
+- BCC: Book button works with banner open; `/weekends` → `/book` unchanged. No booking, checkout, Stripe, pricing or terms file changed.
 
-**Option A — recommended: simple consent banner, pixel loads only after "Accept".**
+## 4. Expected effect on Meta reporting (please read before deploying)
 
-- Small bottom bar, BEST/BCC styling, two equal buttons: **Accept** / **Only necessary**. Link to the privacy page. "Cookie settings" link in both footers to change the choice.
-- Before a choice: nothing from Meta loads (no script, no cookie, no PageView). Elfsight/Maps show a "Load reviews/map" placeholder or are included under the same consent (your choice).
-- After Accept: current pixel behaviour, unchanged. Choice stored in a first-party cookie for 6–12 months (strictly necessary, no consent needed).
-- No banner on `/dashboard`, `/operator`, ticket pages.
-- Effort: one component + a small change in `app/layout.tsx`; independently revertible.
-- **Measurement impact:** visitors who decline (or ignore the banner) no longer appear in Pixel data — commonly 20–50% fewer tracked visitors and conversions, and smaller retargeting audiences. Phase 4 can partly recover reporting with server-side conversion reporting under an appropriate basis, plus UTM-based attribution in our own database (no third party).
+1. **PageViews drop** — the duplicate noscript PageView was inflating every page view (likely up to ~2×). Real visits are unchanged.
+2. **All events drop for visitors who don't accept.** Industry experience: typically 20–50% of visitors decline or ignore banners, so expect PageView/ViewContent/InitiateCheckout/Purchase/Lead counts and retargeting audiences to shrink by a similar share. Ad delivery optimisation will have less signal; consider optimising on events with enough volume.
+3. **No more test traffic** from Vercel previews.
+4. **No staff/check-in traffic** (dashboard, ticket pages).
+5. Bookings, revenue and leads themselves are unaffected — only what Meta can see. Our own database remains the source of truth for leads and bookings.
 
-**Option B — Meta consent mode (`fbq('consent','revoke')` until Accept).** Keeps the script loading before consent (Meta still receives the IP/browser request), so it is weaker; not recommended.
+Compare in Events Manager over the 2 weeks before vs after release, using our database as the baseline (bookings, `bnt_*` lead tables).
 
-**Option C — notice only ("by using this site you accept cookies").** Not valid consent under PDPA/GDPR; not recommended.
+## 5. Phase 4 (not done here)
 
-Also recommended, low effort, no measurement impact:
-- Self-host fonts via `next/font` (removes the Google Fonts transfer).
-- Load the pixel only on the two production domains, not Vercel previews or `bcc-claude.vercel.app` (removes test traffic from ad data).
-
-## 4. What this branch changes in tracking (needs your OK before deploy)
-
-| Change | Effect on Meta reporting |
-|---|---|
-| Duplicate noscript PageView removed | **Reported PageViews will drop** (likely close to half, if Meta was counting both). Conversions, ViewContent, InitiateCheckout, Purchase, Lead unchanged. Any PageView-based custom audience/optimisation will look smaller — it was inflated. |
-| Pixel off on staff + token pages | Removes staff/check-in noise; no guest-facing marketing pages affected. |
-| Waitlist repeat sign-ups no longer fire `Lead` | Slightly fewer, more accurate Leads. |
-
-No new trackers, events or audiences were added.
-
-## 5. Kept for Phase 4
-
-Conversions API and `eventID` dedup, UTM/click-ID capture on leads (the new `source` column is form-level only, deliberately), consent-aware attribution, cross-domain BCC↔BEST measurement, separating BEST vs BCC pixels or datasets.
+Conversions API with consent-aware sending and `eventID` dedup; UTM/click-ID capture on leads; cross-domain BEST↔BCC attribution; separate datasets per brand; self-hosted fonts (also listed as an open question).
