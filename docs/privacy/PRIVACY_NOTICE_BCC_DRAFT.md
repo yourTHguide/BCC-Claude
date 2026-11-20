@@ -1,3 +1,10 @@
+# BCC privacy notice — superseded draft (kept for reference)
+
+> **The canonical text is now `components/privacy/BccPrivacyNotice.tsx`**, rendered at `/privacy` on the BCC domain.
+> Review it on the PR #11 Vercel preview: `/privacy` (DRAFT banner; `[LEGAL]`/`[CONFIRM]` items highlighted).
+> On production it stays unpublished (404, no links) until the text is marked final in `lib/privacy/publish.ts` **and** `PRIVACY_NOTICE_PUBLISHED=true` is set in Vercel.
+> The text below is the v2 markdown draft the page was built from; edit the component, not this file.
+
 # DRAFT v2 — for professional review · NOT published · NOT legally reviewed
 
 > Privacy notice for **www.bkkclubcrawl.com**. Same operator as BEST Nightlife Thailand, but processing descriptions are specific to Bangkok Club Crawl. **[LEGAL]** = needs professional verification; **[CONFIRM]** = fact/decision only you can give (see `OPEN_QUESTIONS.md`). Intended URL: `www.bkkclubcrawl.com/privacy`.

@@ -1,3 +1,10 @@
+# BEST privacy notice — superseded draft (kept for reference)
+
+> **The canonical text is now `components/privacy/BestPrivacyNotice.tsx`**, rendered at `/privacy` on the BEST domain.
+> Review it on the PR #11 Vercel preview: `/privacy?brand=bnt` (DRAFT banner; `[LEGAL]`/`[CONFIRM]` items highlighted).
+> On production it stays unpublished (404, no links) until the text is marked final in `lib/privacy/publish.ts` **and** `PRIVACY_NOTICE_PUBLISHED=true` is set in Vercel.
+> The text below is the v2 markdown draft the page was built from; edit the component, not this file.
+
 # DRAFT v2 — for professional review · NOT published · NOT legally reviewed
 
 > Privacy notice for **bestnightlifethailand.com**. Built from `DATA_FLOW_AUDIT.md` and the company details confirmed on 20 Nov 2026. Remaining items are marked **[LEGAL]** (needs professional verification) or **[CONFIRM]** (a fact or decision only you can give). See `OPEN_QUESTIONS.md`. Intended URL: `bestnightlifethailand.com/privacy`.

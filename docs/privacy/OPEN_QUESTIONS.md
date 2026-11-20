@@ -14,6 +14,13 @@ The drafts are **not legally reviewed**. These need an answer from you (**[CONFI
 | 8 | Keep or remove Google Fonts loading before consent (recommend self-hosting fonts — removes the transfer; small design-safe code change) | CONFIRM | Fonts currently load from Google on every page |
 | 9 | Response-time commitment for rights requests (draft: 30 days) and breach-notification wording | LEGAL | Stated in both notices |
 | 10 | Which public email appears on BCC pages vs. the privacy contact (BCC shows bangkokclubcrawl@gmail.com; privacy contact is bookings@bestnightlifethailand.com) | CONFIRM | Both are listed in the BCC draft; confirm that's intended |
-| 11 | Links from the banner/footers to the privacy pages once published (one-line change) | — | Do at publication time |
+| 11 | ~~Links from the banner/footers~~ — done: they appear automatically once the notice is published | — | — |
+| 12 | Site-wide `maximum-scale=1` blocks pinch-zoom (pre-existing; fails WCAG 1.4.4). Fixed on `/privacy` only. Allow zoom site-wide? Inputs are already 16px, so iOS won't auto-zoom forms | CONFIRM | Accessibility; small layout change |
+
+## How to publish (after items 1–5 are resolved)
+1. Replace every highlighted `[LEGAL]` / `[CONFIRM]` item in `components/privacy/BestPrivacyNotice.tsx`, `BccPrivacyNotice.tsx` and `NoticeParts.tsx`; set the effective date.
+2. Set `PRIVACY_TEXT_FINAL` to `true` for that brand in `lib/privacy/publish.ts` (PR, review, merge).
+3. In Vercel → Settings → Environment Variables (Production), set `PRIVACY_NOTICE_PUBLISHED=true` and redeploy.
+4. Result: `/privacy` serves on that domain, is indexable and in the sitemap, and the banner and footers link to it. Either switch alone does nothing.
 
 Verified facts used in the drafts: operator Sanctuary Nexus Co., Ltd., Thai name, tax ID and correspondence address (from you, 20 Nov 2026); WhatsApp +66 66 039 9569 is the only public WhatsApp number on both storefronts (code check: BEST contact constants, BCC footer, sticky bar, product page, structured data). Neither notice mentions a tourism licence.

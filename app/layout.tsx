@@ -1,21 +1,14 @@
 import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
 import ConsentManager from '@/components/consent/ConsentManager'
-import { META_PIXEL_ID, earlyPixelScript } from '@/lib/consentConfig'
+import { META_PIXEL_ID, earlyPixelScript, isProductionHost } from '@/lib/consentConfig'
+import { PRIVACY_PATH, privacyAvailable } from '@/lib/privacy/publish'
 import { headers } from 'next/headers'
 import { resolveStorefront } from '@/lib/storefront'
 import { buildPageMetadata, CANONICAL_ORIGIN, isIndexableHost, organizationJsonLd } from '@/lib/seo'
 import './globals.css'
 
 
-// Hosts where advertising tracking may run (after consent). Previews,
-// bcc-claude.vercel.app and local development never load the pixel.
-const PRODUCTION_HOSTS = new Set([
-  'bestnightlifethailand.com',
-  'www.bestnightlifethailand.com',
-  'www.bkkclubcrawl.com',
-  'bkkclubcrawl.com',
-])
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -61,7 +54,8 @@ export default function RootLayout({
   // PageViews through React's image preload).
   const host = headers().get('host')
   const storefront = resolveStorefront(host)
-  const trackingHost = PRODUCTION_HOSTS.has((host ?? '').toLowerCase().split(':')[0])
+  const trackingHost = isProductionHost(host)
+  const privacyHref = privacyAvailable(host, storefront) ? PRIVACY_PATH : null
 
   return (
     <html lang="en">
@@ -73,14 +67,14 @@ export default function RootLayout({
           </Script>
         </head>
       )}
-      <body style={{ overflowX: 'hidden', maxWidth: '100vw' }}>
+      <body style={{ overflowX: 'hidden', maxWidth: '100vw' }} data-privacy-href={privacyHref ?? undefined}>
         <script
           type="application/ld+json"
           // Static, server-built object — no user input reaches it.
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd(storefront)) }}
         />
         {children}
-        <ConsentManager brand={storefront} trackingHost={trackingHost} pixelId={META_PIXEL_ID} />
+        <ConsentManager brand={storefront} trackingHost={trackingHost} pixelId={META_PIXEL_ID} privacyHref={privacyHref} />
       </body>
     </html>
   )

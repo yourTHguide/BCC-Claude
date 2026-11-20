@@ -1,4 +1,4 @@
-import CookieSettingsLink from '@/components/consent/CookieSettingsLink'
+import LegalLinks from '@/components/consent/LegalLinks'
 
 const NAV = [
   { label: 'How It Works', href: '#how-it-works' },
@@ -66,7 +66,7 @@ export default function Footer() {
         </div>
 
         <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '11px', color: 'rgba(255,255,255,0.20)', textAlign: 'center', marginTop: '32px' }}>
-          © 2026 BEST Nightlife Thailand · Sanctuary Nexus Co., Ltd. · Bangkok · <CookieSettingsLink />
+          © 2026 BEST Nightlife Thailand · Sanctuary Nexus Co., Ltd. · Bangkok · <LegalLinks />
         </p>
       </div>
 

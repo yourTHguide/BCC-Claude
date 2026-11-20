@@ -4,6 +4,20 @@ export const CONSENT_COOKIE = 'snx_consent'
 export const CONSENT_VERSION = '1'
 export const META_PIXEL_ID = '302051565703286'
 
+// The only hosts where advertising tracking may run (after consent) and
+// where the privacy notice is gated behind publication. Previews,
+// bcc-claude.vercel.app and local development are never "production".
+export const PRODUCTION_HOSTS = new Set([
+  'bestnightlifethailand.com',
+  'www.bestnightlifethailand.com',
+  'www.bkkclubcrawl.com',
+  'bkkclubcrawl.com',
+])
+
+export function isProductionHost(host: string | null | undefined): boolean {
+  return PRODUCTION_HOSTS.has((host ?? '').toLowerCase().split(':')[0])
+}
+
 // Pages where no advertising tracking or consent banner runs: staff tools
 // and guest pages whose URL carries a private token.
 export const PRIVATE_PATH_SOURCE = '^/(dashboard|operator|login|set-password|ticket|waitlist/unsubscribe)(/|$)'

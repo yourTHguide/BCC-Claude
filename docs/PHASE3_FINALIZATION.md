@@ -87,6 +87,11 @@ The Gmail connector can read mail but cannot create filters. All alerts are **fr
   - Bookings: handle manually (accounting records).
 - **Monthly retention review:** follow `docs/privacy/RETENTION_SCHEDULE.md`. The dashboard lists records inactive for 24+ months. Use *Keep (hold)* for active relationships, disputes or legal reasons.
 
+## Privacy notices
+- `/privacy` serves the BEST notice on bestnightlifethailand.com and the BCC notice on bkkclubcrawl.com (`components/privacy/*`).
+- On previews it is always visible, marked DRAFT; use `?brand=bnt` to see BEST.
+- On production it returns 404 and nothing links to it until both switches are set (`docs/privacy/OPEN_QUESTIONS.md` → How to publish). Merging PR #11 therefore publishes nothing.
+
 ## Housekeeping status
 
 | Item | Status | Detail |

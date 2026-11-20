@@ -28,7 +28,7 @@ Implementation:
 - `components/consent/ConsentManager.tsx` — banner per brand (BEST black/pink, BCC plum), two equal-weight buttons, brand-accurate purposes; loads the pixel when a visitor accepts.
 - `lib/consentConfig.ts` — on production hosts only, a tiny inline loader. It checks the `snx_consent` cookie and loads the pixel early **only for visitors who already accepted**, so page-load events such as BCC's `ViewContent` keep their original timing.
 - The banner never blocks forms or the Book button: it sits above fixed bottom bars and steps aside while the BEST inquiry modal is open.
-- "Cookie settings" link in every storefront footer.
+- "Cookie settings" link in every storefront footer (and on `/privacy`). A "Privacy notice" link appears in the banner and footers wherever the brand's notice is available (previews now; production once published).
 - The choice is stored in a first-party cookie `snx_consent=1:all|necessary`, kept 12 months, separately per site.
 
 ## 3. Verified (local production build, phone viewports, both brands)

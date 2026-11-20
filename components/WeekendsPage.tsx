@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import ConsentEmbed from '@/components/consent/ConsentEmbed'
 import Script from 'next/script'
 import { BCC_GROUP_SIZE, BCC_TERMS } from '@/lib/bccTerms'
-import CookieSettingsLink from '@/components/consent/CookieSettingsLink'
+import LegalLinks from '@/components/consent/LegalLinks'
 
 declare global {
   interface Window {
@@ -1127,7 +1127,7 @@ export default function WeekendsPage() {
 
       {/* Consent: change or withdraw the cookie choice. */}
       <p style={{ textAlign: 'center', fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'rgba(255,255,255,0.35)', padding: '24px 20px 110px', margin: 0 }}>
-        © 2026 BEST Nightlife Thailand · Sanctuary Nexus Co., Ltd. · <CookieSettingsLink />
+        © 2026 BEST Nightlife Thailand · Sanctuary Nexus Co., Ltd. · <LegalLinks />
       </p>
 
       {/* ─── STICKY BAR ─── */}

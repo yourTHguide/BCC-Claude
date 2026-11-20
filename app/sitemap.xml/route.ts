@@ -1,6 +1,7 @@
 import { resolveStorefront } from '@/lib/storefront'
 import { CANONICAL_ORIGIN, isIndexableHost, sitemapPaths } from '@/lib/seo'
 import { smcPageIndexable } from '@/lib/smc/env'
+import { PRIVACY_PATH, privacyPublished } from '@/lib/privacy/publish'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,6 +13,8 @@ export function GET(req: Request) {
   const storefront = resolveStorefront(host)
   const origin = CANONICAL_ORIGIN[storefront]
   const paths = isIndexableHost(host) ? sitemapPaths(storefront, { smcIndexable: smcPageIndexable() }) : []
+  // The privacy notice is listed only once it is published on this brand.
+  if (paths.length && privacyPublished(storefront)) paths.push(PRIVACY_PATH)
   const urls = paths.map((p) => `  <url><loc>${origin}${p === '/' ? '/' : p}</loc></url>`).join('\n')
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`
   return new Response(xml, {

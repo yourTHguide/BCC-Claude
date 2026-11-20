@@ -65,10 +65,13 @@ export default function ConsentManager({
   brand,
   trackingHost,
   pixelId,
+  privacyHref,
 }: {
   brand: Brand
   trackingHost: boolean
   pixelId: string
+  // Link to this brand's privacy notice; null while it isn't published here.
+  privacyHref: string | null
 }) {
   const pathname = usePathname() || '/'
   const isPrivate = PRIVATE_PATH_RE.test(pathname)
@@ -221,6 +224,14 @@ export default function ConsentManager({
           <>
             {' '}
             Current choice: <strong>{consent === 'all' ? 'Accepted' : 'Only necessary'}</strong>.
+          </>
+        )}
+        {privacyHref && (
+          <>
+            {' '}
+            <a href={privacyHref} style={{ color: '#FFFFFF', textDecoration: 'underline' }}>
+              Privacy notice
+            </a>
           </>
         )}
       </p>
