@@ -19,7 +19,9 @@ alter table public.bnt_experience_inquiries
   add column if not exists status text not null default 'new',
   add column if not exists alert_status text,
   add column if not exists alert_sent_at timestamptz,
-  add column if not exists alert_error text;
+  add column if not exists alert_error text,
+  add column if not exists status_changed_at timestamptz,          -- last status change by staff (retention clock)
+  add column if not exists retention_hold boolean not null default false; -- active relationship / dispute / legal
 
 do $$ begin
   alter table public.bnt_experience_inquiries
@@ -55,7 +57,9 @@ alter table public.bnt_contact_messages
   add column if not exists status text not null default 'new',
   add column if not exists alert_status text,
   add column if not exists alert_sent_at timestamptz,
-  add column if not exists alert_error text;
+  add column if not exists alert_error text,
+  add column if not exists status_changed_at timestamptz,
+  add column if not exists retention_hold boolean not null default false;
 
 do $$ begin
   alter table public.bnt_contact_messages
@@ -131,6 +135,23 @@ create table if not exists public.bnt_waitlist_deliveries (
   constraint bnt_waitlist_deliveries_once unique (announcement_id, waitlist_id),
   constraint bnt_waitlist_deliveries_status_check check (status in ('pending', 'sent', 'failed'))
 );
+
+-- Delivery recovery (pre-release review): a row is claimed (pending), then
+-- the send is *attempted* (attempted_at set atomically), then the outcome is
+-- recorded. pending + attempted_at set + no outcome = we don't know whether
+-- Resend accepted it (timeout / interrupted request). Such rows are never
+-- re-sent automatically; an admin resolves them ('unconfirmed' = leave it,
+-- or explicitly re-queue). 'failed' is only used when Resend definitely
+-- rejected the message, so retrying a failed row cannot duplicate.
+alter table public.bnt_waitlist_deliveries
+  add column if not exists attempted_at timestamptz,
+  add column if not exists attempts smallint not null default 0,
+  add column if not exists resolved_by text,
+  add column if not exists resolved_at timestamptz;
+
+alter table public.bnt_waitlist_deliveries drop constraint if exists bnt_waitlist_deliveries_status_check;
+alter table public.bnt_waitlist_deliveries
+  add constraint bnt_waitlist_deliveries_status_check check (status in ('pending', 'sent', 'failed', 'unconfirmed'));
 
 create index if not exists bnt_waitlist_deliveries_waitlist_idx on public.bnt_waitlist_deliveries (waitlist_id);
 

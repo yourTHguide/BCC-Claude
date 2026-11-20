@@ -25,6 +25,8 @@ interface Inquiry {
   source: string | null
   form_version: number | null
   status: Status
+  status_changed_at: string | null
+  retention_hold: boolean | null
   alert_status: AlertStatus
   alert_error: string | null
 }
@@ -36,6 +38,8 @@ interface Contact {
   whatsapp: string
   message: string | null
   status: Status
+  status_changed_at: string | null
+  retention_hold: boolean | null
   alert_status: AlertStatus
   alert_error: string | null
 }
@@ -74,7 +78,8 @@ interface Announcement {
   approved_by: string | null
   approved_at: string | null
   completed_at: string | null
-  deliveries: { sent: number; failed: number; pending: number }
+  deliveries: { sent: number; failed: number; queued: number; uncertain: number; unconfirmed: number }
+  uncertain: { id: string; waitlist_id: string; attempted_at: string; error: string | null; resolvable: boolean }[]
 }
 
 interface Data {
@@ -92,6 +97,12 @@ const STATUSES: Status[] = ['new', 'contacted', 'closed', 'spam']
 
 const fmt = (iso: string | null) =>
   iso ? new Date(iso).toLocaleString('en-GB', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
+
+// Retention review (manual, see docs/privacy/RETENTION_SCHEDULE.md): inactive
+// for 24 months and not on hold. Nothing is deleted automatically.
+const RETENTION_MS = 730 * 24 * 60 * 60 * 1000
+const lastActivity = (...dates: (string | null | undefined)[]) => Math.max(...dates.filter(Boolean).map((d) => new Date(d as string).getTime()))
+const dueForReview = (...dates: (string | null | undefined)[]) => Date.now() - lastActivity(...dates) > RETENTION_MS
 
 const waHref = (p: string) => `https://wa.me/${p.replace(/\D/g, '')}`
 
@@ -154,6 +165,10 @@ export default function LeadsClient() {
     if (await call(API, 'PATCH', { table, id, status })) load()
   }
 
+  async function setHold(table: string, id: string, retentionHold: boolean) {
+    if (await call(API, 'PATCH', { table, id, retentionHold })) load()
+  }
+
   async function erase(table: string, id: string, label: string) {
     if (!window.confirm(`Permanently delete ${label}?\n\nUse this only when the person asked to be removed. This cannot be undone.`)) return
     if (await call(API, 'POST', { action: 'erase', table, id })) {
@@ -199,6 +214,21 @@ export default function LeadsClient() {
             </ul>
           </div>
         )}
+
+        {data && (() => {
+          const due = [
+            ...data.inquiries.filter((r) => !r.retention_hold && dueForReview(r.created_at, r.status_changed_at)).map((r) => `Private: ${r.name}`),
+            ...data.contacts.filter((r) => !r.retention_hold && dueForReview(r.created_at, r.status_changed_at)).map((r) => `Contact: ${r.name}`),
+            ...data.waitlist.filter((r) => dueForReview(r.consented_at || r.created_at, r.notified_at, r.unsubscribed_at)).map((r) => `Waitlist: ${r.email}`),
+          ]
+          return due.length ? (
+            <div className="mt-4 rounded-lg border border-yellow-500/40 bg-yellow-500/10 p-4 text-sm">
+              <p className="font-semibold">Retention review: {due.length} record{due.length > 1 ? 's' : ''} inactive for 24+ months</p>
+              <p className="mt-1 text-xs text-white/60">Delete each one below unless there is an active relationship, dispute or legal reason — then set &ldquo;Keep (hold)&rdquo;.</p>
+              <p className="mt-2 text-xs">{due.join(' · ')}</p>
+            </div>
+          ) : null
+        })()}
 
         <div className="mt-6 flex gap-2">
           {(['inquiries', 'contacts', 'waitlist'] as const).map((t) => (
@@ -264,7 +294,8 @@ export default function LeadsClient() {
                     </>
                   )}
                 </dl>
-                <div className="mt-3 flex justify-end">
+                <div className="mt-3 flex justify-end gap-2">
+                  <HoldButton held={!!r.retention_hold} disabled={busy} onClick={() => setHold('bnt_experience_inquiries', r.id, !r.retention_hold)} btn={btn} />
                   <button disabled={busy} onClick={() => erase('bnt_experience_inquiries', r.id, `the inquiry from ${r.name}`)} className={`${btn} text-red-300`}>
                     Delete (removal request)
                   </button>
@@ -297,7 +328,8 @@ export default function LeadsClient() {
                   </a>
                 </p>
                 <p className="mt-2 whitespace-pre-wrap text-xs">{r.message || '—'}</p>
-                <div className="mt-3 flex justify-end">
+                <div className="mt-3 flex justify-end gap-2">
+                  <HoldButton held={!!r.retention_hold} disabled={busy} onClick={() => setHold('bnt_contact_messages', r.id, !r.retention_hold)} btn={btn} />
                   <button disabled={busy} onClick={() => erase('bnt_contact_messages', r.id, `the message from ${r.name}`)} className={`${btn} text-red-300`}>
                     Delete (removal request)
                   </button>
@@ -310,6 +342,14 @@ export default function LeadsClient() {
         )}
       </div>
     </div>
+  )
+}
+
+function HoldButton({ held, disabled, onClick, btn }: { held: boolean; disabled: boolean; onClick: () => void; btn: string }) {
+  return (
+    <button disabled={disabled} onClick={onClick} title="Keep beyond the 24-month review: active relationship, dispute or legal reason" className={`${btn} border ${held ? 'border-yellow-400/60 text-yellow-200' : 'border-white/20'}`}>
+      {held ? 'On hold ✓' : 'Keep (hold)'}
+    </button>
   )
 }
 
@@ -362,27 +402,45 @@ function WaitlistTab({
   }
 
   async function approveAndSend(a: Announcement) {
-    const n = active.length - a.deliveries.sent - a.deliveries.failed
-    if (!window.confirm(`Send "${a.subject}" to ${Math.max(0, n)} subscriber(s) of ${product?.name}?\n\nDates:\n${a.dates_summary}\n\nThis emails real people and cannot be undone.`)) return
+    const done = a.deliveries.sent + a.deliveries.failed + a.deliveries.uncertain + a.deliveries.unconfirmed
+    const n = Math.max(0, active.length - done)
+    if (!window.confirm(`Send "${a.subject}" to up to ${n} subscriber(s) of ${product?.name} who haven't received it?\n\nDates:\n${a.dates_summary}\n\nThis emails real people and cannot be undone.`)) return
     setSending(true)
     let total = 0
     let failedTotal = 0
+    let uncertainTotal = 0
     for (let i = 0; i < 100; i++) {
       const json = await call(ANN_API, 'POST', { action: 'send', id: a.id, confirmChecked: true })
       if (!json) break
       total += json.sent
       failedTotal += json.failed
+      uncertainTotal += json.uncertain
       if (json.remaining === 0) break
     }
     setSending(false)
-    setMsg({ kind: failedTotal ? 'error' : 'ok', text: `Sent ${total}.${failedTotal ? ` ${failedTotal} failed — use "Retry failed".` : ''}` })
+    setMsg({
+      kind: failedTotal || uncertainTotal ? 'error' : 'ok',
+      text:
+        `Sent ${total}.` +
+        (failedTotal ? ` ${failedTotal} rejected by the email service — "Retry failed" is safe.` : '') +
+        (uncertainTotal ? ` ${uncertainTotal} uncertain (no answer from the email service) — review below in 2 minutes; they will not be re-sent automatically.` : ''),
+    })
     await reload()
   }
 
   async function retryFailed(a: Announcement) {
     const json = await call(ANN_API, 'POST', { action: 'retry-failed', id: a.id })
     if (json) {
-      setMsg({ kind: 'ok', text: `${json.cleared} failed deliver${json.cleared === 1 ? 'y' : 'ies'} reset. Approve & send again to retry them only.` })
+      setMsg({ kind: 'ok', text: `${json.requeued} failed deliver${json.requeued === 1 ? 'y' : 'ies'} queued again. Approve & send to retry them only.` })
+      await reload()
+    }
+  }
+
+  async function resolveUncertain(a: Announcement, resolution: 'leave' | 'resend', ids: string[]) {
+    if (resolution === 'resend' && !window.confirm(`Re-queue ${ids.length} uncertain deliver${ids.length === 1 ? 'y' : 'ies'}?\n\nOnly do this if Resend's log shows the email was NOT sent, or the person may get it twice.`)) return
+    const json = await call(ANN_API, 'POST', { action: 'resolve-uncertain', id: a.id, resolution, deliveryIds: ids, confirmChecked: resolution === 'resend' })
+    if (json) {
+      setMsg({ kind: 'ok', text: resolution === 'leave' ? `${json.resolved} marked "unconfirmed" — they won't be sent again.` : `${json.resolved} queued again. Approve & send to send them.` })
       await reload()
     }
   }
@@ -485,8 +543,14 @@ function WaitlistTab({
                 <p className="mt-1 text-white/45">
                   Drafted {fmt(a.created_at)} by {a.created_by || '?'}
                   {a.approved_at ? ` · approved ${fmt(a.approved_at)} by ${a.approved_by}` : ''} · sent {a.deliveries.sent}
-                  {a.deliveries.failed ? ` · failed ${a.deliveries.failed}` : ''}
+                  {a.deliveries.failed ? ` · rejected ${a.deliveries.failed}` : ''}
+                  {a.deliveries.queued ? ` · queued ${a.deliveries.queued}` : ''}
+                  {a.deliveries.uncertain ? ` · uncertain ${a.deliveries.uncertain}` : ''}
+                  {a.deliveries.unconfirmed ? ` · unconfirmed ${a.deliveries.unconfirmed}` : ''}
                 </p>
+                {a.uncertain.length > 0 && (
+                  <UncertainPanel a={a} subs={subs} busy={busy} btn={btn} onResolve={resolveUncertain} />
+                )}
                 {a.status !== 'cancelled' && (
                   <div className="mt-2 flex flex-wrap gap-2">
                     <button onClick={() => setPreviewId(a.id === previewId ? null : a.id)} className={`${btn} border border-white/20`}>
@@ -512,7 +576,7 @@ function WaitlistTab({
                 {a.id === previewId && current && (
                   <div className="mt-3 space-y-3">
                     <iframe src={`${ANN_API}/preview?id=${a.id}`} title="Announcement preview" className="h-[620px] w-full rounded border border-white/15 bg-[#0D0D0D]" />
-                    {a.status !== 'sent' && (
+                    {a.status !== 'sent' && (a.status === 'draft' || a.deliveries.queued > 0 || a.deliveries.uncertain === 0) && (
                       <>
                         <label className="flex items-start gap-2">
                           <input type="checkbox" checked={confirmChecked} onChange={(e) => setConfirmChecked(e.target.checked)} />
@@ -531,6 +595,55 @@ function WaitlistTab({
             ))}
           </ul>
         </section>
+      )}
+    </div>
+  )
+}
+
+function UncertainPanel({
+  a,
+  subs,
+  busy,
+  btn,
+  onResolve,
+}: {
+  a: Announcement
+  subs: Subscriber[]
+  busy: boolean
+  btn: string
+  onResolve: (a: Announcement, r: 'leave' | 'resend', ids: string[]) => Promise<void>
+}) {
+  const [checked, setChecked] = useState(false)
+  const ready = a.uncertain.filter((u) => u.resolvable)
+  const email = (id: string) => subs.find((s) => s.id === id)?.email ?? 'unknown address'
+  return (
+    <div className="mt-3 rounded border border-yellow-500/40 bg-yellow-500/10 p-3">
+      <p className="font-semibold">Needs review: {a.uncertain.length} uncertain deliver{a.uncertain.length === 1 ? 'y' : 'ies'}</p>
+      <p className="mt-1 text-white/60">
+        The email service didn&apos;t answer, so these may or may not have been delivered. They are never re-sent automatically. Check Resend → Emails
+        (search the address; each message is tagged <code>delivery_id</code>) before re-sending.
+      </p>
+      <ul className="mt-2 space-y-1">
+        {a.uncertain.map((u) => (
+          <li key={u.id}>
+            {email(u.waitlist_id)} · tried {fmt(u.attempted_at)} {u.error ? `· ${u.error}` : ''} {!u.resolvable && '· (still in progress)'}
+            {u.resolvable && <span className="ml-1 text-white/40">· tag {u.id.replace(/-/g, '_')}</span>}
+          </li>
+        ))}
+      </ul>
+      {ready.length > 0 && (
+        <div className="mt-2 space-y-2">
+          <button disabled={busy} onClick={() => onResolve(a, 'leave', ready.map((u) => u.id))} className={`${btn} border border-white/25`}>
+            Don&apos;t re-send (mark unconfirmed)
+          </button>
+          <label className="flex items-start gap-2">
+            <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} />
+            <span>I checked Resend&apos;s log and these were not delivered.</span>
+          </label>
+          <button disabled={busy || !checked} onClick={() => onResolve(a, 'resend', ready.map((u) => u.id))} className={`${btn} border border-white/25`}>
+            Queue again
+          </button>
+        </div>
       )}
     </div>
   )

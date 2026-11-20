@@ -18,19 +18,30 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 // Waitlist announcements — human-approved only (Phase 3 finalization).
-//   create : save a draft from dates that already exist and are open.
-//   test   : send the draft to the logged-in admin only.
-//   send   : requires confirmChecked=true. Sends to active subscribers of
-//            that product (consent_scope 'event_dates', not unsubscribed)
-//            who have no delivery row for this announcement yet. Works in
-//            batches; the dashboard calls it until remaining = 0.
-//   cancel : stop a draft or an unfinished send.
-// One delivery row per (announcement, subscriber) — enforced by a unique
-// constraint — so nobody gets the same announcement twice, even if "send"
-// is clicked twice or two tabs are open.
+//   create            : save a draft from dates that already exist and are open.
+//   test              : send the draft to the logged-in admin only.
+//   send              : requires confirmChecked=true. Claims one delivery row per
+//                       eligible subscriber (this product, consent scope
+//                       'event_dates', not unsubscribed), then attempts queued
+//                       rows in batches; the dashboard calls it until done.
+//   retry-failed      : re-queue rows Resend definitely rejected.
+//   resolve-uncertain : decide rows whose outcome is unknown (see below).
+//   cancel            : stop a draft or an unfinished send.
+//
+// Delivery states: pending (queued) -> attempted_at set atomically -> sent |
+// failed (definite rejection, safe to retry) | still pending with
+// attempted_at = uncertain (timeout, interrupted request: Resend may have
+// accepted it). Uncertain rows are never re-sent automatically. An admin
+// either leaves them ('unconfirmed', never re-sent) or, after checking
+// Resend's log (each message is tagged delivery_id), explicitly re-queues.
+// The unique (announcement, subscriber) constraint plus the atomic attempt
+// claim mean double clicks or parallel tabs cannot send twice.
 
 const BATCH = 20
 const PAUSE_MS = 550 // stay under Resend's default 2 requests/second
+// A delivery attempted longer ago than this with no recorded outcome is
+// treated as uncertain (the request that made it has certainly ended).
+const UNCERTAIN_AFTER_MS = 2 * 60 * 1000
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -83,18 +94,47 @@ export async function POST(req: NextRequest) {
   }
 
   if (body.action === 'retry-failed') {
-    // Clears failed delivery rows so the next "send" retries only those
-    // subscribers. Sent rows are untouched, so nobody gets a second copy.
-    if (ann.status === 'cancelled') return NextResponse.json({ error: 'This announcement is cancelled.' }, { status: 400 })
-    const { data: cleared, error } = await supabase
+    // 'failed' rows were definitely rejected by Resend (never accepted), so
+    // re-queueing them cannot duplicate. Uncertain rows are NOT touched here.
+    const { data: requeued, error } = await supabase
       .from('bnt_waitlist_deliveries')
-      .delete()
+      .update({ status: 'pending', attempted_at: null, error: null })
       .eq('announcement_id', id)
       .eq('status', 'failed')
       .select('id')
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    if (cleared?.length) await supabase.from('bnt_waitlist_announcements').update({ status: 'sending', completed_at: null }).eq('id', id)
-    return NextResponse.json({ ok: true, cleared: cleared?.length ?? 0 })
+    if (requeued?.length) await supabase.from('bnt_waitlist_announcements').update({ status: 'sending', completed_at: null }).eq('id', id)
+    return NextResponse.json({ ok: true, requeued: requeued?.length ?? 0 })
+  }
+
+  if (body.action === 'resolve-uncertain') {
+    // For deliveries whose outcome is unknown (attempted, no answer recorded).
+    //   'leave'  -> mark 'unconfirmed'; never sent again. Safe default.
+    //   'resend' -> re-queue. May produce a duplicate if Resend did accept the
+    //               first attempt; the admin must check Resend's log first.
+    const resolution = body.resolution === 'resend' ? 'resend' : body.resolution === 'leave' ? 'leave' : null
+    const ids: string[] = Array.isArray(body.deliveryIds) ? body.deliveryIds.filter((x: unknown) => typeof x === 'string') : []
+    if (!resolution || !ids.length) return NextResponse.json({ error: 'resolution and deliveryIds are required' }, { status: 400 })
+    if (resolution === 'resend' && body.confirmChecked !== true) {
+      return NextResponse.json({ error: 'Confirm you checked the Resend log before re-sending.' }, { status: 400 })
+    }
+    const cutoff = new Date(Date.now() - UNCERTAIN_AFTER_MS).toISOString()
+    const { data: rows, error } = await supabase
+      .from('bnt_waitlist_deliveries')
+      .update(
+        resolution === 'leave'
+          ? { status: 'unconfirmed', resolved_by: who, resolved_at: new Date().toISOString() }
+          : { status: 'pending', attempted_at: null, resolved_by: who, resolved_at: new Date().toISOString() }
+      )
+      .eq('announcement_id', id)
+      .eq('status', 'pending')
+      .not('attempted_at', 'is', null)
+      .lt('attempted_at', cutoff)
+      .in('id', ids)
+      .select('id')
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    await finishIfDone(supabase, id)
+    return NextResponse.json({ ok: true, resolved: rows?.length ?? 0 })
   }
 
   if (ann.status === 'cancelled' || ann.status === 'sent') {
@@ -136,39 +176,69 @@ export async function POST(req: NextRequest) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Everyone eligible who has no delivery row yet for this announcement.
-  const [{ data: subs, error: subsError }, { data: done }] = await Promise.all([
+  // 1. Claim a delivery row for every eligible subscriber who has none yet.
+  //    Eligible = this product, consent scope 'event_dates', not unsubscribed.
+  //    The unique (announcement, subscriber) constraint makes this race-safe.
+  const [{ data: subs, error: subsError }, { data: existing }] = await Promise.all([
     supabase
       .from('bnt_waitlist')
-      .select('id, email, name, unsubscribe_token')
+      .select('id')
       .eq('product_slug', ann.product_slug)
       .eq('consent_scope', WAITLIST_CONSENT_SCOPE)
-      .is('unsubscribed_at', null)
-      .order('created_at', { ascending: true }),
+      .is('unsubscribed_at', null),
     supabase.from('bnt_waitlist_deliveries').select('waitlist_id').eq('announcement_id', id),
   ])
   if (subsError) return NextResponse.json({ error: subsError.message }, { status: 500 })
-  const already = new Set((done || []).map((d) => d.waitlist_id))
-  const todo = (subs || []).filter((s) => !already.has(s.id))
-  const batch = todo.slice(0, BATCH)
+  const have = new Set((existing || []).map((d) => d.waitlist_id))
+  for (const s of (subs || []).filter((s) => !have.has(s.id))) {
+    await supabase.from('bnt_waitlist_deliveries').insert({ announcement_id: id, waitlist_id: s.id, status: 'pending' })
+  }
+
+  // 2. Attempt queued rows (pending, never attempted), one batch per call.
+  const { data: queued } = await supabase
+    .from('bnt_waitlist_deliveries')
+    .select('id, waitlist_id')
+    .eq('announcement_id', id)
+    .eq('status', 'pending')
+    .is('attempted_at', null)
+    .order('created_at', { ascending: true })
+    .limit(BATCH)
 
   let sent = 0
   let failed = 0
-  for (const s of batch) {
-    // Claim the (announcement, subscriber) pair first. If another request
-    // already claimed it, the unique constraint rejects this insert: skip.
-    const { data: claim, error: claimError } = await supabase
+  let uncertain = 0
+  for (const q of queued || []) {
+    // Atomically mark the attempt. If another request got here first, the
+    // conditional update matches nothing and we skip: no double send.
+    const { data: claimed } = await supabase
       .from('bnt_waitlist_deliveries')
-      .insert({ announcement_id: id, waitlist_id: s.id, status: 'pending' })
-      .select('id')
-      .single()
-    if (claimError || !claim) continue
+      .update({ attempted_at: new Date().toISOString() })
+      .eq('id', q.id)
+      .eq('status', 'pending')
+      .is('attempted_at', null)
+      .select('id, attempts')
+      .maybeSingle()
+    if (!claimed) continue
+    await supabase.from('bnt_waitlist_deliveries').update({ attempts: (claimed.attempts ?? 0) + 1 }).eq('id', q.id)
 
-    if (!EMAIL_RE.test(s.email)) {
-      await supabase.from('bnt_waitlist_deliveries').update({ status: 'failed', error: 'invalid email' }).eq('id', claim.id)
+    // Re-check eligibility at the moment of sending (unsubscribe may have
+    // happened after the row was claimed).
+    const { data: s } = await supabase
+      .from('bnt_waitlist')
+      .select('id, email, name, unsubscribe_token, unsubscribed_at, consent_scope, product_slug')
+      .eq('id', q.waitlist_id)
+      .maybeSingle()
+    if (!s || s.unsubscribed_at || s.consent_scope !== WAITLIST_CONSENT_SCOPE || s.product_slug !== ann.product_slug) {
+      await supabase.from('bnt_waitlist_deliveries').update({ status: 'failed', error: 'no longer eligible (unsubscribed or removed)' }).eq('id', q.id)
       failed++
       continue
     }
+    if (!EMAIL_RE.test(s.email)) {
+      await supabase.from('bnt_waitlist_deliveries').update({ status: 'failed', error: 'invalid email' }).eq('id', q.id)
+      failed++
+      continue
+    }
+
     const email = buildAnnouncementEmail(ann, check.dates, { name: s.name, unsubscribeToken: s.unsubscribe_token })
     const { data: res, error } = await resend.emails.send({
       from,
@@ -177,22 +247,50 @@ export async function POST(req: NextRequest) {
       html: email.html,
       text: email.text,
       headers: email.headers,
+      // Lets an admin find this exact message in Resend's log when resolving
+      // an uncertain delivery.
+      tags: [{ name: 'delivery_id', value: q.id.replace(/-/g, '_') }],
     })
     const now = new Date().toISOString()
-    if (error) {
-      await supabase.from('bnt_waitlist_deliveries').update({ status: 'failed', error: String(error.message).slice(0, 300) }).eq('id', claim.id)
-      failed++
-    } else {
-      await supabase.from('bnt_waitlist_deliveries').update({ status: 'sent', sent_at: now, resend_id: res?.id ?? null }).eq('id', claim.id)
+    if (!error) {
+      await supabase.from('bnt_waitlist_deliveries').update({ status: 'sent', sent_at: now, resend_id: res?.id ?? null, error: null }).eq('id', q.id)
       await supabase.from('bnt_waitlist').update({ notified_at: now }).eq('id', s.id)
       sent++
+    } else if (isDefiniteRejection(error)) {
+      await supabase.from('bnt_waitlist_deliveries').update({ status: 'failed', error: String(error.message).slice(0, 300) }).eq('id', q.id)
+      failed++
+    } else {
+      // Network error / timeout / unreadable reply: Resend may or may not
+      // have accepted it. Leave pending + attempted; an admin decides.
+      await supabase.from('bnt_waitlist_deliveries').update({ error: `uncertain: ${String(error.message).slice(0, 280)}` }).eq('id', q.id)
+      uncertain++
     }
     await sleep(PAUSE_MS)
   }
 
-  const remaining = Math.max(0, todo.length - batch.length)
-  if (remaining === 0) {
-    await supabase.from('bnt_waitlist_announcements').update({ status: 'sent', completed_at: new Date().toISOString() }).eq('id', id)
+  const state = await finishIfDone(supabase, id)
+  return NextResponse.json({ ok: true, sent, failed, uncertain, remaining: state.queued, needsReview: state.uncertain })
+}
+
+// Resend's SDK returns name 'application_error' (or a 5xx) when the request
+// failed in transit or the reply couldn't be read: the email may have been
+// accepted. Anything else is a definite rejection (validation, rate limit,
+// auth) — nothing was sent, so it can be retried safely.
+function isDefiniteRejection(error: { name?: string; statusCode?: number } | null): boolean {
+  if (!error) return false
+  if (error.name === 'application_error' || error.name === 'internal_server_error') return false
+  if (typeof error.statusCode === 'number' && error.statusCode >= 500) return false
+  return true
+}
+
+// Counts what is left and marks the announcement sent only when nothing is
+// queued and nothing is awaiting a decision.
+async function finishIfDone(supabase: ReturnType<typeof getServiceSupabase>, id: string) {
+  const { data: rows } = await supabase.from('bnt_waitlist_deliveries').select('status, attempted_at').eq('announcement_id', id).eq('status', 'pending')
+  const queued = (rows || []).filter((r) => !r.attempted_at).length
+  const uncertain = (rows || []).filter((r) => r.attempted_at).length
+  if (queued === 0 && uncertain === 0) {
+    await supabase.from('bnt_waitlist_announcements').update({ status: 'sent', completed_at: new Date().toISOString() }).eq('id', id).eq('status', 'sending')
   }
-  return NextResponse.json({ ok: true, sent, failed, remaining })
+  return { queued, uncertain }
 }

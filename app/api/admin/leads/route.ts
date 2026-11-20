@@ -24,15 +24,30 @@ export async function GET() {
     supabase.from('bnt_contact_messages').select('*').order('created_at', { ascending: false }).limit(300),
     supabase.from('bnt_waitlist').select('id, product_slug, email, name, source, consent_scope, consent_text, consented_at, created_at, notified_at, unsubscribed_at, alert_status, alert_error').order('created_at', { ascending: false }),
     supabase.from('bnt_waitlist_announcements').select('*').order('created_at', { ascending: false }).limit(50),
-    supabase.from('bnt_waitlist_deliveries').select('announcement_id, status'),
+    supabase.from('bnt_waitlist_deliveries').select('id, announcement_id, waitlist_id, status, attempted_at, attempts, error, resolved_by, resolved_at'),
   ])
   const firstError = [inquiries, contacts, waitlist, announcements, deliveries].find((r) => r.error)?.error
   if (firstError) return NextResponse.json({ error: firstError.message }, { status: 500 })
 
-  const counts: Record<string, { sent: number; failed: number; pending: number }> = {}
+  // pending + attempted_at = outcome unknown ("uncertain"); listed so an
+  // admin can resolve it once the attempt is old enough to have ended.
+  type Counts = { sent: number; failed: number; queued: number; uncertain: number; unconfirmed: number }
+  const counts: Record<string, Counts> = {}
+  const uncertain: Record<string, { id: string; waitlist_id: string; attempted_at: string; error: string | null; resolvable: boolean }[]> = {}
+  const cutoff = Date.now() - 2 * 60 * 1000
   for (const d of deliveries.data || []) {
-    const c = (counts[d.announcement_id] ||= { sent: 0, failed: 0, pending: 0 })
-    c[d.status as 'sent' | 'failed' | 'pending']++
+    const c = (counts[d.announcement_id] ||= { sent: 0, failed: 0, queued: 0, uncertain: 0, unconfirmed: 0 })
+    if (d.status === 'pending' && d.attempted_at) {
+      c.uncertain++
+      ;(uncertain[d.announcement_id] ||= []).push({
+        id: d.id,
+        waitlist_id: d.waitlist_id,
+        attempted_at: d.attempted_at,
+        error: d.error,
+        resolvable: new Date(d.attempted_at).getTime() < cutoff,
+      })
+    } else if (d.status === 'pending') c.queued++
+    else c[d.status as 'sent' | 'failed' | 'unconfirmed']++
   }
 
   const products = await Promise.all(
@@ -48,7 +63,11 @@ export async function GET() {
     inquiries: inquiries.data,
     contacts: contacts.data,
     waitlist: waitlist.data,
-    announcements: (announcements.data || []).map((a) => ({ ...a, deliveries: counts[a.id] || { sent: 0, failed: 0, pending: 0 } })),
+    announcements: (announcements.data || []).map((a) => ({
+      ...a,
+      deliveries: counts[a.id] || { sent: 0, failed: 0, queued: 0, uncertain: 0, unconfirmed: 0 },
+      uncertain: uncertain[a.id] || [],
+    })),
     products,
   })
 }
@@ -66,7 +85,9 @@ export async function PATCH(req: NextRequest) {
   if (body.status !== undefined) {
     if (!STATUSES.includes(body.status)) return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
     patch.status = body.status
+    patch.status_changed_at = new Date().toISOString()
   }
+  if (typeof body.retentionHold === 'boolean') patch.retention_hold = body.retentionHold
   if (body.notes !== undefined && table === 'bnt_experience_inquiries') {
     patch.notes = typeof body.notes === 'string' ? body.notes.slice(0, 4000) || null : null
   }

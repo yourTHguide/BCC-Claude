@@ -25,6 +25,8 @@ alter table public.bnt_waitlist
 alter table public.bnt_contact_messages
   drop constraint if exists bnt_contact_messages_alert_status_check,
   drop constraint if exists bnt_contact_messages_status_check,
+  drop column if exists retention_hold,
+  drop column if exists status_changed_at,
   drop column if exists alert_error,
   drop column if exists alert_sent_at,
   drop column if exists alert_status,
@@ -34,6 +36,8 @@ alter table public.bnt_contact_messages
 alter table public.bnt_experience_inquiries
   drop constraint if exists bnt_experience_inquiries_alert_status_check,
   drop constraint if exists bnt_experience_inquiries_status_check,
+  drop column if exists retention_hold,
+  drop column if exists status_changed_at,
   drop column if exists alert_error,
   drop column if exists alert_sent_at,
   drop column if exists alert_status,
