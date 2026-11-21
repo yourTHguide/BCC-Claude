@@ -60,14 +60,16 @@ export default function RootLayout({
 
   return (
     <html lang="en">
-      {trackingHost && (
-        <head>
-          {/* Loads Meta only for visitors who already accepted (cookie); see lib/consentConfig.ts. */}
+      <head>
+        {/* Self-hosted fonts (same files Google Fonts served; no request to Google). */}
+        <link rel="stylesheet" href="/fonts/google-fonts-base.css" />
+        {trackingHost && (
+          /* Loads Meta only for visitors who already accepted (cookie); see lib/consentConfig.ts. */
           <Script id="meta-pixel-consented" strategy="beforeInteractive">
             {earlyPixelScript()}
           </Script>
-        </head>
-      )}
+        )}
+      </head>
       <body style={{ overflowX: 'hidden', maxWidth: '100vw' }} data-privacy-href={privacyHref ?? undefined}>
         <script
           type="application/ld+json"

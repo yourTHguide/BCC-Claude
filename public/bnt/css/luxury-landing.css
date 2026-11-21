@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Montserrat:wght@300;400;500;600&display=swap');
+@import url('/fonts/google-fonts-bnt.css'); /* self-hosted, was Google Fonts */
 
 :root {
   --color-bg: #0D0D0D;

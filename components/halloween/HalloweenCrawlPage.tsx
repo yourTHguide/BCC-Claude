@@ -81,6 +81,8 @@ export default function HalloweenCrawlPage() {
 
   return (
     <LightboxContext.Provider value={setLightboxImage}>
+      {/* Self-hosted fonts (replaces this page's Google Fonts @import). */}
+      <link rel="stylesheet" href="/fonts/google-fonts-halloween.css" />
       <main className="halloween-page halloween-grain relative overflow-x-hidden bg-halloween-bg text-halloween-ivory">
         <EventHeader />
         <HeroSection ctaRef={heroCtaRef} />

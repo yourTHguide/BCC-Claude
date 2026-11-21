@@ -22,6 +22,8 @@ export default function SmcAccessPage() {
 
   return (
     <div className="smc-page smc-book-page">
+      {/* Self-hosted fonts (replaces this page's Google Fonts @import). */}
+      <link rel="stylesheet" href="/fonts/google-fonts-smc.css" />
       <main className="smc-container smc-book-main">
         <p className="smc-eyebrow">Single Meet Club</p>
         <h1 className="smc-h2">Private access</h1>

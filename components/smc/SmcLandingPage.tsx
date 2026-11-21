@@ -119,6 +119,8 @@ export default function SmcLandingPage({ next }: { next: SmcBookableEvent }) {
 
   return (
     <div className="smc-page" id="top">
+      {/* Self-hosted fonts (replaces this page's Google Fonts @import). */}
+      <link rel="stylesheet" href="/fonts/google-fonts-smc.css" />
       <header className="smc-header">
         <div className="smc-container smc-header-inner">
           <Wordmark />

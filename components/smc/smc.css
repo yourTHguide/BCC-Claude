@@ -5,7 +5,7 @@
  * mockup supersedes the kit's decorative treatments (no torn paper, no script).
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&display=swap');
+/* Fonts are self-hosted: public/fonts/google-fonts-smc.css (linked by the SMC pages). */
 
 .smc-page {
   --smc-wine: #8b1a2b;
