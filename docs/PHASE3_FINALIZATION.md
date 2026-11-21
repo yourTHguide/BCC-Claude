@@ -30,14 +30,11 @@ Gate: steps 1–2 must be done before step 3. Nothing below runs without the own
       - "columns after migration" is `23/12/15/12/12`;
       - RLS shows `true` for both new tables.
    6. Copy the grid and send it to Claude. Optional proof that nothing persisted: run `select count(*) from bnt_experience_inquiries where name like 'REHEARSAL%';` → `0`.
-2. **Privacy publication** (recommended: publish with the release):
-   - Remaining items are in `docs/privacy/OPEN_QUESTIONS.md`:
-     - C1: booking-records period, with your accountant;
-     - C2: effective date;
-     - L1–L8: professional verification.
-   - Once you approve the wording, Claude removes the markers and sets `PRIVACY_TEXT_FINAL`.
-   - At deploy, set `PRIVACY_NOTICE_PUBLISHED=true` (Vercel → Production).
-   - If not approved by release, ship with the notices hidden: still safe, but no notice at launch.
+2. **Privacy publication.** The text is ready with no placeholders (`docs/privacy/OPEN_QUESTIONS.md`). On your go-ahead, set in Vercel → Production:
+   - `PRIVACY_NOTICE_PUBLISHED=true`
+   - `PRIVACY_NOTICE_EFFECTIVE_DATE=<release date, YYYY-MM-DD>`
+
+   Set them **before** the merge in step 5, so the release deploy includes them. Without both, the notices stay unpublished (404, no links).
 3. **Back up production:** export `bnt_experience_inquiries`, `bnt_contact_messages`, `bnt_waitlist` as CSV. Expected counts today: 1, 1, 0.
 4. **Apply the migration** on production `oomhftxgvikzxlvqdcmr`: paste `supabase/migrations/20261118000002_bnt_lead_operations.sql` into the SQL editor. Then check:
    ```sql
@@ -45,7 +42,7 @@ Gate: steps 1–2 must be done before step 3. Nothing below runs without the own
    select count(*) from bnt_waitlist_announcements; -- 0
    select pg_get_constraintdef(oid) from pg_constraint where conname = 'bnt_waitlist_deliveries_status_check'; -- includes 'unconfirmed'
    ```
-5. **Merge PR #11.** Vercel deploys production. Watch the deployment reach Ready.
+5. **Merge PR #11.** Vercel deploys production (with the step 2 variables). Watch the deployment reach Ready.
 6. **Live checks** (phone, private window):
    - **Consent:**
      - The banner appears on both sites.
@@ -60,7 +57,7 @@ Gate: steps 1–2 must be done before step 3. Nothing below runs without the own
      - SMC card reads "Usually last Thursday".
      - Pinch-zoom works on the homepage; tapping a form field doesn't jump-zoom.
      - BCC `/weekends`: the banner sits above the Book bar; Book → `/book` reaches Stripe (**don't pay**).
-     - `/privacy` serves only if step 2(a) was done.
+     - `/privacy` on both domains shows the notice with the effective date from step 2; the banner and footers link to it.
 7. **Afterwards** (any order):
    - Gmail filters (section D below).
    - Vercel domain: `bkkclubcrawl.com` → "Connect to project".
@@ -126,7 +123,7 @@ The Gmail connector can read mail but cannot create filters. All alerts are **fr
 ## Privacy notices
 - `/privacy` serves the BEST notice on bestnightlifethailand.com and the BCC notice on bkkclubcrawl.com (`components/privacy/*`).
 - On previews it is always visible, marked DRAFT; use `?brand=bnt` to see BEST.
-- On production it returns 404 and nothing links to it until both switches are set (`docs/privacy/OPEN_QUESTIONS.md` → How to publish). Merging PR #11 therefore publishes nothing.
+- On production it returns 404 and nothing links to it until `PRIVACY_NOTICE_PUBLISHED=true` and `PRIVACY_NOTICE_EFFECTIVE_DATE` are set in Vercel (`docs/privacy/OPEN_QUESTIONS.md`). Merging PR #11 alone publishes nothing.
 
 ## Housekeeping status
 

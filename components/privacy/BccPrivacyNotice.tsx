@@ -1,15 +1,15 @@
-import { DataTable, Operator, Pending, Rights, Section, SecurityAndChanges } from './NoticeParts'
+import { DataTable, Operator, Rights, Section, SecurityAndChanges } from './NoticeParts'
 
 // Bangkok Club Crawl privacy notice — canonical text (DRAFT until
 // PRIVACY_TEXT_FINAL.bcc is true in lib/privacy/publish.ts). Processing
 // described here is Bangkok Club Crawl's own: website and platform
 // bookings, tickets/check-in, and the reviews/map embeds on its pages.
-export default function BccPrivacyNotice() {
+export default function BccPrivacyNotice({ effectiveDate }: { effectiveDate: string | null }) {
   return (
     <>
       <h1 style={{ fontSize: 30, lineHeight: 1.2, margin: '0 0 8px' }}>Privacy Notice — Bangkok Club Crawl</h1>
       <p style={{ color: 'rgba(255,255,255,0.65)' }}>
-        Effective date: <Pending kind="CONFIRM">publication date</Pending>
+        Effective date: {effectiveDate ?? 'set on publication'}
       </p>
       <p>
         This notice explains how personal data is handled when you visit bkkclubcrawl.com or join a Bangkok Club Crawl night, whether you book on our website
@@ -29,11 +29,11 @@ export default function BccPrivacyNotice() {
           caption="Personal data we collect for Bangkok Club Crawl"
           head={['When you…', 'Personal data', 'Purpose', 'Legal basis (PDPA)']}
           rows={[
-            ['Book on our website', 'Name, email and phone number (entered on Stripe’s secure checkout page); billing details if Stripe asks for them; the night, date and number of guests', 'To confirm your booking, send your ticket and meeting-point details, check you in, and handle changes or cancellations', <>Performance of a contract (s.24(3)) <Pending kind="LEGAL">confirm</Pending></>],
+            ['Book on our website', 'Name, email and phone number (entered on Stripe’s secure checkout page); billing details if Stripe asks for them; the night, date and number of guests', 'To confirm your booking, send your ticket and meeting-point details, check you in, and handle changes or cancellations', <>Performance of a contract (s.24(3))</>],
             ['Pay', 'Payment reference, amount and status (card details are handled by Stripe, not us)', 'Payment, refunds, accounting', 'Contract (s.24(3)); legal obligation (s.24(6))'],
             ['Book through a booking platform (e.g. GetYourGuide, Viator, Airbnb Experiences, Klook)', 'What the platform passes to us — usually your name and number of guests, sometimes email or phone', 'To run your night and check you in', 'Contract (s.24(3)). The platform’s own privacy policy covers what you give the platform'],
             ['Show your ticket at check-in', 'Ticket code; attendance', 'Admission and capacity control', 'Contract (s.24(3))'],
-            ['Contact us on WhatsApp, Instagram or email', 'What you send us', 'To answer you and coordinate your night', <>Contract, or our legitimate interest in answering enquiries (s.24(5)) <Pending kind="LEGAL">confirm</Pending></>],
+            ['Contact us on WhatsApp, Instagram or email', 'What you send us', 'To answer you and coordinate your night', <>Contract, or our legitimate interest in answering enquiries (s.24(5))</>],
             ['Choose “Accept” in the cookie banner', 'Cookie identifiers, browser and device information, pages visited, booking events (viewing a night, starting checkout, completing a purchase)', 'Measuring and improving our Facebook and Instagram advertising; showing guest reviews and a map', 'Your consent (s.19)'],
           ]}
         />
@@ -53,8 +53,8 @@ export default function BccPrivacyNotice() {
       <Section id="sharing" title="4. Who we share personal data with">
         <ul>
           <li>
-            <strong>Service providers</strong> acting on our behalf: Supabase (database hosting), Vercel (website hosting), Resend (booking emails) and Google
-            (our email inbox). <Pending kind="LEGAL">verify data-processing agreements with each provider</Pending>
+            <strong>Service providers</strong> that process personal data on our behalf to run our website and services: Supabase (database hosting), Vercel (website hosting), Resend (booking emails) and Google
+            (our email inbox).
           </li>
           <li><strong>Stripe</strong>, to process payments (also under its own privacy policy).</li>
           <li><strong>Booking platforms</strong>, if you booked through one — for example to confirm attendance.</li>
@@ -71,9 +71,7 @@ export default function BccPrivacyNotice() {
       <Section id="transfers" title="5. Transfers outside Thailand">
         <p>
           Some providers store or process personal data outside Thailand, including Singapore (our database) and the United States (hosting, email,
-          payments, Meta services, embedded reviews and maps). Where personal data is transferred abroad, we rely on the grounds permitted by sections 28 and
-          29 of the PDPA, such as where the transfer is necessary to provide the service you booked.{' '}
-          <Pending kind="LEGAL">verify the transfer ground for each provider</Pending>
+          payments, Meta services, embedded reviews and maps). We use these providers because they are needed to provide the services described in this notice. If you would like more information about these transfers, please contact us.
         </p>
       </Section>
 
@@ -83,7 +81,7 @@ export default function BccPrivacyNotice() {
           caption="Retention periods"
           head={['Records', 'How long']}
           rows={[
-            ['Bookings, tickets, check-in and payment records (website and platform bookings)', <>For the period required by Thai accounting and tax law <Pending kind="CONFIRM">exact period, with your accountant</Pending>, and longer only if needed for a dispute or legal claim</>],
+            ['Bookings, tickets, check-in and payment records (website and platform bookings)', <>We retain booking, payment and associated transaction records for the period required under applicable Thai accounting and tax laws, and longer where necessary to address disputes, legal claims or other legal obligations.</>],
             ['Messages and enquiries that don’t lead to a booking', 'Up to 24 months after our last meaningful interaction, unless needed for an ongoing relationship, a dispute or a legal requirement'],
             ['Your cookie choice', '12 months, then we ask again'],
           ]}

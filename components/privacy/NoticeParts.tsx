@@ -111,7 +111,7 @@ export function Rights({ extra }: { extra?: ReactNode }) {
       </ul>
       <p>
         To make a request, email <a href="mailto:bookings@bestnightlifethailand.com">bookings@bestnightlifethailand.com</a>. We may ask you to confirm your
-        identity. We aim to respond within 30 days <Pending kind="LEGAL">confirm response period</Pending>. Some booking and payment records must be kept for legal
+        identity. We will respond within the time required by the PDPA. Some booking and payment records must be kept for legal
         reasons even if you ask us to delete them; if so, we will tell you. {extra}
       </p>
     </>
@@ -124,8 +124,7 @@ export function SecurityAndChanges() {
       <Section id="security" title="Security">
         <p>
           Access to personal data is limited to authorised staff, connections to our website are encrypted, and we use service providers with recognised
-          security practices. No method is completely secure; if a personal data breach affects you, we will act as the PDPA requires.{' '}
-          <Pending kind="LEGAL">confirm breach-notification wording</Pending>
+          security practices. No method is completely secure; if a personal data breach affects you, we will act as the PDPA requires.
         </p>
       </Section>
       <Section id="changes" title="Changes to this notice">

@@ -1,15 +1,15 @@
-import { DataTable, Operator, Pending, Rights, Section, SecurityAndChanges } from './NoticeParts'
+import { DataTable, Operator, Rights, Section, SecurityAndChanges } from './NoticeParts'
 
 // BEST Nightlife Thailand privacy notice — canonical text (DRAFT until
 // PRIVACY_TEXT_FINAL.bnt is true in lib/privacy/publish.ts). Processing
 // described here is BEST's own: private-experience inquiries, contact form,
 // event waitlists, Single Meet Club and other BEST event bookings.
-export default function BestPrivacyNotice() {
+export default function BestPrivacyNotice({ effectiveDate }: { effectiveDate: string | null }) {
   return (
     <>
       <h1 style={{ fontSize: 30, lineHeight: 1.2, margin: '0 0 8px' }}>Privacy Notice — BEST Nightlife Thailand</h1>
       <p style={{ color: 'rgba(255,255,255,0.65)' }}>
-        Effective date: <Pending kind="CONFIRM">publication date</Pending>
+        Effective date: {effectiveDate ?? 'set on publication'}
       </p>
       <p>
         This notice explains how personal data is handled when you use bestnightlifethailand.com, send us a private-experience inquiry or a message, join an
@@ -26,8 +26,8 @@ export default function BestPrivacyNotice() {
           caption="Personal data we collect on bestnightlifethailand.com"
           head={['When you…', 'Personal data', 'Purpose', 'Legal basis (PDPA)']}
           rows={[
-            ['Send a private-experience inquiry', 'Name; WhatsApp number; email (optional); the experience you chose; occasion; preferred date; group size; budget range; preferences and any details you write', 'To reply and prepare a proposal', <>Steps taken at your request before entering into a contract (s.24(3)) <Pending kind="LEGAL">confirm</Pending></>],
-            ['Use the contact form', 'Name; WhatsApp number; your message', 'To reply to you', <>Steps before a contract (s.24(3)) or our legitimate interest in answering enquiries (s.24(5)) <Pending kind="LEGAL">confirm</Pending></>],
+            ['Send a private-experience inquiry', 'Name; WhatsApp number; email (optional); the experience you chose; occasion; preferred date; group size; budget range; preferences and any details you write', 'To reply and prepare a proposal', <>Steps taken at your request before entering into a contract (s.24(3))</>],
+            ['Use the contact form', 'Name; WhatsApp number; your message', 'To reply to you', <>Steps before a contract (s.24(3)) or our legitimate interest in answering enquiries (s.24(5))</>],
             ['Join an event waitlist (currently New in Bangkok)', 'Email; first name (optional); which event; when you signed up; the exact wording you agreed to', 'To email you when new dates for that event are announced — nothing else', 'Your consent (s.19), which you can withdraw at any time'],
             ['Book a Single Meet Club place', 'Your name, email and WhatsApp number; names of the guests you book for; confirmation that every guest is 20 or older; acceptance of the booking terms', 'To issue tickets, manage the guest list and admission, and send event information', 'Performance of a contract (s.24(3)); legal obligations such as accounting records (s.24(6))'],
             ['Tick the optional Single Meet Club updates box', 'Your choice and contact details', 'To tell you about future Single Meet Club nights by email or WhatsApp', 'Your consent (s.19)'],
@@ -59,8 +59,8 @@ export default function BestPrivacyNotice() {
       <Section id="sharing" title="4. Who we share personal data with">
         <ul>
           <li>
-            <strong>Service providers</strong> acting on our behalf: Supabase (database hosting), Vercel (website hosting), Resend (sending email) and Google (the
-            email inbox where inquiry notifications arrive). <Pending kind="LEGAL">verify data-processing agreements with each provider</Pending>
+            <strong>Service providers</strong> that process personal data on our behalf to run our website and services: Supabase (database hosting), Vercel (website hosting), Resend (sending email) and Google (the
+            email inbox where inquiry notifications arrive).
           </li>
           <li><strong>Stripe</strong>, to process payments; Stripe also handles payment data under its own privacy policy.</li>
           <li>
@@ -77,9 +77,7 @@ export default function BestPrivacyNotice() {
       <Section id="transfers" title="5. Transfers outside Thailand">
         <p>
           Some of these providers store or process personal data outside Thailand, including in Singapore (our database) and the United States (website
-          hosting, email delivery, payment processing and Meta services). Where personal data is transferred abroad, we rely on the grounds permitted by
-          sections 28 and 29 of the PDPA, such as where the transfer is necessary to provide the service you requested.{' '}
-          <Pending kind="LEGAL">verify the transfer ground for each provider</Pending>
+          hosting, email delivery, payment processing and Meta services). We use these providers because they are needed to provide the services described in this notice. If you would like more information about these transfers, please contact us.
         </p>
       </Section>
 
@@ -90,8 +88,8 @@ export default function BestPrivacyNotice() {
           head={['Records', 'How long']}
           rows={[
             ['Private-experience inquiries and contact messages', 'Up to 24 months after our last meaningful interaction with you, unless they lead to a booking, or we need them for an ongoing relationship, a dispute or a legal requirement'],
-            ['Event waitlist entries', <>Until you unsubscribe, or 24 months after you joined or last received an announcement, whichever is first. After you unsubscribe we keep your email address and the date for 24 months as a suppression record, so we don&apos;t email you again, and then delete it <Pending kind="LEGAL">suppression period</Pending></>],
-            ['Bookings, tickets and payment records', <>For the period required by Thai accounting and tax law <Pending kind="CONFIRM">exact period, with your accountant</Pending>, and longer only if needed for a dispute or legal claim</>],
+            ['Event waitlist entries', <>Until you unsubscribe, or 24 months after you joined or last received an announcement, whichever is first. After you unsubscribe we keep your email address and the date for 24 months as a suppression record, so we don&apos;t email you again, and then delete it.</>],
+            ['Bookings, tickets and payment records', <>We retain booking, payment and associated transaction records for the period required under applicable Thai accounting and tax laws, and longer where necessary to address disputes, legal claims or other legal obligations.</>],
             ['Inquiry notification emails in our inbox', 'Deleted on the same schedule as the inquiry they relate to'],
             ['Your cookie choice', '12 months, then we ask again'],
           ]}

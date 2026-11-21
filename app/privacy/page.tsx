@@ -3,7 +3,7 @@ import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { resolveStorefront } from '@/lib/storefront'
 import { buildPageMetadata } from '@/lib/seo'
-import { privacyAvailable, privacyPublished } from '@/lib/privacy/publish'
+import { privacyAvailable, privacyEffectiveDate, privacyPublished } from '@/lib/privacy/publish'
 import { isProductionHost } from '@/lib/consentConfig'
 import type { Storefront } from '@/lib/storefront'
 import { BRAND_THEME } from '@/components/privacy/NoticeParts'
@@ -50,11 +50,11 @@ export default function PrivacyPage({ searchParams }: { searchParams: { brand?: 
       </header>
       {draft && (
         <p role="note" style={{ margin: 0, padding: '12px 20px', background: 'rgba(255,196,0,0.15)', borderBottom: '1px solid rgba(255,196,0,0.5)', color: '#FFE08A', fontSize: 14 }}>
-          DRAFT for review — not published and not legally reviewed. Highlighted items still need a decision.
+          DRAFT for review — not yet published, and not professionally reviewed. The effective date is set on publication.
         </p>
       )}
       <main style={{ maxWidth: 780, margin: '0 auto', padding: '32px 20px 80px', fontSize: 16, lineHeight: 1.65 }} className="privacy-notice">
-        {storefront === 'bnt' ? <BestPrivacyNotice /> : <BccPrivacyNotice />}
+        {storefront === 'bnt' ? <BestPrivacyNotice effectiveDate={draft ? null : privacyEffectiveDate()} /> : <BccPrivacyNotice effectiveDate={draft ? null : privacyEffectiveDate()} />}
       </main>
       <footer style={{ borderTop: '1px solid rgba(255,255,255,0.1)', padding: '20px', textAlign: 'center', fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>
         © 2026 Sanctuary Nexus Co., Ltd. · <LegalLinks />
