@@ -17,7 +17,7 @@ Both sites are served by **one Next.js app** (Vercel project `bcc-claude`), one 
 | 7 | OTA bookings (GetYourGuide/Viator/Airbnb/Klook etc., imported by staff from spreadsheets) | BCC | Guest name, email (where the platform provides it), notes | `ota_bookings` | Door list, capacity | — (data arrives *from* the platform) |
 | 8 | WhatsApp links/buttons | Both | Whatever the guest sends on WhatsApp | WhatsApp (Meta), the team's phone | Conversation | Meta/WhatsApp |
 | 9 | Meta Pixel (**after PR #11: only with consent, production hosts, never on private pages**) | Both | Cookies `_fbp` (and `_fbc` from ad clicks), IP, user agent, page URL, events: PageView, ViewContent, InitiateCheckout, Purchase (value, quantity), Lead, custom SelectNight | — (Meta) | Ad measurement / audiences | Meta Platforms |
-| 10 | Google Fonts (CSS `@import`) | Both | IP, user agent | — | Fonts | Google |
+| 10 | Fonts (**self-hosted since PR #11**; previously Google Fonts `@import`) | Both | — (no third party) | — | Fonts | — |
 | 11 | Elfsight reviews widget (`components/Reviews.tsx`, `WeekendsPage.tsx`) | BCC | IP, user agent; may set its own storage (not verified) | — | Show reviews | Elfsight |
 | 12 | Google Maps embed (`/weekends`) | BCC | IP, user agent, Google cookies | — | Show meeting area | Google |
 | 13 | Hosting & server logs | Both | IP, URL, user agent (request logs) | Vercel (functions observed running in `iad1`, US East) | Serve the site | — |
@@ -55,5 +55,5 @@ Before this release: only by hand in Supabase. After this release: `/dashboard/l
 4. Elfsight / Google Maps loaded without consent (BCC) → **fixed**: consent or per-view click.
 5. No privacy notice on either site → **drafts v2 ready**, not published (`PRIVACY_NOTICE_*_DRAFT.md`, `OPEN_QUESTIONS.md`).
 6. No retention limits → **manual schedule + monthly review** (`RETENTION_SCHEDULE.md`); not automated.
-7. Google Fonts load before consent → **open question 8** (recommend self-hosting).
+7. Google Fonts loaded before consent → **fixed**: self-hosted, identical rendering.
 8. Lead alerts go to one Gmail inbox → unchanged by design; no new recipients.

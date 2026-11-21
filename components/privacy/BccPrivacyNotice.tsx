@@ -53,14 +53,14 @@ export default function BccPrivacyNotice() {
       <Section id="sharing" title="4. Who we share personal data with">
         <ul>
           <li>
-            <strong>Service providers</strong> acting on our behalf: Supabase (database hosting), Vercel (website hosting), Resend (booking emails), Google (our
-            email inbox; web fonts). <Pending kind="LEGAL">confirm data-processing terms with each</Pending>
+            <strong>Service providers</strong> acting on our behalf: Supabase (database hosting), Vercel (website hosting), Resend (booking emails) and Google
+            (our email inbox). <Pending kind="LEGAL">verify data-processing agreements with each provider</Pending>
           </li>
           <li><strong>Stripe</strong>, to process payments (also under its own privacy policy).</li>
           <li><strong>Booking platforms</strong>, if you booked through one — for example to confirm attendance.</li>
           <li>
-            <strong>Participating venues on the route</strong>, only when reasonably necessary to run the night — for example the group size for entry, or a name
-            where a venue requires a guest list. Not every venue receives guest names. <Pending kind="CONFIRM">which venues, if any, receive names</Pending>
+            <strong>Participating venues on the route</strong>, limited to the information reasonably necessary for the particular booking — for example the
+            group size for entry, or a name where a venue requires a guest list. Not every venue receives guest names.
           </li>
           <li><strong>Elfsight</strong> (guest reviews) and <strong>Google Maps</strong>, only if you accept cookies or choose “Show reviews” / “Show map”.</li>
           <li><strong>Meta</strong> (Facebook, Instagram, WhatsApp): if you contact us there, and — only with your consent — through the Meta Pixel.</li>
@@ -70,8 +70,10 @@ export default function BccPrivacyNotice() {
 
       <Section id="transfers" title="5. Transfers outside Thailand">
         <p>
-          Some providers store or process data outside Thailand, including Singapore (our database) and the United States (hosting, email, payments, Meta
-          services, embedded reviews and maps). <Pending kind="LEGAL">state the basis relied on for each transfer under PDPA s.28–29</Pending>
+          Some providers store or process personal data outside Thailand, including Singapore (our database) and the United States (hosting, email,
+          payments, Meta services, embedded reviews and maps). Where personal data is transferred abroad, we rely on the grounds permitted by sections 28 and
+          29 of the PDPA, such as where the transfer is necessary to provide the service you booked.{' '}
+          <Pending kind="LEGAL">verify the transfer ground for each provider</Pending>
         </p>
       </Section>
 
@@ -110,7 +112,7 @@ export default function BccPrivacyNotice() {
             <strong>Guest reviews (Elfsight) and map (Google Maps)</strong> — these embedded services may set their own cookies, so they load only if you accept,
             or if you click “Show reviews” / “Show map” for that page.
           </li>
-          <li><strong>Web fonts</strong> are loaded from Google.</li>
+          <li><strong>Fonts</strong> are hosted on our own website, so loading a page does not contact Google.</li>
         </ul>
         <p>The Meta Pixel never runs on ticket pages or staff pages.</p>
       </Section>

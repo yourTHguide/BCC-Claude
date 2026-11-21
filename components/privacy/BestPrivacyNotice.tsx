@@ -60,16 +60,15 @@ export default function BestPrivacyNotice() {
         <ul>
           <li>
             <strong>Service providers</strong> acting on our behalf: Supabase (database hosting), Vercel (website hosting), Resend (sending email) and Google (the
-            email inbox where inquiry notifications arrive; web fonts). <Pending kind="LEGAL">confirm data-processing terms with each</Pending>
+            email inbox where inquiry notifications arrive). <Pending kind="LEGAL">verify data-processing agreements with each provider</Pending>
           </li>
           <li><strong>Stripe</strong>, to process payments; Stripe also handles payment data under its own privacy policy.</li>
           <li>
             <strong>Meta</strong> (Facebook, Instagram, WhatsApp): if you contact us there, and — only if you accept advertising cookies — through the Meta Pixel.
           </li>
           <li>
-            <strong>Participating venues</strong>, only when reasonably necessary to deliver the experience you booked or asked for — for example a booking name
-            and group size to reserve a table, or a guest list where a venue requires one for entry. Not every venue receives guest names.{' '}
-            <Pending kind="CONFIRM">which venues, if any, receive names</Pending>
+            <strong>Participating venues</strong>, limited to the information reasonably necessary for the particular booking or experience — for example
+            a booking name and group size to reserve a table, or a guest list where a venue requires one for entry. Not every venue receives guest names.
           </li>
           <li><strong>Authorities</strong>, where required by Thai law or a lawful request.</li>
         </ul>
@@ -77,8 +76,10 @@ export default function BestPrivacyNotice() {
 
       <Section id="transfers" title="5. Transfers outside Thailand">
         <p>
-          Some of these providers store or process data outside Thailand, including in Singapore (our database) and the United States (website hosting, email
-          delivery, payment processing and Meta services). <Pending kind="LEGAL">state the basis relied on for each transfer under PDPA s.28–29</Pending>
+          Some of these providers store or process personal data outside Thailand, including in Singapore (our database) and the United States (website
+          hosting, email delivery, payment processing and Meta services). Where personal data is transferred abroad, we rely on the grounds permitted by
+          sections 28 and 29 of the PDPA, such as where the transfer is necessary to provide the service you requested.{' '}
+          <Pending kind="LEGAL">verify the transfer ground for each provider</Pending>
         </p>
       </Section>
 
@@ -89,7 +90,7 @@ export default function BestPrivacyNotice() {
           head={['Records', 'How long']}
           rows={[
             ['Private-experience inquiries and contact messages', 'Up to 24 months after our last meaningful interaction with you, unless they lead to a booking, or we need them for an ongoing relationship, a dispute or a legal requirement'],
-            ['Event waitlist entries', <>Until you unsubscribe, or 24 months after you joined or last received an announcement, whichever is first. After you unsubscribe we may keep your email address and the date as a short suppression record so we don&apos;t email you again <Pending kind="CONFIRM">suppression period</Pending></>],
+            ['Event waitlist entries', <>Until you unsubscribe, or 24 months after you joined or last received an announcement, whichever is first. After you unsubscribe we keep your email address and the date for 24 months as a suppression record, so we don&apos;t email you again, and then delete it <Pending kind="LEGAL">suppression period</Pending></>],
             ['Bookings, tickets and payment records', <>For the period required by Thai accounting and tax law <Pending kind="CONFIRM">exact period, with your accountant</Pending>, and longer only if needed for a dispute or legal claim</>],
             ['Inquiry notification emails in our inbox', 'Deleted on the same schedule as the inquiry they relate to'],
             ['Your cookie choice', '12 months, then we ask again'],
@@ -114,7 +115,7 @@ export default function BestPrivacyNotice() {
             visit and events such as a completed inquiry or booking. If you choose “Only necessary”, or make no choice, the Meta Pixel does not load. If you
             withdraw consent, we stop loading it and remove these cookies from our site.
           </li>
-          <li><strong>Other providers</strong> — web fonts are loaded from Google; payments take place on Stripe&apos;s pages under Stripe&apos;s policies.</li>
+          <li><strong>Other providers</strong> — payments take place on Stripe&apos;s pages under Stripe&apos;s policies. Our fonts are hosted on our own website, so loading a page does not contact Google.</li>
         </ul>
         <p>The Meta Pixel never runs on staff pages, ticket pages or unsubscribe pages.</p>
       </Section>

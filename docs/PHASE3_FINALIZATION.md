@@ -17,18 +17,27 @@ No change to BCC booking terms, prices, Stripe settings, event dates, capacity o
 
 Gate: steps 1–2 must be done before step 3. Nothing below runs without the owner's go-ahead.
 
-1. **Staging rehearsal passes.**
-   - Run `supabase/rehearsal/20261118000002_staging_rehearsal.sql` in the **staging** SQL editor (`jyhtznpethgzypblppnt`), or approve the Supabase prompt when Claude runs it.
-   - Expected results:
-     - columns after the rollback script: 11/5/7, and the two new tables are gone;
-     - both comparisons `true`;
-     - backfill email `guest@example.com` and experience `Yacht Party` on the Phase 3 row; `none` on the plain row;
-     - every `check:` row matches its "expect" label;
-     - columns after the migration: 23/12/15/12/12.
-   - It ends in ROLLBACK, so staging is unchanged.
-2. **Privacy decision.** Either:
-   - (a) approve the proposed wording for the open items; Claude finalises both notices, then you set `PRIVACY_NOTICE_PUBLISHED=true` (Vercel → Production) — recommended; or
-   - (b) ship without notices (they stay 404 and unlinked).
+1. **Staging rehearsal passes** (staging only, rolled back). In the SQL editor:
+   1. Supabase dashboard → select project **BCC - Claude Staging** (URL contains `jyhtznpethgzypblppnt`). **Do not use "BCC - Claude"; that is production.**
+   2. Left menu → **SQL Editor** → **New query**.
+   3. In GitHub, open `supabase/rehearsal/20261118000002_staging_rehearsal.sql` on branch `claude/phase-3-finalization-tswihx` → **Raw** → select all → copy.
+   4. Paste into the editor → **Run**. If Supabase warns about destructive operations, confirm. The script runs in one transaction and ends with `ROLLBACK`.
+   5. The result grid has about 20 rows. **Pass** if:
+      - "after rollback script" shows `11/5/7, true`;
+      - both "(expect true)" rows say `true`;
+      - the Phase 3 backfill row shows `email=guest@example.com experience=Yacht Party`, and the plain row shows `none`;
+      - every `check:` row matches its "(expect …)" label;
+      - "columns after migration" is `23/12/15/12/12`;
+      - RLS shows `true` for both new tables.
+   6. Copy the grid and send it to Claude. Optional proof that nothing persisted: run `select count(*) from bnt_experience_inquiries where name like 'REHEARSAL%';` → `0`.
+2. **Privacy publication** (recommended: publish with the release):
+   - Remaining items are in `docs/privacy/OPEN_QUESTIONS.md`:
+     - C1: booking-records period, with your accountant;
+     - C2: effective date;
+     - L1–L8: professional verification.
+   - Once you approve the wording, Claude removes the markers and sets `PRIVACY_TEXT_FINAL`.
+   - At deploy, set `PRIVACY_NOTICE_PUBLISHED=true` (Vercel → Production).
+   - If not approved by release, ship with the notices hidden: still safe, but no notice at launch.
 3. **Back up production:** export `bnt_experience_inquiries`, `bnt_contact_messages`, `bnt_waitlist` as CSV. Expected counts today: 1, 1, 0.
 4. **Apply the migration** on production `oomhftxgvikzxlvqdcmr`: paste `supabase/migrations/20261118000002_bnt_lead_operations.sql` into the SQL editor. Then check:
    ```sql
@@ -65,7 +74,7 @@ Gate: steps 1–2 must be done before step 3. Nothing below runs without the own
 - **Meta reporting drops:** the duplicate PageViews are gone, and decliners aren't tracked. Expected and documented; ad optimisation gets less signal.
 - **Real email delivery** via Resend is first proven in step 6 (previews have no key).
 - **Privacy text** is not professionally reviewed, even if published under 2(a).
-- **Google Fonts** still load before consent (open question 8). The outdated external "Loveable" connector is unchanged.
+- The outdated external "Loveable" connector is unchanged (outside this repo).
 - **Vercel logs last ~1 hour**, so the dashboard (`alert_status`) is the failure record.
 - **Staff pages** keep pinch-zoom disabled by design.
 

@@ -10,7 +10,7 @@ Updated after the pre-release review (approved 20 Nov 2026: remove duplicate Pag
 | Consent | None. Cookies `_fbp`/`_fbc` set and PageView sent on page load |
 | Duplicate PageView | The `<noscript>` fallback `<img>` was also **preloaded by React in every JS browser** → two PageViews per page view |
 | Private URLs | Staff pages, `/ticket/<token>` and (in the first PR #11 version) the server-rendered `<noscript>` image could still send private URLs |
-| Third parties | Elfsight reviews and Google Maps embed loaded without consent on BCC |
+| Third parties | Elfsight reviews and Google Maps embed loaded without consent on BCC; Google Fonts on every page (now self-hosted) |
 
 ## 2. After (PR #11)
 
@@ -56,4 +56,4 @@ Compare in Events Manager over the 2 weeks before vs after release, using our da
 
 ## 5. Phase 4 (not done here)
 
-Conversions API with consent-aware sending and `eventID` dedup; UTM/click-ID capture on leads; cross-domain BEST↔BCC attribution; separate datasets per brand; self-hosted fonts (also listed as an open question).
+Conversions API with consent-aware sending and `eventID` dedup; UTM/click-ID capture on leads; cross-domain BEST↔BCC attribution; separate datasets per brand.
