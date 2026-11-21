@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { createContext, forwardRef, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { ArrowDown, Check, ChevronDown, MapPin, MoveRight, X } from 'lucide-react'
 import './halloween.css'
+import LegalLinks from '@/components/consent/LegalLinks'
 
 // Re-encoding an already-compressed JPEG through Next's image optimizer at its
 // default quality (75) visibly softens it further. These photos were exported
@@ -80,6 +81,8 @@ export default function HalloweenCrawlPage() {
 
   return (
     <LightboxContext.Provider value={setLightboxImage}>
+      {/* Self-hosted fonts (replaces this page's Google Fonts @import). */}
+      <link rel="stylesheet" href="/fonts/google-fonts-halloween.css" />
       <main className="halloween-page halloween-grain relative overflow-x-hidden bg-halloween-bg text-halloween-ivory">
         <EventHeader />
         <HeroSection ctaRef={heroCtaRef} />
@@ -422,7 +425,7 @@ function EventFooter() {
     <footer className="border-t border-halloween-ivory/10 px-5 py-12 pb-28 sm:px-6 sm:pb-12">
       <div className="mx-auto flex max-w-[1240px] flex-col gap-7 sm:flex-row sm:items-end sm:justify-between">
         <div><Link href="/"><Image src="/images/Nightlife Thailand LOGO.png" alt="Nightlife Thailand" width={144} height={144} className="h-9 w-9 object-contain" /></Link><p className="mt-3 text-xs text-halloween-muted">Bangkok, Thailand</p></div>
-        <nav aria-label="Footer navigation" className="flex flex-wrap gap-x-6 gap-y-3 text-xs text-halloween-muted"><a href="#" className="halloween-link">Instagram</a><a href="#" className="halloween-link">Contact</a><a href="#" className="halloween-link">Terms</a><a href="#" className="halloween-link">Privacy</a></nav>
+        <nav aria-label="Footer navigation" className="flex flex-wrap gap-x-6 gap-y-3 text-xs text-halloween-muted"><a href="#" className="halloween-link">Instagram</a><a href="#" className="halloween-link">Contact</a><a href="#" className="halloween-link">Terms</a><span className="halloween-link"><LegalLinks /></span></nav>
       </div>
     </footer>
   )

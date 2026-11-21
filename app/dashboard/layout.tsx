@@ -1,6 +1,13 @@
+import type { Viewport } from 'next'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { getAdminUser } from '@/lib/admin-auth'
+
+// Staff tools keep the original no-pinch-zoom viewport: their many compact
+// form fields would otherwise make iOS zoom in on every tap (e.g. at
+// check-in). Public pages allow zoom (root layout).
+export const viewport: Viewport = { width: 'device-width', initialScale: 1, maximumScale: 1, viewportFit: 'cover' }
+
 
 // /dashboard depends on the auth session; render on demand, never prerender.
 export const dynamic = 'force-dynamic'

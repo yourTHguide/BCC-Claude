@@ -4,6 +4,7 @@ import { useState } from 'react'
 import BntNav from './BntNav'
 import BntFooter from './BntFooter'
 import { BNT_COUNTRY_CODES, BNT_RESPONSE_PROMISE } from '@/lib/bnt/contact'
+import { composeWhatsApp } from '@/lib/whatsapp'
 
 // Port of NightlifeAntigravity's contact.html. Markup/copy/behavior ported
 // 1:1; the original's getElementById + innerHTML-swap submit handler is
@@ -28,6 +29,10 @@ export default function BntContactPage() {
       setError('Please add your name and WhatsApp number.')
       return
     }
+    if (!composeWhatsApp(countryCode, trimmedPhone)) {
+      setError('That WhatsApp number looks too short or too long. Check the country code and number.')
+      return
+    }
 
     setError('')
     setSubmitting(true)
@@ -37,7 +42,8 @@ export default function BntContactPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: trimmedName,
-          whatsapp: countryCode + trimmedPhone,
+          countryCode,
+          phone: trimmedPhone,
           message: message.trim(),
         }),
       })
@@ -62,7 +68,7 @@ export default function BntContactPage() {
 
   return (
     <>
-      <link rel="stylesheet" href="/bnt/css/luxury-landing.css" />
+      <link rel="stylesheet" href="/bnt/css/luxury-landing.css?v=20261120" />
       {/* dangerouslySetInnerHTML, not JSX text children — see BntAboutPage.tsx
           for why (raw-text <style> element vs React's SSR entity-escaping
           caused a real hydration mismatch). */}
@@ -248,7 +254,7 @@ export default function BntContactPage() {
                 <label>WHATSAPP NUMBER</label>
                 <div className="phone-wrapper">
                   <div className="phone-prefix">
-                    <select value={countryCode} onChange={(e) => setCountryCode(e.target.value)}>
+                    <select value={countryCode} onChange={(e) => setCountryCode(e.target.value)} aria-label="Country code">
                       {BNT_COUNTRY_CODES.map((c) => (
                         <option key={c.code} value={c.code}>
                           {c.label}
@@ -260,6 +266,9 @@ export default function BntContactPage() {
                     type="tel"
                     className="form-input"
                     placeholder="Your number"
+                    autoComplete="tel-national"
+                    inputMode="tel"
+                    aria-label="WhatsApp number"
                     required
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}

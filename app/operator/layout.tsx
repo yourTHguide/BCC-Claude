@@ -1,9 +1,16 @@
+import type { Viewport } from 'next'
 import { redirect } from 'next/navigation'
 import { getAdminUser } from '@/lib/admin-auth'
 import { operatorTheme as T } from '@/lib/operator/theme'
 import OperatorBottomNav from './OperatorBottomNav'
 import ThemeToggle from './ThemeToggle'
 import './operator-theme.css'
+
+// Staff tools keep the original no-pinch-zoom viewport: their many compact
+// form fields would otherwise make iOS zoom in on every tap (e.g. at
+// check-in). Public pages allow zoom (root layout).
+export const viewport: Viewport = { width: 'device-width', initialScale: 1, maximumScale: 1, viewportFit: 'cover' }
+
 
 // /operator depends on the auth session; never prerender.
 export const dynamic = 'force-dynamic'

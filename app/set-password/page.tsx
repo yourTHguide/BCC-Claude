@@ -13,7 +13,7 @@ const S = {
   eyebrow: { fontWeight: 600, fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase' as const, color: '#EA003A' },
   h1: { fontWeight: 600, fontSize: '24px', margin: '8px 0 8px' } as React.CSSProperties,
   sub: { fontSize: '13px', color: 'rgba(255,255,255,0.60)', margin: '0 0 24px', lineHeight: 1.5 } as React.CSSProperties,
-  input: { width: '100%', height: '44px', borderRadius: '8px', padding: '0 12px', marginBottom: '12px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', fontFamily: 'Inter, sans-serif', fontSize: '14px', outline: 'none' } as React.CSSProperties,
+  input: { width: '100%', height: '44px', borderRadius: '8px', padding: '0 12px', marginBottom: '12px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', fontFamily: 'Inter, sans-serif', fontSize: '16px', outline: 'none' } as React.CSSProperties,
   btn: { width: '100%', height: '48px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '14px', background: 'linear-gradient(135deg,#EA003A,#820065)', color: '#fff' } as React.CSSProperties,
   err: { color: '#EA003A', fontSize: '13px', marginBottom: '12px' } as React.CSSProperties,
 }

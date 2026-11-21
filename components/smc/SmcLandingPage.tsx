@@ -28,6 +28,7 @@ import type { SmcBookableEvent } from '@/lib/smc/event'
 import SmcGallery, { type SmcGalleryPhoto } from './SmcGallery'
 import SmcStickyCta from './SmcStickyCta'
 import './smc.css'
+import LegalLinks from '@/components/consent/LegalLinks'
 
 const IMAGE_QUALITY = 90
 
@@ -109,12 +110,17 @@ export default function SmcLandingPage({ next }: { next: SmcBookableEvent }) {
     priceThb: next.priceThb,
     capacity: next.capacity ?? baseEdition.capacity,
   }
-  const shortDate = formatShortDate(edition)
+  // Only a date that exists in the database is shown as the next edition.
+  // If none could be loaded, say so rather than showing a computed one.
+  const dateKnown = next.source === 'database'
+  const shortDate = dateKnown ? formatShortDate(edition) : 'DATE TO BE ANNOUNCED'
   const startTime = formatStartTime(edition)
   const price = formatPrice(edition)
 
   return (
     <div className="smc-page" id="top">
+      {/* Self-hosted fonts (replaces this page's Google Fonts @import). */}
+      <link rel="stylesheet" href="/fonts/google-fonts-smc.css" />
       <header className="smc-header">
         <div className="smc-container smc-header-inner">
           <Wordmark />
@@ -245,7 +251,7 @@ export default function SmcLandingPage({ next }: { next: SmcBookableEvent }) {
               </p>
               {edition.editionTagline && <p className="smc-ticket-tagline">{edition.editionTagline}</p>}
               <h2 id="smc-next-title" className="smc-ticket-date">
-                {formatLongDate(edition)}
+                {dateKnown ? formatLongDate(edition) : 'Next date to be announced'}
               </h2>
               <ul className="smc-ticket-list">
                 <li>
@@ -345,7 +351,7 @@ export default function SmcLandingPage({ next }: { next: SmcBookableEvent }) {
             </a>
           </nav>
           <p className="smc-footer-legal">
-            © {new Date().getFullYear()} BEST Nightlife Thailand. Single Meet Club.
+            © {new Date().getFullYear()} BEST Nightlife Thailand. Single Meet Club. · <LegalLinks />
           </p>
         </div>
       </footer>

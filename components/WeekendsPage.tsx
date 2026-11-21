@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import ConsentEmbed from '@/components/consent/ConsentEmbed'
 import Script from 'next/script'
 import { BCC_GROUP_SIZE, BCC_TERMS } from '@/lib/bccTerms'
+import LegalLinks from '@/components/consent/LegalLinks'
 
 declare global {
   interface Window {
@@ -909,16 +911,24 @@ export default function WeekendsPage() {
         <div className="col col-wherewego">
           <div className="label">Where We Go</div>
           <div className="map-placeholder">
-            <iframe
-              title="Asok Intersection, Bangkok"
-              src="https://maps.google.com/maps?q=Sukhumvit%20Soi%2011%2C%20Bangkok&z=16&output=embed"
-              width="100%"
-              height="100%"
-              style={{ border: 0, display: 'block' }}
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-              allowFullScreen
-            />
+            {/* Google Maps loads only after cookie consent or a click. */}
+            <ConsentEmbed
+              provider="Google Maps"
+              what="The map is provided by"
+              showLabel="Show map"
+              fallbackLink={{ href: 'https://www.google.com/maps/search/?api=1&query=Sukhumvit%20Soi%2011%2C%20Bangkok', label: 'Open in Google Maps ↗' }}
+            >
+              <iframe
+                title="Asok Intersection, Bangkok"
+                src="https://maps.google.com/maps?q=Sukhumvit%20Soi%2011%2C%20Bangkok&z=16&output=embed"
+                width="100%"
+                height="100%"
+                style={{ border: 0, display: 'block' }}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                allowFullScreen
+              />
+            </ConsentEmbed>
           </div>
           <div className="loc-card">
             <div className="loc-card-icon">📍</div>
@@ -940,8 +950,10 @@ export default function WeekendsPage() {
         <div className="reviews-block">
           <div className="label">What Guests Say</div>
           <h3 className="reviews-title">Straight from our guests.</h3>
-          <Script src="https://elfsightcdn.com/platform.js" strategy="afterInteractive" />
-          <div className="elfsight-app-c9a3552e-9881-4e1c-98f3-0a366fc9e590" data-elfsight-app-lazy></div>
+          <ConsentEmbed provider="Elfsight" what="Guest reviews are shown by" showLabel="Show reviews">
+            <Script src="https://elfsightcdn.com/platform.js" strategy="afterInteractive" />
+            <div className="elfsight-app-c9a3552e-9881-4e1c-98f3-0a366fc9e590" data-elfsight-app-lazy></div>
+          </ConsentEmbed>
         </div>
 
       </div>{/* /row-experience */}
@@ -1112,6 +1124,11 @@ export default function WeekendsPage() {
         </div>
       </div>
 
+
+      {/* Consent: change or withdraw the cookie choice. */}
+      <p style={{ textAlign: 'center', fontFamily: 'Inter, sans-serif', fontSize: 11, color: 'rgba(255,255,255,0.35)', padding: '24px 20px 110px', margin: 0 }}>
+        © 2026 BEST Nightlife Thailand · Sanctuary Nexus Co., Ltd. · <LegalLinks />
+      </p>
 
       {/* ─── STICKY BAR ─── */}
       <div className="sticky-bar">

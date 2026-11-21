@@ -37,6 +37,7 @@
 import { Calendar, Clock, Timer, Tag as TagIcon } from 'lucide-react'
 import { getItemText, getItemIcon, type ContentItem } from '@/lib/contentItems'
 import { resolveContentIcon } from '@/lib/contentIcons'
+import LegalLinks from '@/components/consent/LegalLinks'
 
 export interface ProductPageProduct {
   id: string
@@ -702,7 +703,7 @@ export default function ProductPage({ product, content, media, upcomingEvents, m
         {/* Footer */}
         <footer style={{ background: '#1A0015', borderTop: '1px solid rgba(255,255,255,0.08)', padding: '32px 20px', textAlign: 'center' }}>
           <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '11px', color: 'rgba(255,255,255,0.20)' }}>
-            © 2026 BEST Nightlife Thailand · Sanctuary Nexus Co., Ltd. · Bangkok
+            © 2026 BEST Nightlife Thailand · Sanctuary Nexus Co., Ltd. · Bangkok · <LegalLinks />
           </p>
         </footer>
       </main>

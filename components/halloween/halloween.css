@@ -6,7 +6,7 @@
  * BCC-Claude's global design tokens in app/globals.css.
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Anton&display=swap');
+/* Fonts are self-hosted: public/fonts/google-fonts-halloween.css (linked by the page). */
 
 .halloween-page {
   --crimson: #ff1818;

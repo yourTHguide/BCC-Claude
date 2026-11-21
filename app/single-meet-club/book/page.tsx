@@ -49,6 +49,8 @@ export default async function SmcBookPage({ searchParams }: { searchParams: { ca
 
   return (
     <div className="smc-page smc-book-page">
+      {/* Self-hosted fonts (replaces this page's Google Fonts @import). */}
+      <link rel="stylesheet" href="/fonts/google-fonts-smc.css" />
       <header className="smc-subheader">
         <div className="smc-container smc-subheader-inner">
           <a href="/single-meet-club" className="smc-back">
@@ -69,7 +71,7 @@ export default async function SmcBookPage({ searchParams }: { searchParams: { ca
           <ul>
             <li>
               <CalendarDays aria-hidden size={20} strokeWidth={1.7} />
-              <span>{formatLongDate(display)}</span>
+              <span>{event.source === 'database' ? formatLongDate(display) : 'Next date to be announced'}</span>
             </li>
             <li>
               <Clock aria-hidden size={20} strokeWidth={1.7} />

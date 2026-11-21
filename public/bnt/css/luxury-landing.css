@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Montserrat:wght@300;400;500;600&display=swap');
+@import url('/fonts/google-fonts-bnt.css'); /* self-hosted, was Google Fonts */
 
 :root {
   --color-bg: #0D0D0D;
@@ -1219,3 +1219,26 @@ section {
   line-height: 1.5;
 }
 .optional-tag { color: rgba(255,255,255,0.45); font-weight: 400; letter-spacing: 0.05em; text-transform: none; }
+
+/* Phase 3 finalization (Nov 2026) — private inquiry form, small screens.
+   1. Country-code selector: sized to its content so "+66"/"+971" aren't
+      clipped (it was squeezed to ~76px with 16px padding each side), with a
+      visible dropdown arrow (appearance:none had removed it).
+   2. Modal height uses the dynamic viewport where supported, so the bottom
+      of each step (e.g. the submit button) isn't hidden behind the iOS
+      Safari toolbar.
+   3. The site menu button no longer sits on top of the open modal. */
+.phone-input-wrapper select {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 104px;
+  padding: 16px 30px 16px 12px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23FFFFFF' stroke-opacity='.6' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+.phone-input-wrapper input { flex: 1 1 auto; min-width: 0; }
+@supports (height: 100dvh) {
+  .multi-step-modal { height: calc(100dvh - 60px); }
+}
+body.bnt-modal-open .hamburger { visibility: hidden; }

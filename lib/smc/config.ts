@@ -60,7 +60,9 @@ export const SMC_NEXT_EDITION: SmcEdition = {
   capacity: 40,
 }
 
-export const SMC_FREQUENCY_LABEL = 'Last Thursday of every month'
+// Regular rhythm, not a promise of every month: some months (e.g. December)
+// may have no edition. Confirmed dates come only from event_dates.
+export const SMC_FREQUENCY_LABEL = 'Usually the last Thursday of the month'
 
 // Last Thursday of the given month (UTC date math), as YYYY-MM-DD.
 export function lastThursdayOf(year: number, monthIndex: number): string {
