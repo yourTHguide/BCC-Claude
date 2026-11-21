@@ -13,34 +13,61 @@ No change to BCC booking terms, prices, Stripe settings, event dates, capacity o
 | B | docs | `docs/privacy/*` |
 | C | apex rule | Inert until the Vercel domain setting changes |
 
-## Production migration & deployment sequence
+## Final production release checklist
 
-Do these in order. Steps 1–2 change production; do them only once you authorise the release.
+Gate: steps 1–2 must be done before step 3. Nothing below runs without the owner's go-ahead.
 
-0. **Before:** confirm PR #11 is approved, Vercel check is green, and nobody is mid-announcement (there are none yet).
-1. **Back up the four tables** (Supabase → Table editor → export CSV): `bnt_experience_inquiries`, `bnt_contact_messages`, `bnt_waitlist`, plus a note of row counts (today: 1, 1, 0).
-2. **Apply the migration** to production `oomhftxgvikzxlvqdcmr`: paste `supabase/migrations/20261118000002_bnt_lead_operations.sql` into the SQL editor and run. Only adds columns/tables; copies Phase 3 email/experience into the new columns; deletes nothing.
-   Checks:
+1. **Staging rehearsal passes.**
+   - Run `supabase/rehearsal/20261118000002_staging_rehearsal.sql` in the **staging** SQL editor (`jyhtznpethgzypblppnt`), or approve the Supabase prompt when Claude runs it.
+   - Expected results:
+     - columns after the rollback script: 11/5/7, and the two new tables are gone;
+     - both comparisons `true`;
+     - backfill email `guest@example.com` and experience `Yacht Party` on the Phase 3 row; `none` on the plain row;
+     - every `check:` row matches its "expect" label;
+     - columns after the migration: 23/12/15/12/12.
+   - It ends in ROLLBACK, so staging is unchanged.
+2. **Privacy decision.** Either:
+   - (a) approve the proposed wording for the open items; Claude finalises both notices, then you set `PRIVACY_NOTICE_PUBLISHED=true` (Vercel → Production) — recommended; or
+   - (b) ship without notices (they stay 404 and unlinked).
+3. **Back up production:** export `bnt_experience_inquiries`, `bnt_contact_messages`, `bnt_waitlist` as CSV. Expected counts today: 1, 1, 0.
+4. **Apply the migration** on production `oomhftxgvikzxlvqdcmr`: paste `supabase/migrations/20261118000002_bnt_lead_operations.sql` into the SQL editor. Then check:
    ```sql
-   select count(*), count(email), count(experience), count(*) filter (where source is null) from bnt_experience_inquiries;  -- source null = 0
-   select count(*) from bnt_waitlist_announcements;   -- 0
+   select count(*), count(email), count(experience), count(*) filter (where source is null) from bnt_experience_inquiries; -- source null = 0
+   select count(*) from bnt_waitlist_announcements; -- 0
    select pg_get_constraintdef(oid) from pg_constraint where conname = 'bnt_waitlist_deliveries_status_check'; -- includes 'unconfirmed'
    ```
-3. **Merge PR #11.** Vercel deploys production. (If the code were deployed before step 2, forms still save in the Phase 3 format — tested — but structured fields, alert tracking and announcements need the migration.)
-4. **Live checks** (phone, private/incognito window):
-   - bestnightlifethailand.com: the cookie banner appears. Choose **Only necessary**. In Meta Events Manager → Test events, nothing arrives.
-   - Footer → Cookie settings → **Accept**: a PageView arrives in Test events.
-   - Private inquiry "TEST Phase 3F", +66, number typed `081…`. The alert arrives in Gmail. `/dashboard/leads` shows it "Alerted" with WhatsApp `+6681…` and email/experience in their own fields. Then Delete it.
-   - Contact form: test the same way.
-   - Waitlist: sign up your own address on `/new-in-bangkok`. The alert arrives and the dashboard shows the consent text. Then Unsubscribe → Delete.
-   - SMC card reads "Usually last Thursday · Next: …".
-   - bkkclubcrawl.com/weekends: banner sits above the Book bar. Book → `/book` → reaches Stripe (do **not** pay). Reviews/map show placeholders until Accept.
-5. **Gmail filters** (section D) and **Vercel domain setting** (housekeeping) at your convenience.
+5. **Merge PR #11.** Vercel deploys production. Watch the deployment reach Ready.
+6. **Live checks** (phone, private window):
+   - **Consent:**
+     - The banner appears on both sites.
+     - "Only necessary": Meta Events Manager → Test events shows nothing.
+     - Cookie settings → Accept: a PageView appears.
+     - Ticket and unsubscribe pages: nothing.
+   - **Leads:**
+     - Private inquiry "TEST Phase 3F" with +66 and `081…`: Gmail alert arrives, `/dashboard/leads` shows "Alerted" with `+6681…` and structured fields. Then delete it.
+     - Contact form: the same check.
+     - Waitlist with your own address: alert arrives and the consent text is stored. Then Unsubscribe → Delete.
+   - **Pages:**
+     - SMC card reads "Usually last Thursday".
+     - Pinch-zoom works on the homepage; tapping a form field doesn't jump-zoom.
+     - BCC `/weekends`: the banner sits above the Book bar; Book → `/book` reaches Stripe (**don't pay**).
+     - `/privacy` serves only if step 2(a) was done.
+7. **Afterwards** (any order):
+   - Gmail filters (section D below).
+   - Vercel domain: `bkkclubcrawl.com` → "Connect to project".
+   - Re-submit the BCC sitemap in Search Console.
+   - Meta Sharing Debugger.
+   - Note today's Meta event counts to compare in 2 weeks.
 
-### Rollback
-- Code: Vercel → promote the previous production deployment (instant), or revert the merge.
-- Database: `supabase/rollback/20261118000002_bnt_lead_operations_down.sql`. Roll back the code first and export first (the file explains this). The old code ignores the new columns, so leaving them in place is safe.
-- Rollback rehearsal (rollback → Phase-3 rows → migration twice → checks → ROLLBACK) is prepared for staging; see the PR thread for its status.
+**Rollback:** promote the previous Vercel deployment (instant). Database: `supabase/rollback/20261118000002_bnt_lead_operations_down.sql` after exporting; leaving the columns in place is also safe.
+
+### Remaining risks at release
+- **Meta reporting drops:** the duplicate PageViews are gone, and decliners aren't tracked. Expected and documented; ad optimisation gets less signal.
+- **Real email delivery** via Resend is first proven in step 6 (previews have no key).
+- **Privacy text** is not professionally reviewed, even if published under 2(a).
+- **Google Fonts** still load before consent (open question 8). The outdated external "Loveable" connector is unchanged.
+- **Vercel logs last ~1 hour**, so the dashboard (`alert_status`) is the failure record.
+- **Staff pages** keep pinch-zoom disabled by design.
 
 ## Operating workflows
 
