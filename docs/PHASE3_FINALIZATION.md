@@ -13,9 +13,22 @@ No change to BCC booking terms, prices, Stripe settings, event dates, capacity o
 | B | docs | `docs/privacy/*` |
 | C | apex rule | Inert until the Vercel domain setting changes |
 
+## Staging rehearsal — PASSED (21 Nov 2026)
+Run by the owner in the staging SQL editor (`jyhtznpethgzypblppnt`), script `supabase/rehearsal/20261118000002_staging_rehearsal.sql`, inside one transaction ending in ROLLBACK.
+
+Every row matched its expectation:
+- Rollback script → 11/5/7 columns, new tables gone.
+- Phase 3 data unchanged by the migration: true.
+- Second migration run changed nothing: true.
+- Backfill: `guest@example.com`, `Yacht Party`; the plain row stays `none`. Contact and waitlist backfills correct.
+- Columns after migration: 23/12/15/12/12. RLS on both new tables.
+- All 10 constraint checks matched (duplicate delivery, invalid statuses, widening consent, duplicate or uppercase sign-up rejected; `unconfirmed` accepted; erasure cascades; other subscriber untouched).
+
+Read-only check afterwards: 0 rehearsal rows left, schema unchanged. Production untouched.
+
 ## Final production release checklist
 
-Gate: steps 1–2 must be done before step 3. Nothing below runs without the owner's go-ahead.
+Gate: step 1 is done (see above); step 2 before step 3. Nothing below runs without the owner's go-ahead.
 
 1. **Staging rehearsal passes** (staging only, rolled back). In the SQL editor:
    1. Supabase dashboard → select project **BCC - Claude Staging** (URL contains `jyhtznpethgzypblppnt`). **Do not use "BCC - Claude"; that is production.**
