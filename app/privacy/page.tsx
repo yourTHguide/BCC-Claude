@@ -1,4 +1,4 @@
-import type { Metadata, Viewport } from 'next'
+import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { resolveStorefront } from '@/lib/storefront'
@@ -13,9 +13,6 @@ import LegalLinks from '@/components/consent/LegalLinks'
 
 export const dynamic = 'force-dynamic'
 
-// The site-wide viewport sets maximumScale: 1 (no pinch-zoom). A legal notice
-// must be zoomable (WCAG 1.4.4), so this page allows it.
-export const viewport: Viewport = { width: 'device-width', initialScale: 1, maximumScale: 5, viewportFit: 'cover' }
 
 // Brand-specific privacy notice: BEST on bestnightlifethailand.com, BCC on
 // bkkclubcrawl.com. See lib/privacy/publish.ts for when it is served.

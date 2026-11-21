@@ -13,7 +13,8 @@ import './globals.css'
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
+  // Pinch-zoom allowed (accessibility, WCAG 1.4.4). Form fields are 16px+
+  // so iOS Safari doesn't auto-zoom when one is focused.
   viewportFit: 'cover',
 }
 

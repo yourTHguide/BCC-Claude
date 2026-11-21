@@ -112,7 +112,7 @@ export default function BntWaitlistForm({ product, eventName }: { product: strin
         .bnt-waitlist-title { font-family: Inter, sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase; color: #FFFFFF; margin: 0 0 8px; }
         .bnt-waitlist-copy { font-family: Inter, sans-serif; font-size: 14px; color: rgba(255,255,255,0.70); margin: 0 0 18px; line-height: 1.5; }
         .bnt-waitlist-fields { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
-        .bnt-waitlist-fields input { width: 100%; padding: 14px 18px; border-radius: 9999px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.04); color: #FFFFFF; font-family: Inter, sans-serif; font-size: 15px; outline: none; box-sizing: border-box; }
+        .bnt-waitlist-fields input { width: 100%; padding: 14px 18px; border-radius: 9999px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.04); color: #FFFFFF; font-family: Inter, sans-serif; font-size: 16px; outline: none; box-sizing: border-box; }
         .bnt-waitlist-fields input:focus { border-color: #EA003A; box-shadow: 0 0 0 3px rgba(234,0,58,0.18); }
         .bnt-waitlist-hp { position: absolute !important; left: -9999px !important; width: 1px !important; height: 1px !important; opacity: 0 !important; }
         .bnt-waitlist button { width: 100%; border: none; cursor: pointer; }
