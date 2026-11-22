@@ -1,7 +1,7 @@
 // Test-only module resolution for route-level tests (node --test).
 // Maps '@/x' to the repo root, adds the .ts extension Node needs, and swaps
-// exactly three modules for stubs: the Supabase client factory, admin auth
-// and the Resend SDK. next/server is the real package, re-exported for ESM.
+// exactly four modules for stubs: the Supabase client factory, admin auth,
+// the Resend SDK and the Stripe client (lib/stripe). next/server is the real package, re-exported for ESM.
 // Everything else (the route handlers, lib/) is the real code.
 import { existsSync, statSync } from 'node:fs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -12,6 +12,7 @@ const STUBS = {
   '@/lib/supabase': 'tests/helpers/stubs/supabase.ts',
   '@/lib/admin-auth': 'tests/helpers/stubs/admin-auth.ts',
   resend: 'tests/helpers/stubs/resend.ts',
+  '@/lib/stripe': 'tests/helpers/stubs/stripe.ts',
   'next/server': 'tests/helpers/stubs/next-server.mjs',
 }
 

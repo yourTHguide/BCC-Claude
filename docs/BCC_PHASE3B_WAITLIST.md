@@ -59,12 +59,24 @@ When off, sold-out nights still show FULL with the next-night offer. Only the wa
 |---|---|
 | `npx tsc --noEmit` | pass |
 | `next build` | pass |
-| `npm test` (13 unit tests, `tests/phase3b-waitlist.test.ts`): state classification for every state, Fri/Sat, cutoff timing, BCC-only, consent wording, next-night picker incl. party size + no-fabrication, seat cap, send-time recipient re-check incl. cross-audience rejection | 13/13 pass |
+| `npm test`: 27 tests in three suites (all local; in-memory database; Resend and Stripe are recording stubs; global `fetch` blocked) | 27/27 pass |
+| · `tests/phase3b-waitlist.test.ts` (13 unit tests): state classification for every state, Fri/Sat, cutoff timing, BCC-only, consent wording, next-night picker incl. party size + no-fabrication, seat cap, send-time recipient re-check incl. cross-audience rejection | 13/13 pass |
+| · `tests/waitlist-send.route.test.ts` (7, real send + unsubscribe handlers): eligible BCC reopen delivery, NIB isolation both ways, scoped unsubscribe before and after claim, retryable lookup/eligibility errors. Regression for the PR-review blocker: against the pre-fix route 5/7 fail (eligible recipient `sent 0 / failed 1`) | 7/7 pass |
+| · `tests/acceptance.route.test.ts` (7, real `/api/events`, `/api/waitlist/sold-out`, `/api/create-checkout`, `/api/admin/leads`, announcements, unsubscribe and `/api/waitlist` handlers): BCC calendar sold-out listing at ฿1,200; next bookable night by party size; sign-up with dated consent, duplicate, other states, spam, wrong host; checkout ฿1,200 (`unit_amount` 120000) with capacity enforcement (full → 409, over seats left → 409); seats reopen → reporting → notice → reporting; one-click link → confirm page → final button POST, other list retained, reporting; NIB sign-up scoped, BCC not joinable through it, NIB announcements paused until published and bookable | 7/7 pass |
+| Local browser run of the unsubscribe confirm page (Playwright, API intercepted): Bangkok Club Crawl branding on the BCC host, final "Unsubscribe" button sends `{token}` by POST only on click, done state says other lists are unaffected, missing token handled | pass |
 | Local browser run of `/book` (Playwright, all API calls intercepted, no DB/Stripe/email): sold-out panel, next night for party of 2 → Fri 4 Dec (6 left), party of 1 → Sat 28 Nov (1 left), consent required, POST payload, "Book this night" selects it, cancelled deep link explains + no waitlist, flag off hides form | pass |
 | Staging rollback rehearsal (`supabase/rehearsal/20261122000001_staging_rehearsal.sql`, single transaction, always rolled back): run manually by the owner in the staging SQL editor | **done**: owner reports all 18 checks passed (see "Staging rehearsal record") |
 | Post-rehearsal read-only verification of staging, run by Claude | **done**: schema and row counts match the saved baseline; no rehearsal test data found |
 | Staging migration applied (`20261122000001_bcc_soldout_waitlist.sql`) | **done, verified**: see "Staging migration record" |
-| Preview test, live staging endpoint test and synthetic unsubscribe confirmation | **pending**: Rollout steps 2–5 |
+| Preview read-only GET against the staging fixture (`28e6006f-…`, Fri 5 Feb 2027, 2/2 taken): `state: sold_out`, `waitlist: true`, exact ID match | **done** |
+| Preview form submission, reopen send to a test inbox, live unsubscribe on a synthetic row, Preview checkout | **pending**: Rollout steps 2–5; needs owner confirmation of the Preview Stripe and Resend keys (below) |
+
+### Preview payment and mail mode (not verified for this branch)
+- Vercel environment variables can't be read from this session (403), so the Preview's Stripe and Resend keys for branch `claude/determined-fermi-vda23p` are **unverified**.
+- `docs/smc/PHASE0_STAGING.md` records a Stripe Sandbox `sk_test_…` key, a separate staging Resend key and a test admin inbox, but as **branch-scoped entries for `feature/single-meet-club`**. It also notes "Preview (all branches)" `SUPABASE_SERVICE_ROLE_KEY` and `STRIPE_SECRET_KEY` entries whose values aren't recorded, and that the live Stripe and Resend keys' Preview targets were removed.
+- `PHASE4_CHECKPOINT.md` (older) recorded Preview sharing the **live** Stripe key; PHASE0_STAGING says that target was removed. Which key the all-branches entry holds now is not documented.
+- Observed: this branch's Preview server reads staging `jyhtznpethgzypblppnt` (fixture ID match), consistent with an all-branches staging entry.
+- Before any Preview checkout or send: the owner confirms in Vercel that Preview (all branches) `STRIPE_SECRET_KEY` is `sk_test_…` and that `RESEND_API_KEY` for Preview is absent or a staging/sandbox key. With no Resend key, the reopen send refuses with 503 and sends nothing.
 
 ### Staging rehearsal record (`jyhtznpethgzypblppnt`, BCC - Claude Staging)
 

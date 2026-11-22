@@ -18,6 +18,7 @@ export class FakeDb {
   tables: Record<string, Row[]> = {
     products: [], event_dates: [], bookings: [], ota_bookings: [],
     bnt_waitlist: [], bnt_waitlist_announcements: [], bnt_waitlist_deliveries: [],
+    bnt_experience_inquiries: [], bnt_contact_messages: [],
   }
   failRules: FailRule[] = []
   from(table: string) {
@@ -123,6 +124,8 @@ export class Builder implements PromiseLike<any> {
       const out: Row[] = []
       for (const it of items) {
         const row = { ...(DEFAULTS[this.table] ?? {}), ...it }
+        // Column default in the real schema: unsubscribe_token uuid default gen_random_uuid().
+        if (this.table === 'bnt_waitlist' && !row.unsubscribe_token) row.unsubscribe_token = randomUUID()
         const dup = this.uniqueViolation(row)
         if (dup) return { data: null, error: { code: '23505', message: `duplicate key (${dup})` } }
         out.push(this.db.insertRow(this.table, row))
