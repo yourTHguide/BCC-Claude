@@ -61,8 +61,37 @@ When off, sold-out nights still show FULL with the next-night offer. Only the wa
 | `next build` | pass |
 | `npm test` (13 unit tests, `tests/phase3b-waitlist.test.ts`): state classification for every state, Fri/Sat, cutoff timing, BCC-only, consent wording, next-night picker incl. party size + no-fabrication, seat cap, send-time recipient re-check incl. cross-audience rejection | 13/13 pass |
 | Local browser run of `/book` (Playwright, all API calls intercepted, no DB/Stripe/email): sold-out panel, next night for party of 2 → Fri 4 Dec (6 left), party of 1 → Sat 28 Nov (1 left), consent required, POST payload, "Book this night" selects it, cancelled deep link explains + no waitlist, flag off hides form | pass |
-| Staging migration rehearsal (`supabase/rehearsal/20261122000001_staging_rehearsal.sql`, single transaction, always rolled back) | **pending**: see Blockers |
-| Live staging endpoint test and synthetic unsubscribe confirmation | **pending**: see Operator steps 3–4 |
+| Staging rollback rehearsal (`supabase/rehearsal/20261122000001_staging_rehearsal.sql`, single transaction, always rolled back): run manually by the owner in the staging SQL editor | **done**: owner reports all 18 checks passed (see "Staging rehearsal record") |
+| Post-rehearsal read-only verification of staging, run by Claude | **done**: schema and row counts match the saved baseline; no rehearsal test data found |
+| Staging migration applied (`20261122000001_bcc_soldout_waitlist.sql`) | **pending**: Rollout step 1, second half |
+| Preview test, live staging endpoint test and synthetic unsubscribe confirmation | **pending**: Rollout steps 2–5 |
+
+### Staging rehearsal record (`jyhtznpethgzypblppnt`, BCC - Claude Staging)
+
+**1. Rehearsal: run by the owner, results as reported by the owner.** The owner ran the rehearsal file manually in the staging SQL editor and reported that all 18 checks returned the expected result. Claude did not see that output; the attempts through the Supabase tool timed out at its confirmation prompt and did not run. The 18 expected results are:
+- **rejected (8):** duplicate New in Bangkok email; duplicate email on the same BCC date; sold-out sign-up without consent; party size 25; New in Bangkok row with a date; second open reopen notice for the same date; reopen notice with no date; duplicate delivery.
+- **accepted (5):** existing New in Bangkok row still valid; same email on two different BCC dates (two checks); old-style New in Bangkok announcement insert; `skipped` delivery status.
+- **blocked (1):** deleting a date that has sign-ups.
+- **refuses (1):** the rollback guard while sold-out rows exist.
+- **after rollback (3):** original `bnt_waitlist_product_email_key` restored = 1; new columns gone = true; row count equal to before = true.
+
+**2. Read-only verification: run directly by Claude after the owner's rehearsal.** One read-only query against `jyhtznpethgzypblppnt` (no writes, rehearsal not re-run), compared with the baseline Claude saved before the rehearsal:
+
+| Item | Baseline | After | Result |
+|---|---|---|---|
+| `bnt_waitlist` rows | 0 | 0 | match |
+| `bnt_waitlist_announcements` rows | 0 | 0 | match |
+| `bnt_waitlist_deliveries` rows | 0 | 0 | match |
+| `event_dates` rows | 15 | 15 | match |
+| `bnt_waitlist` columns | 15 original | same 15; no `event_date_id`, `event_date`, `night_slug`, `party_size` | match |
+| `bnt_waitlist_announcements` columns | 12 | same 12; no `kind`, `event_date_id`, `max_party_size`, `seats_at_draft` | match |
+| Constraints on the three waitlist tables | 12, incl. `bnt_waitlist_product_email_key` | same 12; no `scope_shape_check` or `kind_check` | match |
+| Indexes on the waitlist tables | 7 | same 7; none of the 3 new partial unique indexes | match |
+| Consent-scope check | `event_dates` only | `event_dates` only | match |
+| Delivery-status check | pending, sent, failed, unconfirmed | same 4 values (no `skipped`) | match |
+| Rehearsal test data (`REHEARSAL` event dates, `@example.test` waitlist rows) | none | none found | match |
+
+Staging is exactly as it was before the rehearsal. The migration has **not** been applied to staging.
 
 ## Rollout (in order)
 
@@ -104,6 +133,6 @@ When off, sold-out nights still show FULL with the next-night offer. Only the wa
 - Retention: after a night has passed, its sign-ups have no further use. Delete them from the card list (or by SQL) within 30 days, as proposed for the notice.
 
 ## Blockers / open items
-1. The staging migration rehearsal didn't run in this session. The Supabase tool asked for a confirmation that wasn't answered in time. Staging is unchanged. Run step 1 above, or re-authorize the tool.
+1. Staging rehearsal: resolved. The owner ran it manually and reported 18/18 passed, and Claude confirmed by read-only query that staging matches the baseline. Applying the migration to staging (step 1, second half) is still pending.
 2. There is no Preview runtime evidence yet. Steps 2–5 need a Preview deployment wired to staging, plus a test inbox.
 3. The privacy notice update and the `CHECKOUT_DYNAMIC_PRICING` confirmation are owner decisions (step 6).
