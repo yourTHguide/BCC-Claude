@@ -63,7 +63,7 @@ When off, sold-out nights still show FULL with the next-night offer. Only the wa
 | Local browser run of `/book` (Playwright, all API calls intercepted, no DB/Stripe/email): sold-out panel, next night for party of 2 → Fri 4 Dec (6 left), party of 1 → Sat 28 Nov (1 left), consent required, POST payload, "Book this night" selects it, cancelled deep link explains + no waitlist, flag off hides form | pass |
 | Staging rollback rehearsal (`supabase/rehearsal/20261122000001_staging_rehearsal.sql`, single transaction, always rolled back): run manually by the owner in the staging SQL editor | **done**: owner reports all 18 checks passed (see "Staging rehearsal record") |
 | Post-rehearsal read-only verification of staging, run by Claude | **done**: schema and row counts match the saved baseline; no rehearsal test data found |
-| Staging migration applied (`20261122000001_bcc_soldout_waitlist.sql`) | **pending**: Rollout step 1, second half |
+| Staging migration applied (`20261122000001_bcc_soldout_waitlist.sql`) | **done, verified**: see "Staging migration record" |
 | Preview test, live staging endpoint test and synthetic unsubscribe confirmation | **pending**: Rollout steps 2–5 |
 
 ### Staging rehearsal record (`jyhtznpethgzypblppnt`, BCC - Claude Staging)
@@ -91,11 +91,31 @@ When off, sold-out nights still show FULL with the next-night offer. Only the wa
 | Delivery-status check | pending, sent, failed, unconfirmed | same 4 values (no `skipped`) | match |
 | Rehearsal test data (`REHEARSAL` event dates, `@example.test` waitlist rows) | none | none found | match |
 
-Staging is exactly as it was before the rehearsal. The migration has **not** been applied to staging.
+Staging is exactly as it was before the rehearsal. (The migration was applied afterwards; see the next section.)
+
+### Staging migration record (`jyhtznpethgzypblppnt`, BCC - Claude Staging)
+
+- **Applied by:** Claude, via the Supabase `apply_migration` tool, after confirming the project name and ref and re-checking the baseline (unchanged). Supabase returned success with no confirmation prompt.
+- **Repo file:** `supabase/migrations/20261122000001_bcc_soldout_waitlist.sql`, identical to the PR #12 branch (introduced in commit `7dee460`).
+- **Staging migration history entry:** `20261122045151 bcc_soldout_waitlist`. Supabase stamps its own apply-time version; the SQL is the repo file.
+- **Read-only verification afterwards:**
+
+| Check | Expected | Found | Result |
+|---|---|---|---|
+| `bnt_waitlist` rows | 0 | 0 | match |
+| `bnt_waitlist_announcements` rows | 0 | 0 | match |
+| `bnt_waitlist_deliveries` rows | 0 | 0 | match |
+| `event_dates` rows | 15 | 15 | match |
+| `bnt_waitlist` columns | 15 → 19 (+ `event_date_id` uuid, `event_date` date, `night_slug` text, `party_size` smallint; all nullable) | 19, as expected | match |
+| `bnt_waitlist_announcements` columns | 12 → 16 (+ `kind` text not null default `product_dates`, `event_date_id`, `max_party_size`, `seats_at_draft`) | 16, as expected | match |
+| Constraints on the three tables | 12 → 15: + `bnt_waitlist_scope_shape_check`, `bnt_waitlist_event_date_id_fkey` (restrict), `bnt_waitlist_announcements_kind_check`, `bnt_waitlist_announcements_event_date_id_fkey` (restrict); consent scope allows `event_dates`, `sold_out_date`; delivery status allows `skipped`; − `bnt_waitlist_product_email_key` | as expected | match |
+| Indexes on the three tables | 7 → 9: + `bnt_waitlist_product_email_uidx`, `bnt_waitlist_date_email_uidx`, `bnt_waitlist_announcements_one_open_reopen_uidx`; − `bnt_waitlist_product_email_key` | as expected | match |
+
+No differences beyond the intended ones. Production (`oomhftxgvikzxlvqdcmr`) has **not** been changed.
 
 ## Rollout (in order)
 
-1. **Staging DB** (`jyhtznpethgzypblppnt` only). Run the rehearsal file in the SQL editor. Every line must read rejected/accepted/blocked/refuses/true as labelled. It raises at the end, so nothing is kept. Then apply `supabase/migrations/20261122000001_bcc_soldout_waitlist.sql`.
+1. **Staging DB** (`jyhtznpethgzypblppnt` only). **Done:** rehearsal passed and migration applied and verified (see records above). Run the rehearsal file in the SQL editor. Every line must read rejected/accepted/blocked/refuses/true as labelled. It raises at the end, so nothing is kept. Then apply `supabase/migrations/20261122000001_bcc_soldout_waitlist.sql`.
 2. **Preview** (Vercel deployment of this branch, pointed at staging, test-mode Stripe, `RESEND_API_KEY` absent or sandbox).
    - On staging, create one synthetic future Friday BCC date named `TEST 3B` with capacity 2. Add one staging booking for it: `is_test = true`, quantity 2, status confirmed.
    - Open `/book?date=<that date>`. Expect FULL, a next-night offer (or "none"), and the waitlist form.
@@ -133,6 +153,6 @@ Staging is exactly as it was before the rehearsal. The migration has **not** bee
 - Retention: after a night has passed, its sign-ups have no further use. Delete them from the card list (or by SQL) within 30 days, as proposed for the notice.
 
 ## Blockers / open items
-1. Staging rehearsal: resolved. The owner ran it manually and reported 18/18 passed, and Claude confirmed by read-only query that staging matches the baseline. Applying the migration to staging (step 1, second half) is still pending.
+1. Staging rehearsal: resolved. The owner ran it manually and reported 18/18 passed, and Claude confirmed by read-only query that staging matches the baseline. The migration has since been applied to staging and verified (see "Staging migration record").
 2. There is no Preview runtime evidence yet. Steps 2–5 need a Preview deployment wired to staging, plus a test inbox.
 3. The privacy notice update and the `CHECKOUT_DYNAMIC_PRICING` confirmation are owner decisions (step 6).
