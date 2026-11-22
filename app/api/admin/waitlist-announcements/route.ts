@@ -321,14 +321,33 @@ export async function POST(req: NextRequest) {
     await supabase.from('bnt_waitlist_deliveries').update({ attempts: (claimed.attempts ?? 0) + 1 }).eq('id', q.id)
 
     // Re-check eligibility at the moment of sending (unsubscribe may have
-    // happened after the row was claimed).
-    const { data: s } = await supabase
+    // happened after the row was claimed). A lookup ERROR is not "removed":
+    // nothing has been sent, so release the claim and stop the batch; the
+    // next call retries this row.
+    const { data: s, error: lookupError } = await supabase
       .from('bnt_waitlist')
       .select('id, email, name, unsubscribe_token, unsubscribed_at, consent_scope, product_slug, consented_at, consent_text, event_date_id, party_size, notified_at')
       .eq('id', q.waitlist_id)
       .maybeSingle()
+    if (lookupError) {
+      await supabase.from('bnt_waitlist_deliveries').update({ attempted_at: null }).eq('id', q.id)
+      console.error('waitlist recipient lookup failed:', lookupError)
+      return NextResponse.json(
+        { error: 'Could not load a recipient. Nothing was sent to them; try again.', sent, failed, uncertain, skipped },
+        { status: 503 }
+      )
+    }
 
-    if (isReopen && reopenCheck?.ok) {
+    // Eligibility is decided by exactly ONE rule set per announcement kind:
+    // reopen notices -> checkReopenRecipient (sold_out_date scope, this date);
+    // product notices -> the original Phase 3 rule (event_dates scope, this
+    // product). The two audiences never cross.
+    if (isReopen) {
+      if (!reopenCheck?.ok) {
+        // Unreachable (verified before the loop); never leave a claim dangling.
+        await supabase.from('bnt_waitlist_deliveries').update({ attempted_at: null }).eq('id', q.id)
+        continue
+      }
       let elsewhere = new Set<string>()
       let booked = false
       try {
@@ -343,29 +362,35 @@ export async function POST(req: NextRequest) {
         // "uncertain") and stop this batch. The next call retries it.
         await supabase.from('bnt_waitlist_deliveries').update({ attempted_at: null }).eq('id', q.id)
         console.error('reopen recipient check failed:', err)
-        return NextResponse.json({ error: 'Could not verify a recipient. Nothing was sent to them; try again.' }, { status: 503 })
+        return NextResponse.json(
+          { error: 'Could not verify a recipient. Nothing was sent to them; try again.', sent, failed, uncertain, skipped },
+          { status: 503 }
+        )
       }
       const verdict = checkReopenRecipient(
         s,
         { productSlug: BCC_PRODUCT_SLUG, eventDateId: reopen.event_date_id, seatCap: reopenCheck.cap },
         { alreadyNotified: !!s && elsewhere.has(s.id), alreadyBooked: booked, emailValid: !!s && EMAIL_RE.test(s.email) }
       )
-      if (!verdict.ok) {
-        await supabase.from('bnt_waitlist_deliveries').update({ status: 'skipped', error: verdict.reason }).eq('id', q.id)
+      if (!verdict.ok || !s) {
+        await supabase
+          .from('bnt_waitlist_deliveries')
+          .update({ status: 'skipped', error: verdict.ok ? 'removed from the list' : verdict.reason })
+          .eq('id', q.id)
         skipped++
         continue
       }
-    }
-
-    if (!s || s.unsubscribed_at || s.consent_scope !== WAITLIST_CONSENT_SCOPE || s.product_slug !== ann.product_slug) {
-      await supabase.from('bnt_waitlist_deliveries').update({ status: 'failed', error: 'no longer eligible (unsubscribed or removed)' }).eq('id', q.id)
-      failed++
-      continue
-    }
-    if (!EMAIL_RE.test(s.email)) {
-      await supabase.from('bnt_waitlist_deliveries').update({ status: 'failed', error: 'invalid email' }).eq('id', q.id)
-      failed++
-      continue
+    } else {
+      if (!s || s.unsubscribed_at || s.consent_scope !== WAITLIST_CONSENT_SCOPE || s.product_slug !== ann.product_slug) {
+        await supabase.from('bnt_waitlist_deliveries').update({ status: 'failed', error: 'no longer eligible (unsubscribed or removed)' }).eq('id', q.id)
+        failed++
+        continue
+      }
+      if (!EMAIL_RE.test(s.email)) {
+        await supabase.from('bnt_waitlist_deliveries').update({ status: 'failed', error: 'invalid email' }).eq('id', q.id)
+        failed++
+        continue
+      }
     }
 
     const email = reopenCheck?.ok
