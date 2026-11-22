@@ -2,10 +2,10 @@
 
 import { useState } from 'react'
 
-// Confirm-then-unsubscribe page for BEST waitlist emails. One button, no
+// Confirm-then-unsubscribe page for BEST and Bangkok Club Crawl waitlist emails. One button, no
 // login. Styled to match the BEST dark palette without loading the full
 // landing stylesheet.
-export default function UnsubscribeClient({ token }: { token: string }) {
+export default function UnsubscribeClient({ token, brandName = 'BEST Nightlife Thailand' }: { token: string; brandName?: string }) {
   const [state, setState] = useState<'idle' | 'busy' | 'done' | 'error'>('idle')
   const [error, setError] = useState('')
 
@@ -25,12 +25,12 @@ export default function UnsubscribeClient({ token }: { token: string }) {
   return (
     <main style={{ minHeight: '100vh', background: '#0D0D0D', color: '#FFFFFF', fontFamily: 'Inter, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <div style={{ maxWidth: 420, textAlign: 'center' }}>
-        <p style={{ fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#EA003A', margin: '0 0 12px' }}>BEST Nightlife Thailand</p>
+        <p style={{ fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#EA003A', margin: '0 0 12px' }}>{brandName}</p>
         {state === 'done' ? (
           <>
             <h1 style={{ fontSize: 24, margin: '0 0 12px' }}>You&apos;re unsubscribed.</h1>
             <p style={{ color: 'rgba(255,255,255,0.7)', lineHeight: 1.6 }}>
-              We won&apos;t email you about new dates for this event again. If you sign up again later, we&apos;ll treat it as a new request.
+              We won&apos;t send you any more emails from this waitlist. Other lists you may be on are not affected. If you sign up again later, we&apos;ll treat it as a new request.
             </p>
           </>
         ) : !token ? (
@@ -42,9 +42,9 @@ export default function UnsubscribeClient({ token }: { token: string }) {
           </>
         ) : (
           <>
-            <h1 style={{ fontSize: 24, margin: '0 0 12px' }}>Stop date announcements?</h1>
+            <h1 style={{ fontSize: 24, margin: '0 0 12px' }}>Stop these emails?</h1>
             <p style={{ color: 'rgba(255,255,255,0.7)', lineHeight: 1.6, margin: '0 0 24px' }}>
-              You&apos;ll no longer get emails when new dates open for this event.
+              You&apos;ll no longer get emails from this waitlist (new dates, or seats reopening for the date you asked about).
             </p>
             <button
               onClick={confirm}

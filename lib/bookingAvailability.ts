@@ -90,3 +90,59 @@ export async function seatsTaken(supabase: SupabaseClient, keys: SeatKey[]): Pro
 export function seatKey(k: SeatKey): string {
   return `${k.event_date}|${k.night_slug}`
 }
+
+// ─── Phase 3B: one place that names WHY a date is or isn't bookable ───────
+// /api/events and checkout keep their own (unchanged) gates; this mirrors
+// them exactly so the sold-out waitlist can tell a genuinely full night
+// apart from one that is cancelled, unpublished, closed, past its cutoff or
+// mispriced. Only 'sold_out' may ever offer a waitlist.
+export type InstanceState =
+  | 'bookable'
+  | 'sold_out' // open, published, priced, before cutoff, capacity > 0 and every seat taken
+  | 'cancelled'
+  | 'unpublished' // product not active, or not visible on this storefront
+  | 'closed' // is_open = false, or capacity 0 (closed by the team, not sold out)
+  | 'cutoff' // tonight, past the start time
+  | 'past'
+  | 'no_price'
+
+export interface InstanceFacts {
+  eventDate: string
+  isOpen: boolean | null
+  operationVerdict?: string | null
+  capacity: number | null
+  taken: number
+  productSlug: string | null
+  productStatus: string | null
+  visible: boolean | null
+  startTime: string | null
+  price: number | null
+}
+
+export function classifyInstance(f: InstanceFacts, now: Date = new Date()): { state: InstanceState; remaining: number | null } {
+  const remaining = f.capacity != null ? Math.max(0, f.capacity - f.taken) : null
+  const out = (state: InstanceState) => ({ state, remaining })
+  if (f.eventDate < bangkokNow(now).date) return out('past')
+  if (f.productStatus !== 'active' || f.visible !== true) return out('unpublished')
+  if (isCancelledEvent({ operation_verdict: f.operationVerdict })) return out('cancelled')
+  if (f.isOpen !== true) return out('closed')
+  if (isPastBookingCutoff(f.eventDate, f.startTime, f.productSlug, now)) return out('cutoff')
+  if (!Number.isInteger(f.price) || (f.price as number) <= 0) return out('no_price')
+  if (f.capacity != null && remaining === 0) {
+    return out(f.capacity > 0 && f.taken >= f.capacity ? 'sold_out' : 'closed')
+  }
+  return out('bookable')
+}
+
+// Friday or Saturday, from the YYYY-MM-DD calendar date (no timezone shift).
+export function isFriOrSat(eventDate: string): boolean {
+  const [y, m, d] = eventDate.split('-').map(Number)
+  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay()
+  return dow === 5 || dow === 6
+}
+
+// The only dates the sold-out waitlist accepts: a Bangkok Club Crawl
+// Friday/Saturday instance that is genuinely full right now.
+export function isWaitlistEligible(f: InstanceFacts, now: Date = new Date()): boolean {
+  return f.productSlug === BCC_PRODUCT_SLUG && isFriOrSat(f.eventDate) && classifyInstance(f, now).state === 'sold_out'
+}

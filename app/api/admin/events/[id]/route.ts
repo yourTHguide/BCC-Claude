@@ -101,6 +101,11 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   }
 
   const { error } = await supabase.from('event_dates').delete().eq('id', params.id)
+  if (error?.code === '23503') {
+    // Phase 3B: guests are on this date's sold-out waitlist (FK restrict), so
+    // their sign-ups are never deleted as a side effect.
+    return NextResponse.json({ error: 'Guests are on the waitlist for this date, so it cannot be deleted. Close it instead.' }, { status: 409 })
+  }
   if (error) {
     console.error('event delete error:', error)
     return NextResponse.json({ error: 'Failed to delete instance' }, { status: 500 })

@@ -38,13 +38,16 @@ export async function POST(req: NextRequest) {
       .select('id, unsubscribed_at')
       .eq('product_slug', product.slug)
       .eq('email', email)
+      .eq('consent_scope', WAITLIST_CONSENT_SCOPE)
       .maybeSingle()
 
     if (lookupError && isMissingColumnError(lookupError)) {
       // Lead-operations migration not applied yet: behave exactly as Phase 3.
+      // Plain insert; a duplicate (unique violation) is treated as success.
       const { error } = await supabase
         .from('bnt_waitlist')
-        .upsert({ product_slug: product.slug, email, name, source: 'website' }, { onConflict: 'product_slug,email', ignoreDuplicates: true })
+        .insert({ product_slug: product.slug, email, name, source: 'website' })
+      if (error?.code === '23505') return NextResponse.json({ success: true, duplicate: true })
       if (error) {
         console.error('waitlist insert error:', error)
         return NextResponse.json({ error: 'We couldn’t save your email. Please try again.' }, { status: 500 })
