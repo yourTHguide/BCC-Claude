@@ -6,8 +6,8 @@ test('Preview blocks mixed recipients before delivery and production passes them
   const original = process.env.VERCEL_ENV
   const mail = { sent: [] as unknown[], next: [] }
   ;(globalThis as any).__mail = mail
-  const inbox = 'bestnightlifethailand@gmail.com'
-  const other = 'synthetic@example.invalid'
+  const inbox = 'bangkokclubcrawl@gmail.com'
+  const other = 'bestnightlifethailand@gmail.com'
   const msg = { from: 'sender@example.invalid', to: inbox, subject: 'test', html: 'test' }
   try {
     process.env.VERCEL_ENV = 'preview'
