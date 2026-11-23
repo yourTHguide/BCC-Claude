@@ -1,18 +1,12 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
-import { Resend } from 'resend'
+import { sendEmail } from '@/lib/sendEmail'
 import { generateConfirmationEmail } from '@/emails/confirmation'
 import type { Storefront } from '@/lib/storefront'
 import { resendFromHeader } from '@/lib/storefrontBrand'
 import { requireRole } from '@/lib/admin-auth'
 
-// Lazily instantiated so importing this route doesn't run the Resend
-// constructor during Next.js's build-time "collecting page data" step,
-// which crashed the build when RESEND_API_KEY wasn't available there.
-function getResend() {
-  return new Resend(process.env.RESEND_API_KEY)
-}
 
 export async function POST(req: NextRequest) {
   const auth = await requireRole(['owner', 'admin'])
@@ -53,7 +47,7 @@ export async function POST(req: NextRequest) {
       storefront,
     })
 
-    const { error: emailError } = await getResend().emails.send({
+    const { error: emailError } = await sendEmail({
       from: resendFromHeader(storefront),
       to: booking.guest_email,
       subject: `You're booked — ${booking.night_name} on ${formattedDate}`,

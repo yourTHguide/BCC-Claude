@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Resend } from 'resend'
+import { sendEmail } from '@/lib/sendEmail'
 import { requireRole } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
 import { resendFromHeader } from '@/lib/storefrontBrand'
@@ -218,8 +218,7 @@ export async function POST(req: NextRequest) {
   if (productCheck && !productCheck.ok) return NextResponse.json({ error: productCheck.error }, { status: 409 })
   const reopenCheck = isReopen ? await verifyReopen(supabase, reopen) : null
   if (reopenCheck && !reopenCheck.ok) return NextResponse.json({ error: reopenCheck.error }, { status: 409 })
-  const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
-  if (!resend) return NextResponse.json({ error: 'Email is not configured on this deployment (RESEND_API_KEY).' }, { status: 503 })
+  if (!process.env.RESEND_API_KEY) return NextResponse.json({ error: 'Email is not configured on this deployment (RESEND_API_KEY).' }, { status: 503 })
   const from = resendFromHeader(isReopen ? 'bcc' : 'bnt')
   const PLACEHOLDER_TOKEN = '00000000-0000-0000-0000-000000000000'
 
@@ -229,7 +228,7 @@ export async function POST(req: NextRequest) {
       reopenCheck?.ok
         ? buildReopenEmail(reopen, reopenCheck.instance, { name: null, partySize: Math.min(2, reopenCheck.cap), unsubscribeToken: PLACEHOLDER_TOKEN })
         : buildAnnouncementEmail(ann, productCheck!.ok ? productCheck!.dates : [], { name: null, unsubscribeToken: PLACEHOLDER_TOKEN })
-    const { error } = await resend.emails.send({
+    const { error } = await sendEmail({
       from,
       to: auth.admin.email,
       subject: `[TEST] ${email.subject}`,
@@ -396,7 +395,7 @@ export async function POST(req: NextRequest) {
     const email = reopenCheck?.ok
       ? buildReopenEmail(reopen, reopenCheck.instance, { name: s.name, partySize: s.party_size, unsubscribeToken: s.unsubscribe_token })
       : buildAnnouncementEmail(ann, productCheck!.ok ? productCheck!.dates : [], { name: s.name, unsubscribeToken: s.unsubscribe_token })
-    const { data: res, error } = await resend.emails.send({
+    const { data: res, error } = await sendEmail({
       from,
       to: s.email,
       subject: email.subject,

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Resend } from 'resend'
+import { sendEmail } from '@/lib/sendEmail'
 import { requireRole } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
 import { resendFromHeader } from '@/lib/storefrontBrand'
@@ -17,9 +17,6 @@ export const dynamic = 'force-dynamic'
 // password there.
 const HOST_NAMES = ['Guide', 'Ice', 'Boom', 'JJ']
 
-function getResend() {
-  return new Resend(process.env.RESEND_API_KEY)
-}
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -116,7 +113,7 @@ export async function POST(req: NextRequest) {
       </p>
     </div>`
 
-  const { error: emailError } = await getResend().emails.send({
+  const { error: emailError } = await sendEmail({
     from: resendFromHeader('bcc'),
     to: email,
     subject: 'Your Bangkok Club Crawl host login',

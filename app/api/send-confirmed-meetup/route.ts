@@ -1,17 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
-import { Resend } from 'resend'
+import { sendEmail } from '@/lib/sendEmail'
 import { generateConfirmedMeetupEmail } from '@/emails/confirmed-meetup'
 import type { Storefront } from '@/lib/storefront'
 import { resendFromHeader } from '@/lib/storefrontBrand'
 import { requireRole } from '@/lib/admin-auth'
 
-// Lazily instantiated — see lib/supabase.ts for why: constructing this at
-// module scope crashes the Next.js build-time "collecting page data" step
-// when RESEND_API_KEY isn't available in that phase.
-function getResend() {
-  return new Resend(process.env.RESEND_API_KEY)
-}
 
 export async function POST(req: NextRequest) {
   const auth = await requireRole(['owner', 'admin'])
@@ -106,7 +100,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Cannot send yet', missing }, { status: 400 })
     }
 
-    const resend = getResend()
     let sent = 0
     let skippedNoEmail = 0
     const sentAt = new Date().toISOString()
@@ -122,7 +115,7 @@ export async function POST(req: NextRequest) {
         whatsappGroupLink: event.whatsapp_group_link,
         storefront: guest.storefront,
       })
-      const { error: emailError } = await resend.emails.send({
+      const { error: emailError } = await sendEmail({
         from: resendFromHeader(guest.storefront),
         to: guest.email,
         subject: `Tonight is confirmed — ${event.night_name}`,

@@ -1,3 +1,4 @@
+import { previewRecipientsAllowed } from '@/lib/emailRecipients'
 import { getServiceSupabase } from '@/lib/supabase'
 import { getAppUrl } from '@/lib/appUrl'
 import { brandFor } from '@/lib/storefrontBrand'
@@ -39,6 +40,7 @@ function senderAddress(): string | null {
 // Away from production, only send to Resend test inboxes or explicitly
 // allow-listed addresses, so staging tests can never email a real guest.
 function recipientAllowed(email: string): boolean {
+  if (process.env.VERCEL_ENV === 'preview') return previewRecipientsAllowed({ to: email })
   if (isProductionDeployment()) return true
   const e = email.trim().toLowerCase()
   if (e.endsWith('@resend.dev')) return true
