@@ -40,6 +40,16 @@ export function OnSaleToggle({ on, onChange, disabled }: { on: boolean; onChange
   )
 }
 
+// Bangkok date/time now, to warn when a night for today has already started:
+// the booking calendar closes a Club Crawl night at its start time.
+function bangkokNow(): { date: string; time: string } {
+  const p = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(new Date())
+  const g = (t: string) => p.find((x) => x.type === t)?.value ?? '00'
+  return { date: `${g('year')}-${g('month')}-${g('day')}`, time: `${g('hour')}:${g('minute')}` }
+}
+
 function defaultType(date: string): BccNightType {
   const [y, m, d] = date.split('-').map(Number)
   const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay()
@@ -70,6 +80,8 @@ export default function AddNightPanel({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
+  const now = bangkokNow()
+  const alreadyStarted = date === now.date && time <= now.time
   const [y, m, d] = date.split('-').map(Number)
   const pretty = new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
 
@@ -150,6 +162,12 @@ export default function AddNightPanel({
           </p>
         </div>
 
+        {alreadyStarted && (
+          <p role="status" style={{ margin: 0, padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(234,179,8,0.5)', background: 'rgba(234,179,8,0.10)', fontSize: '13px', lineHeight: 1.5 }}>
+            Tonight’s {time} start has already passed, so guests <b>can’t book this night on the website</b>, even when it’s ON. You can still add it to record OTA bookings.
+          </p>
+        )}
+
         {error && <p role="alert" style={{ margin: 0, padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(234,0,58,0.5)', background: 'rgba(234,0,58,0.10)', fontSize: '13px' }}>{error}</p>}
 
         <button
@@ -157,7 +175,7 @@ export default function AddNightPanel({
           disabled={busy || (type === 'special' && name.trim().length < 2)}
           style={{ height: '48px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #EA003A 0%, #820065 100%)', color: '#fff', fontWeight: 600, fontSize: '15px', cursor: 'pointer', opacity: busy ? 0.6 : 1 }}
         >
-          {busy ? 'Adding…' : onSale ? 'Add night (on sale)' : 'Add night (hidden)'}
+          {busy ? 'Adding…' : alreadyStarted ? 'Add night (tonight, not bookable)' : onSale ? 'Add night (on sale)' : 'Add night (hidden)'}
         </button>
       </div>
     </div>
