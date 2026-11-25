@@ -2,6 +2,34 @@
 
 Scope: bkkclubcrawl.com `/book` and `/dashboard/leads` only. No change to prices (฿1,200), checkout, Stripe, capacity rules, webhooks or booking records. New in Bangkok stays paused.
 
+## Status (25 Nov 2026)
+
+**Phase:** Phase 3B, the last part of Phase 3 (Phase 3 / PR #11 is merged). Draft PR #12, not merged. Phase 4 has not started.
+
+**How the work was done**
+| When | Who / tool | What |
+|---|---|---|
+| 22 Nov | Claude Code (cloud) | Built the feature; migration, rollback, rehearsal file; unit tests; draft PR #12 |
+| 22 Nov | Owner, staging SQL editor | Ran the rollback rehearsal: 18/18 checks passed (owner-reported) |
+| 22 Nov | Claude Code | Read-only baseline check; applied the migration to staging and verified it; created the staging fixture (`TEST 3B`, Fri 5 Feb 2027) and confirmed the Preview reads staging |
+| 22 Nov | PR review (ChatGPT-assisted checking) | Found the release blocker: reopen recipients were marked failed by the old NIB rule |
+| 22–23 Nov | Claude Code | Fixed the blocker (`bc2c67b`), added route-level regression and local acceptance suites (`206fc35`) |
+| 23 Nov | Owner, local Claude Code (checking, from ChatGPT review) | `82d14af` + `a01c5ed`: every email path now goes through `lib/sendEmail.ts`; on Vercel Preview it only delivers to `bangkokclubcrawl@gmail.com` and blocks any other `to`/`cc`/`bcc` before the provider is called (SMC outbox too). Production is unchanged. Test: `tests/preview-email.test.ts` |
+| 23–25 Nov | Owner, on Preview | Signed up for the sold-out fixture night with the test inbox (party 1, dated consent stored); reopened 1 seat by raising capacity to 3; drafted a reopen notice for parties of 1 (not yet approved) |
+| 25 Nov | Claude Code | Reviewed the 23 Nov commits; combined branch: `tsc` OK, `next build` OK, `npm test` 28/28 |
+
+**Left before merge**
+1. Preview: approve & send the drafted reopen notice (it can only reach the test inbox), then use the email's unsubscribe link and confirm.
+2. Preview checkout with a Stripe **test** card, only after confirming the Preview `STRIPE_SECRET_KEY` is `sk_test_…` in Vercel (not readable from Claude's session).
+3. Owner: confirm `CHECKOUT_DYNAMIC_PRICING=true` in Production (capacity is only enforced on that path).
+4. Apply `supabase/migrations/20261122000001_bcc_soldout_waitlist.sql` to **production** (`oomhftxgvikzxlvqdcmr`) **before** merging: `/dashboard/leads` reads the new columns.
+5. Mark PR #12 ready and merge (Vercel deploys production). The public waitlist form stays **off** in production; the FULL label and next-night offer go live.
+
+**After merge (can wait)**
+- Production smoke check: `/book` loads, `/dashboard/leads` loads, a full Fri/Sat shows FULL.
+- Update the Bangkok Club Crawl privacy notice, then set `BCC_SOLDOUT_WAITLIST=on` to open sign-ups.
+- Remove the staging fixture (Rollout step 5).
+
 ## What it does
 
 **Guest side (`/book`)**
@@ -71,7 +99,11 @@ When off, sold-out nights still show FULL with the next-night offer. Only the wa
 | Preview read-only GET against the staging fixture (`28e6006f-…`, Fri 5 Feb 2027, 2/2 taken): `state: sold_out`, `waitlist: true`, exact ID match | **done** |
 | Preview form submission, reopen send to a test inbox, live unsubscribe on a synthetic row, Preview checkout | **pending**: Rollout steps 2–5; needs owner confirmation of the Preview Stripe and Resend keys (below) |
 
-### Preview payment and mail mode (not verified for this branch)
+### Preview payment and mail mode
+- **Mail: now restricted in code** (commits `82d14af`, `a01c5ed`): on Vercel Preview, `lib/sendEmail.ts` only delivers to `bangkokclubcrawl@gmail.com`; anything else is refused before the provider is called. The waitlist send records such a refusal as `failed` (nothing sent).
+- **Stripe: still not verified** (details below).
+
+Earlier notes:
 - Vercel environment variables can't be read from this session (403), so the Preview's Stripe and Resend keys for branch `claude/determined-fermi-vda23p` are **unverified**.
 - `docs/smc/PHASE0_STAGING.md` records a Stripe Sandbox `sk_test_…` key, a separate staging Resend key and a test admin inbox, but as **branch-scoped entries for `feature/single-meet-club`**. It also notes "Preview (all branches)" `SUPABASE_SERVICE_ROLE_KEY` and `STRIPE_SECRET_KEY` entries whose values aren't recorded, and that the live Stripe and Resend keys' Preview targets were removed.
 - `PHASE4_CHECKPOINT.md` (older) recorded Preview sharing the **live** Stripe key; PHASE0_STAGING says that target was removed. Which key the all-branches entry holds now is not documented.
@@ -166,5 +198,5 @@ No differences beyond the intended ones. Production (`oomhftxgvikzxlvqdcmr`) has
 
 ## Blockers / open items
 1. Staging rehearsal: resolved. The owner ran it manually and reported 18/18 passed, and Claude confirmed by read-only query that staging matches the baseline. The migration has since been applied to staging and verified (see "Staging migration record").
-2. There is no Preview runtime evidence yet. Steps 2–5 need a Preview deployment wired to staging, plus a test inbox.
+2. Preview: sign-up and reopen draft done by the owner (23–25 Nov). Send, unsubscribe and checkout remain (see Status).
 3. The privacy notice update and the `CHECKOUT_DYNAMIC_PRICING` confirmation are owner decisions (step 6).
