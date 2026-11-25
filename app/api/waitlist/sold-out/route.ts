@@ -24,7 +24,7 @@ export const dynamic = 'force-dynamic'
 //      deep link to a date that can't be booked says why. Public facts only.
 // POST {eventId, name, email, partySize, consent: true} → one sign-up for
 //      that one event instance. Accepted only while the night is a genuinely
-//      full Friday/Saturday Club Crawl (re-checked here from the database,
+//      full Club Crawl night, any day (re-checked here from the database,
 //      never from the page). Stores the dated consent wording the guest saw.
 //      Nothing is reserved; no email is sent by this route.
 //
@@ -140,9 +140,7 @@ export async function POST(req: NextRequest) {
       const msg =
         instance.state === 'bookable'
           ? 'Good news — seats are available for this night. You can book it now.'
-          : instance.state === 'sold_out'
-            ? 'The waitlist is only for Friday and Saturday nights.'
-            : STATE_MESSAGE[instance.state]
+          : STATE_MESSAGE[instance.state]
       return NextResponse.json({ error: msg, state: instance.state }, { status: 409 })
     }
 

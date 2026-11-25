@@ -24,7 +24,7 @@ export interface BccInstance {
   remaining: number | null
   state: InstanceState
   friSat: boolean
-  waitlistEligible: boolean // genuinely full Friday/Saturday Club Crawl night
+  waitlistEligible: boolean // genuinely full Club Crawl night (any day)
 }
 
 const SELECT =
@@ -64,7 +64,7 @@ function toInstance(row: any, taken: Map<string, number>, now: Date): BccInstanc
     remaining,
     state,
     friSat,
-    waitlistEligible: friSat && state === 'sold_out',
+    waitlistEligible: state === 'sold_out',
   }
 }
 

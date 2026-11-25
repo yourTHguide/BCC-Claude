@@ -123,7 +123,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
 
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [events, setEvents] = useState<EventInstance[]>([])
-  // Phase 3B: genuinely full Fri/Sat Club Crawl nights (BCC only).
+  // Phase 3B: genuinely full Club Crawl nights, any day (BCC only).
   const [soldOut, setSoldOut] = useState<SoldOutNight[]>([])
   const [selectedSoldOutId, setSelectedSoldOutId] = useState<string | null>(null)
   const [dateNotice, setDateNotice] = useState<string | null>(null)

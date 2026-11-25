@@ -7,6 +7,7 @@ import OperationsSheet, { type OperationsPalette } from '@/components/operations
 import MeetupSender, { type MeetupPalette, type MeetupGuest } from '@/components/operations/MeetupSender'
 import DoorList, { type DoorListTheme } from '@/components/doorlist/DoorList'
 import OtaImport from '@/components/operations/OtaImport'
+import AddNightPanel, { OnSaleToggle } from './AddNightPanel'
 import type { DoorGuest } from '@/lib/doorList'
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
@@ -689,9 +690,7 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
           <h2 style={{ fontWeight:600, fontSize:'18px', color:'#fff', margin:0 }}>{localEvent.night_name}</h2>
         </div>
         <div style={{ display:'flex', gap:'8px', alignItems:'center' }}>
-          <button onClick={toggleOpen} style={{ ...S.btn, ...(localEvent.is_open ? S.btnDanger : S.btnGhost) }}>
-            {localEvent.is_open ? 'Close Date' : 'Open Date'}
-          </button>
+          <OnSaleToggle on={localEvent.is_open} onChange={() => toggleOpen()} />
           <button onClick={onClose} style={{ ...S.btn, ...S.btnGhost, padding:'0 12px' }}>✕</button>
         </div>
       </div>
@@ -1050,6 +1049,9 @@ export default function Dashboard() {
   const [bookingDate, setBookingDate] = useState('upcoming')
   const [bookingStatus, setBookingStatus] = useState('all')
   const [selectedEvent, setSelectedEvent] = useState<EventDate|null>(null)
+  // "Add a night" (Nov 2026): the empty upcoming day that was tapped.
+  const [addNightDate, setAddNightDate] = useState<string|null>(null)
+  useEffect(() => { if (selectedEvent) setAddNightDate(null) }, [selectedEvent])
   const [loading, setLoading] = useState(false)
   const [resendState, setResendState] = useState<Record<string,'idle'|'sending'|'sent'|'error'>>({})
   const [rescheduleOpen, setRescheduleOpen] = useState<Record<string,boolean>>({})
@@ -1213,6 +1215,7 @@ export default function Dashboard() {
     'girls-night': '#DB2777',
     '30plus-night': '#D97706',
     'tgif': '#059669',
+    'club-crawl': '#0891B2',
     'saturday-signature': '#EA003A',
     'lgbtplus-night': '#7C3AED',
   }
@@ -1324,7 +1327,7 @@ export default function Dashboard() {
                     borderRadius:'10px',
                     background: isSelected ? 'rgba(234,0,58,0.10)' : isToday ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.02)',
                     border: isSelected ? '1px solid rgba(234,0,58,0.40)' : isToday ? '1px solid rgba(234,0,58,0.25)' : '1px solid rgba(255,255,255,0.05)',
-                    cursor: dayEvents.length > 0 ? 'pointer' : 'default',
+                    cursor: dayEvents.length > 0 || !isPast ? 'pointer' : 'default',
                     opacity: isPast ? 0.5 : 1,
                     transition:'all 0.15s',
                   }}
@@ -1337,6 +1340,8 @@ export default function Dashboard() {
                     // first.
                     const fallback = prominentEvents[0] || dayEvents[0]
                     if (fallback) setSelectedEvent(fallback)
+                    // Empty upcoming day: add a Club Crawl night here.
+                    else if (!isPast) { setSelectedEvent(null); setAddNightDate(dateStr) }
                   }}
                 >
                   {/* Day number */}
@@ -1607,6 +1612,19 @@ export default function Dashboard() {
           <h2 style={{ fontWeight:600, fontSize:'20px', margin:'0 0 16px' }}>Every event: host, route, guests, money</h2>
           <OperationsSheet palette={OPS_PALETTE} eventHref={r => `/operator/manage/events/${r.id}`} />
         </div>
+      )}
+
+      {/* Add a night on an empty day */}
+      {addNightDate && activeTab==='calendar' && (
+        <AddNightPanel
+          date={addNightDate}
+          onClose={() => setAddNightDate(null)}
+          onCreated={async (ev) => {
+            setAddNightDate(null)
+            await loadEvents()
+            setSelectedEvent(ev)
+          }}
+        />
       )}
 
       {/* Day panel */}
