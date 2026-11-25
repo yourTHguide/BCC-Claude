@@ -18,6 +18,7 @@ import { loadBccInstance } from '@/lib/waitlist/bccInstances'
 import { checkReopenRecipient, MAX_PARTY_SIZE, SOLD_OUT_SCOPE } from '@/lib/waitlist/soldOut'
 import {
   buildReopenEmail,
+  defaultReopenSubject,
   reopenAudience,
   reopenSummary,
   seatCap,
@@ -74,8 +75,17 @@ export async function POST(req: NextRequest) {
   const who = auth.admin.email || auth.admin.userId
   const body = await req.json().catch(() => ({}))
   const supabase = getServiceSupabase()
+  // 2-click flow (Phase 3B): a create with sendNow + confirmChecked saves the
+  // notice record and continues straight into the normal send below, so every
+  // send-time check still runs. The record is kept for audit as before.
+  let action: string = typeof body.action === 'string' ? body.action : ''
+  let annId: string = typeof body.id === 'string' ? body.id : ''
+  const sendNow = body.sendNow === true
+  if (sendNow && body.confirmChecked !== true) {
+    return NextResponse.json({ error: 'Tick the box to confirm before sending.' }, { status: 400 })
+  }
 
-  if (body.action === 'create') {
+  if (action === 'create') {
     const product = productFor(String(body.productSlug || ''))
     if (!product) return NextResponse.json({ error: 'Unknown waitlist' }, { status: 400 })
     const ids: string[] = Array.isArray(body.eventDateIds) ? body.eventDateIds.filter((x: unknown) => typeof x === 'string') : []
@@ -102,10 +112,12 @@ export async function POST(req: NextRequest) {
       .select('id')
       .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ ok: true, id: data.id })
+    if (!sendNow) return NextResponse.json({ ok: true, id: data.id })
+    annId = data.id
+    action = 'send'
   }
 
-  if (body.action === 'reopen-audience' || body.action === 'create-reopen') {
+  if (action === 'reopen-audience' || action === 'create-reopen') {
     const eventDateId = typeof body.eventDateId === 'string' ? body.eventDateId : ''
     const instance = eventDateId ? await loadBccInstance(supabase, eventDateId) : null
     if (!instance) return NextResponse.json({ error: 'Date not found' }, { status: 404 })
@@ -118,17 +130,31 @@ export async function POST(req: NextRequest) {
     const maxPartySize = Number.isInteger(requested) && requested >= 1 ? Math.min(requested, limit) : limit
     const audience = await reopenAudience(supabase, instance.id, maxPartySize)
 
-    if (body.action === 'reopen-audience') {
+    if (action === 'reopen-audience') {
       return NextResponse.json({ ok: true, remaining: instance.remaining, limit, maxPartySize, summary: reopenSummary(instance), audience })
     }
 
-    const subject = typeof body.subject === 'string' ? body.subject.trim().slice(0, 150) : ''
+    const subject = (typeof body.subject === 'string' ? body.subject.trim().slice(0, 150) : '') || (sendNow ? defaultReopenSubject(instance) : '')
     const intro = typeof body.intro === 'string' ? body.intro.trim().slice(0, 1500) : ''
     if (!subject) return NextResponse.json({ error: 'Add a subject line.' }, { status: 400 })
     if (requested > limit) {
       return NextResponse.json({ error: `Only ${limit} seat(s) are left; the party size limit can't be higher.` }, { status: 400 })
     }
-    const { data, error } = await supabase
+    // 2-click: if this date already has an unfinished notice (e.g. a draft
+    // from the old screen), send that one instead of refusing.
+    const { data: open } = sendNow
+      ? await supabase
+          .from('bnt_waitlist_announcements')
+          .select('id')
+          .eq('kind', 'sold_out_reopen')
+          .eq('event_date_id', instance.id)
+          .in('status', ['draft', 'sending'])
+          .limit(1)
+          .maybeSingle()
+      : { data: null }
+    const { data, error } = open
+      ? { data: open, error: null }
+      : await supabase
       .from('bnt_waitlist_announcements')
       .insert({
         kind: 'sold_out_reopen',
@@ -148,24 +174,26 @@ export async function POST(req: NextRequest) {
     if (error?.code === '23505') {
       return NextResponse.json({ error: 'There is already an unfinished notice for this date. Finish or cancel it first.' }, { status: 409 })
     }
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ ok: true, id: data.id, audience })
+    if (error || !data) return NextResponse.json({ error: error?.message ?? 'Could not save the notice.' }, { status: 500 })
+    if (!sendNow) return NextResponse.json({ ok: true, id: data.id, audience })
+    annId = data.id
+    action = 'send'
   }
 
-  const id = typeof body.id === 'string' ? body.id : ''
+  const id = annId
   const { data: a, error: loadError } = await supabase.from('bnt_waitlist_announcements').select('*').eq('id', id).maybeSingle()
   if (loadError || !a) return NextResponse.json({ error: 'Announcement not found' }, { status: 404 })
   const ann = a as AnnouncementRecord
   const isReopen = (a as { kind?: string }).kind === 'sold_out_reopen'
   const reopen = a as ReopenAnnouncement
 
-  if (body.action === 'cancel') {
+  if (action === 'cancel') {
     if (ann.status === 'sent') return NextResponse.json({ error: 'Already sent' }, { status: 400 })
     await supabase.from('bnt_waitlist_announcements').update({ status: 'cancelled' }).eq('id', id)
     return NextResponse.json({ ok: true })
   }
 
-  if (body.action === 'retry-failed') {
+  if (action === 'retry-failed') {
     // 'failed' rows were definitely rejected by Resend (never accepted), so
     // re-queueing them cannot duplicate. Uncertain rows are NOT touched here.
     const { data: requeued, error } = await supabase
@@ -179,7 +207,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, requeued: requeued?.length ?? 0 })
   }
 
-  if (body.action === 'resolve-uncertain') {
+  if (action === 'resolve-uncertain') {
     // For deliveries whose outcome is unknown (attempted, no answer recorded).
     //   'leave'  -> mark 'unconfirmed'; never sent again. Safe default.
     //   'resend' -> re-queue. May produce a duplicate if Resend did accept the
@@ -222,7 +250,7 @@ export async function POST(req: NextRequest) {
   const from = resendFromHeader(isReopen ? 'bcc' : 'bnt')
   const PLACEHOLDER_TOKEN = '00000000-0000-0000-0000-000000000000'
 
-  if (body.action === 'test') {
+  if (action === 'test') {
     if (!auth.admin.email) return NextResponse.json({ error: 'Your admin account has no email address' }, { status: 400 })
     const email =
       reopenCheck?.ok
@@ -239,7 +267,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, sentTo: auth.admin.email })
   }
 
-  if (body.action !== 'send') return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
+  if (action !== 'send') return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
   if (body.confirmChecked !== true) {
     return NextResponse.json({ error: 'Confirm that dates, price and booking availability are correct before sending.' }, { status: 400 })
   }
@@ -424,7 +452,7 @@ export async function POST(req: NextRequest) {
   }
 
   const state = await finishIfDone(supabase, id)
-  return NextResponse.json({ ok: true, sent, failed, uncertain, skipped, remaining: state.queued, needsReview: state.uncertain })
+  return NextResponse.json({ ok: true, id, sent, failed, uncertain, skipped, remaining: state.queued, needsReview: state.uncertain })
 }
 
 // Sign-ups that already got (or may have got) a reopen notice for this date in

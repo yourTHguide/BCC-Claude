@@ -128,6 +128,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
   const [selectedSoldOutId, setSelectedSoldOutId] = useState<string | null>(null)
   const [dateNotice, setDateNotice] = useState<string | null>(null)
   const [waitlistEnabled, setWaitlistEnabled] = useState(false)
+  const [updatesOptIn, setUpdatesOptIn] = useState(false)
 
   const [viewYear, setViewYear] = useState(ty)
   const [viewMonth, setViewMonth] = useState(tm - 1) // 0-based
@@ -156,6 +157,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
       setEvents(Array.isArray(data.events) ? data.events : [])
       setSoldOut(Array.isArray(data.soldOut) ? data.soldOut : [])
       setWaitlistEnabled(data.waitlistEnabled === true)
+      setUpdatesOptIn(data.updatesOptIn === true)
       setStatus('ready')
     } catch {
       setStatus('error')
@@ -610,6 +612,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                 events={events}
                 initialPartySize={quantity}
                 waitlistEnabled={waitlistEnabled}
+                updatesOptIn={updatesOptIn}
                 formatDateLabel={formatDateLabel}
                 formatPrice={formatPrice}
                 onChooseNight={(eventId, eventDate, partySize) => {

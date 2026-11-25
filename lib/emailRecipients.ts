@@ -1,4 +1,4 @@
-const previewInbox = 'bangkokclubcrawl@gmail.com'
+export const previewInbox = 'bangkokclubcrawl@gmail.com'
 
 type Addresses = string | string[]
 

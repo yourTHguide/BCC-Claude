@@ -3,8 +3,10 @@ import { getServiceSupabase } from '@/lib/supabase'
 import { resolveStorefront } from '@/lib/storefront'
 import { BCC_PRODUCT_SLUG, bangkokNow } from '@/lib/bookingAvailability'
 import { EMAIL_RE } from '@/lib/bnt/leads'
-import { STATE_MESSAGE, loadBccInstance, loadBccInstancesOn, soldOutWaitlistEnabled } from '@/lib/waitlist/bccInstances'
+import { STATE_MESSAGE, bccUpdatesOptInEnabled, loadBccInstance, loadBccInstancesOn, soldOutWaitlistEnabled } from '@/lib/waitlist/bccInstances'
 import {
+  BCC_UPDATES_CONSENT_TEXT,
+  BCC_UPDATES_SCOPE,
   MAX_ACTIVE_SIGNUPS_PER_EMAIL,
   MAX_PARTY_SIZE,
   MIN_FILL_MS,
@@ -58,6 +60,41 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// Optional "keep me updated" opt-in: its own row, consent text and token.
+// Best effort: the date waitlist sign-up never fails because of it.
+async function saveUpdatesOptIn(supabase: ReturnType<typeof getServiceSupabase>, email: string, name: string) {
+  try {
+    const now = new Date().toISOString()
+    const { data: existing } = await supabase
+      .from('bnt_waitlist')
+      .select('id, unsubscribed_at')
+      .eq('product_slug', BCC_PRODUCT_SLUG)
+      .eq('consent_scope', BCC_UPDATES_SCOPE)
+      .eq('email', email)
+      .maybeSingle()
+    if (existing && !existing.unsubscribed_at) return
+    if (existing) {
+      await supabase
+        .from('bnt_waitlist')
+        .update({ unsubscribed_at: null, name, consent_text: BCC_UPDATES_CONSENT_TEXT, consented_at: now, source: SOLD_OUT_SOURCE })
+        .eq('id', existing.id)
+      return
+    }
+    const { error } = await supabase.from('bnt_waitlist').insert({
+      product_slug: BCC_PRODUCT_SLUG,
+      email,
+      name,
+      source: SOLD_OUT_SOURCE,
+      consent_scope: BCC_UPDATES_SCOPE,
+      consent_text: BCC_UPDATES_CONSENT_TEXT,
+      consented_at: now,
+    })
+    if (error && error.code !== '23505') console.error('updates opt-in insert error:', error)
+  } catch (err) {
+    console.error('updates opt-in error:', err)
+  }
+}
+
 export async function POST(req: NextRequest) {
   if (!bccOnly(req) || !soldOutWaitlistEnabled()) return NextResponse.json({ error: 'The waitlist is not available.' }, { status: 404 })
   try {
@@ -87,6 +124,8 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = getServiceSupabase()
+    // Only when the guest ticked the separate, optional box AND it is shown.
+    const wantsUpdates = body.updates === true && bccUpdatesOptInEnabled()
 
     // Eligibility from the database, right now.
     let instance
@@ -126,6 +165,7 @@ export async function POST(req: NextRequest) {
     if (existing && !existing.unsubscribed_at) {
       // Already on this date's list: keep one row, update the party size only.
       await supabase.from('bnt_waitlist').update({ party_size: partySize }).eq('id', existing.id)
+      if (wantsUpdates) await saveUpdatesOptIn(supabase, email, name)
       return NextResponse.json({ success: true, duplicate: true })
     }
     const activeOthers = (mine || []).filter((r) => !r.unsubscribed_at && r.event_date_id !== eventId).length
@@ -146,6 +186,7 @@ export async function POST(req: NextRequest) {
         console.error('sold-out resubscribe error:', error)
         return NextResponse.json({ error: 'We couldn’t save your details. Please try again.' }, { status: 500 })
       }
+      if (wantsUpdates) await saveUpdatesOptIn(supabase, email, name)
       return NextResponse.json({ success: true, duplicate: false })
     }
 
@@ -163,11 +204,15 @@ export async function POST(req: NextRequest) {
       party_size: partySize,
     })
     // Unique (event_date_id, email): a double click or parallel request.
-    if (error?.code === '23505') return NextResponse.json({ success: true, duplicate: true })
+    if (error?.code === '23505') {
+      if (wantsUpdates) await saveUpdatesOptIn(supabase, email, name)
+      return NextResponse.json({ success: true, duplicate: true })
+    }
     if (error) {
       console.error('sold-out signup insert error:', error)
       return NextResponse.json({ error: 'We couldn’t save your details. Please try again.' }, { status: 500 })
     }
+    if (wantsUpdates) await saveUpdatesOptIn(supabase, email, name)
     return NextResponse.json({ success: true, duplicate: false })
   } catch (err) {
     console.error('sold-out signup server error:', err)

@@ -17,17 +17,20 @@ Scope: bkkclubcrawl.com `/book` and `/dashboard/leads` only. No change to prices
 | 23 Nov | Owner, local Claude Code (checking, from ChatGPT review) | `82d14af` + `a01c5ed`: every email path now goes through `lib/sendEmail.ts`; on Vercel Preview it only delivers to `bangkokclubcrawl@gmail.com` and blocks any other `to`/`cc`/`bcc` before the provider is called (SMC outbox too). Production is unchanged. Test: `tests/preview-email.test.ts` |
 | 23–25 Nov | Owner, on Preview | Signed up for the sold-out fixture night with the test inbox (party 1, dated consent stored); reopened 1 seat by raising capacity to 3; drafted a reopen notice for parties of 1 (not yet approved) |
 | 25 Nov | Claude Code | Reviewed the 23 Nov commits; combined branch: `tsc` OK, `next build` OK, `npm test` 28/28 |
+| 25 Nov | Owner + Claude Code | Owner's Preview send was "stuck": the notice stayed a draft with no deliveries. Cause: the send is refused when the deployment has no `RESEND_API_KEY`, and the old screen showed that error only at the top of the page. Fixed by the simpler screen below; the key itself must be added in Vercel for Preview |
+| 25 Nov | Claude Code | **Simpler Waitlists tab** (one tab for all lists): email status line; "Needs action" cards with who will / won't get it and why, preview, optional test; **tick + "Send to N people"** (2 clicks); results and errors on the card. Server: `create-reopen`/`create` with `sendNow` save the record and send in one request (reusing an unfinished draft), with the same send-time checks. **"Keep me updated"** optional box (`consent_scope 'bcc_updates'`, migration `20261125000001`), hidden in production until `BCC_UPDATES_OPTIN=on`; applied to staging (`20261125124355 bcc_updates_optin`). `npm test` 34/34, `tsc`, `next build` OK |
 
 **Left before merge**
-1. Preview: approve & send the drafted reopen notice (it can only reach the test inbox), then use the email's unsubscribe link and confirm.
+0. Owner: add a Preview `RESEND_API_KEY` in Vercel (staging key). Without it every send is refused. Preview can still only email `bangkokclubcrawl@gmail.com`.
+1. Preview, new Waitlists tab: tick + "Send to 1 person" on the TEST 3B card (it reuses the existing draft), then use the email's unsubscribe link and confirm. Optionally tick "keep me updated" on a new sign-up.
 2. Preview checkout with a Stripe **test** card, only after confirming the Preview `STRIPE_SECRET_KEY` is `sk_test_…` in Vercel (not readable from Claude's session).
 3. Owner: confirm `CHECKOUT_DYNAMIC_PRICING=true` in Production (capacity is only enforced on that path).
-4. Apply `supabase/migrations/20261122000001_bcc_soldout_waitlist.sql` to **production** (`oomhftxgvikzxlvqdcmr`) **before** merging: `/dashboard/leads` reads the new columns.
+4. Apply **both** migrations to **production** (`oomhftxgvikzxlvqdcmr`) **before** merging, in order: `20261122000001_bcc_soldout_waitlist.sql`, then `20261125000001_bcc_updates_optin.sql`. `/dashboard/leads` reads the new columns.
 5. Mark PR #12 ready and merge (Vercel deploys production). The public waitlist form stays **off** in production; the FULL label and next-night offer go live.
 
 **After merge (can wait)**
 - Production smoke check: `/book` loads, `/dashboard/leads` loads, a full Fri/Sat shows FULL.
-- Update the Bangkok Club Crawl privacy notice, then set `BCC_SOLDOUT_WAITLIST=on` to open sign-ups.
+- Update the Bangkok Club Crawl privacy notice (waitlist + "keep me updated" list), then set `BCC_SOLDOUT_WAITLIST=on` and `BCC_UPDATES_OPTIN=on`.
 - Remove the staging fixture (Rollout step 5).
 
 ## What it does

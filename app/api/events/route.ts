@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
-import { soldOutWaitlistEnabled } from '@/lib/waitlist/bccInstances'
+import { bccUpdatesOptInEnabled, soldOutWaitlistEnabled } from '@/lib/waitlist/bccInstances'
 import { VISIBILITY_COLUMN } from '@/lib/storefront'
 import { resolveEventPricing } from '@/lib/pricing'
 import { isDedicatedFlowProduct } from '@/lib/smc/config'
@@ -171,5 +171,10 @@ export async function GET(req: NextRequest) {
     }]
   })
 
-  return NextResponse.json({ events, soldOut, waitlistEnabled: storefront === 'bcc' && soldOutWaitlistEnabled() })
+  return NextResponse.json({
+    events,
+    soldOut,
+    waitlistEnabled: storefront === 'bcc' && soldOutWaitlistEnabled(),
+    updatesOptIn: storefront === 'bcc' && soldOutWaitlistEnabled() && bccUpdatesOptInEnabled(),
+  })
 }

@@ -117,3 +117,12 @@ export function soldOutWaitlistEnabled(): boolean {
   if (process.env.BCC_SOLDOUT_WAITLIST === 'off') return false
   return process.env.VERCEL_ENV !== 'production'
 }
+
+// "Keep me updated" box on the waitlist form. Same pattern as the waitlist
+// switch: on in Preview and local dev; in production only when
+// BCC_UPDATES_OPTIN=on (after the privacy notice covers this list).
+export function bccUpdatesOptInEnabled(): boolean {
+  if (process.env.BCC_UPDATES_OPTIN === 'on') return true
+  if (process.env.BCC_UPDATES_OPTIN === 'off') return false
+  return process.env.VERCEL_ENV !== 'production'
+}

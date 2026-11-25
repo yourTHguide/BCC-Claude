@@ -102,3 +102,9 @@ export function seatCap(maxPartySize: number, remaining: number | null): number 
   const cap = Math.min(maxPartySize, MAX_PARTY_SIZE)
   return remaining == null ? cap : Math.max(0, Math.min(cap, remaining))
 }
+
+// Optional, separate "keep me updated" list (consent_scope 'bcc_updates').
+// Offered as an unticked box under the waitlist consent; never implied by it.
+export const BCC_UPDATES_SCOPE = 'bcc_updates'
+export const BCC_UPDATES_CONSENT_TEXT =
+  'Also email me about new Bangkok Club Crawl nights and events. Optional; I can unsubscribe any time.'

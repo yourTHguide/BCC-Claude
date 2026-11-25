@@ -7,6 +7,7 @@ import { WAITLIST_PRODUCTS } from '@/lib/bnt/waitlist'
 import { loadOpenDates } from '@/lib/bnt/announcements'
 import { BCC_PRODUCT_SLUG, bangkokNow } from '@/lib/bookingAvailability'
 import { loadBccInstancesByIds } from '@/lib/waitlist/bccInstances'
+import { previewInbox } from '@/lib/emailRecipients'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,8 +37,11 @@ export async function GET() {
   type Counts = { sent: number; failed: number; queued: number; uncertain: number; unconfirmed: number; skipped: number }
   const counts: Record<string, Counts> = {}
   const uncertain: Record<string, { id: string; waitlist_id: string; attempted_at: string; error: string | null; resolvable: boolean }[]> = {}
+  // Per-person outcome of each notice, for the dashboard card (Phase 3B).
+  const results: Record<string, { waitlist_id: string; status: string; error: string | null }[]> = {}
   const cutoff = Date.now() - 2 * 60 * 1000
   for (const d of deliveries.data || []) {
+    ;(results[d.announcement_id] ||= []).push({ waitlist_id: d.waitlist_id, status: d.status === 'pending' && d.attempted_at ? 'uncertain' : d.status, error: d.error })
     const c = (counts[d.announcement_id] ||= { sent: 0, failed: 0, queued: 0, uncertain: 0, unconfirmed: 0, skipped: 0 })
     if (d.status === 'pending' && d.attempted_at) {
       c.uncertain++
@@ -97,8 +101,16 @@ export async function GET() {
       }
     })
 
+  // Whether this deployment can send email, for the dashboard status line.
+  // Never includes the key itself.
+  const email = {
+    configured: !!process.env.RESEND_API_KEY,
+    previewOnlyTo: process.env.VERCEL_ENV === 'preview' ? previewInbox : null,
+  }
+
   return NextResponse.json({
     adminEmail: auth.admin.email,
+    email,
     soldOutDates,
     inquiries: inquiries.data,
     contacts: contacts.data,
@@ -107,6 +119,7 @@ export async function GET() {
       ...a,
       deliveries: counts[a.id] || { sent: 0, failed: 0, queued: 0, uncertain: 0, unconfirmed: 0, skipped: 0 },
       uncertain: uncertain[a.id] || [],
+      results: results[a.id] || [],
     })),
     products,
   })

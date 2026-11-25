@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { BCC_PRODUCT_SLUG } from '@/lib/bookingAvailability'
-import { MAX_PARTY_SIZE, pickNextBookable, soldOutConsentText } from '@/lib/waitlist/soldOut'
+import { BCC_UPDATES_CONSENT_TEXT, MAX_PARTY_SIZE, pickNextBookable, soldOutConsentText } from '@/lib/waitlist/soldOut'
 
 // Sold-out recovery panel for a genuinely full Friday/Saturday Bangkok Club
 // Crawl night (Phase 3B). Primary: the next night that is really bookable
@@ -52,6 +52,7 @@ export default function SoldOutPanel({
   events,
   initialPartySize,
   waitlistEnabled,
+  updatesOptIn = false,
   formatDateLabel,
   formatPrice,
   onChooseNight,
@@ -60,6 +61,7 @@ export default function SoldOutPanel({
   events: BookableEvent[]
   initialPartySize: number
   waitlistEnabled: boolean
+  updatesOptIn?: boolean
   formatDateLabel: (iso: string) => string
   formatPrice: (n: number) => string
   onChooseNight: (eventId: string, eventDate: string, partySize: number) => void
@@ -69,6 +71,7 @@ export default function SoldOutPanel({
   const [email, setEmail] = useState('')
   const [website, setWebsite] = useState('') // honeypot
   const [consent, setConsent] = useState(false)
+  const [updates, setUpdates] = useState(false) // separate, optional, unticked
   const [state, setState] = useState<'idle' | 'busy' | 'done' | 'error'>('idle')
   const [error, setError] = useState('')
   const shownAt = useRef(Date.now())
@@ -102,6 +105,7 @@ export default function SoldOutPanel({
         email,
         partySize,
         consent: true,
+        updates: updatesOptIn && updates,
         website,
         elapsedMs: Date.now() - shownAt.current,
       }),
@@ -189,6 +193,12 @@ export default function SoldOutPanel({
                 <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} style={{ marginTop: '3px' }} />
                 <span>{consentText}</span>
               </label>
+              {updatesOptIn && (
+                <label style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', fontSize: '12px', color: 'rgba(255,255,255,0.6)', lineHeight: 1.5, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={updates} onChange={(e) => setUpdates(e.target.checked)} style={{ marginTop: '3px' }} />
+                  <span>{BCC_UPDATES_CONSENT_TEXT}</span>
+                </label>
+              )}
               <button type="submit" disabled={state === 'busy'} style={{ ...primaryBtn, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.2)', opacity: state === 'busy' ? 0.6 : 1 }}>
                 {state === 'busy' ? 'Saving…' : 'Join the waitlist'}
               </button>
