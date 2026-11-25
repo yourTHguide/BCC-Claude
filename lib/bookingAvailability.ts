@@ -141,8 +141,10 @@ export function isFriOrSat(eventDate: string): boolean {
   return dow === 5 || dow === 6
 }
 
-// The only dates the sold-out waitlist accepts: a Bangkok Club Crawl
-// Friday/Saturday instance that is genuinely full right now.
+// The only dates the sold-out waitlist accepts: a Bangkok Club Crawl night
+// that is genuinely full right now, on any day of the week (owner decision,
+// 25 Nov 2026: weekday and special nights too). isFriOrSat is kept for
+// display and reporting only.
 export function isWaitlistEligible(f: InstanceFacts, now: Date = new Date()): boolean {
-  return f.productSlug === BCC_PRODUCT_SLUG && isFriOrSat(f.eventDate) && classifyInstance(f, now).state === 'sold_out'
+  return f.productSlug === BCC_PRODUCT_SLUG && classifyInstance(f, now).state === 'sold_out'
 }

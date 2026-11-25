@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { BCC_PRODUCT_SLUG } from '@/lib/bookingAvailability'
 import { BCC_UPDATES_CONSENT_TEXT, MAX_PARTY_SIZE, pickNextBookable, soldOutConsentText } from '@/lib/waitlist/soldOut'
 
-// Sold-out recovery panel for a genuinely full Friday/Saturday Bangkok Club
+// Sold-out recovery panel for a genuinely full Bangkok Club
 // Crawl night (Phase 3B). Primary: the next night that is really bookable
 // for this party (from the live /api/events list — never an invented date).
 // Secondary: join the waitlist for this exact date. Joining reserves nothing;

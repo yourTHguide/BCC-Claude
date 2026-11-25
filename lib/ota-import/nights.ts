@@ -1,7 +1,8 @@
 // Which night an OTA guest belongs to, from the date alone.
 // OTA listings run Tue–Sun on the same route, so there are no themed nights:
 //   Friday → TGIF Bangkok, Saturday → Signature Night,
-//   other days → BKK Club Crawl (internal only, never sold on the website),
+//   other days → BKK Club Crawl (hidden unless the owner switches that night ON
+//   from the dashboard calendar, Nov 2026),
 //   and a special night (e.g. Halloween) wins when it's on the calendar that date.
 
 /** OTA bookings are only kept from this night on (when website bookings started). */

@@ -83,11 +83,11 @@ test('cutoff: on the night after 21:30 Bangkok the date is "cutoff", not sold ou
   assert.equal(classifyInstance(base, fridayEvening).state, 'sold_out')
 })
 
-test('only Bangkok Club Crawl and only Fri/Sat may offer the waitlist', () => {
+test('only Bangkok Club Crawl may offer the waitlist — on any day of the week', () => {
   assert.equal(isWaitlistEligible(f({ productSlug: 'new-in-bkk' }), NOW), false)
   assert.equal(isWaitlistEligible(f({ productSlug: 'smc' }), NOW), false)
   assert.equal(classifyInstance(f({ eventDate: '2027-01-07' }), NOW).state, 'sold_out')
-  assert.equal(isWaitlistEligible(f({ eventDate: '2027-01-07' }), NOW), false)
+  assert.equal(isWaitlistEligible(f({ eventDate: '2027-01-07' }), NOW), true, 'a full Thursday special night offers the waitlist too')
 })
 
 test('classifyInstance mirrors the existing /api/events + checkout gates', () => {

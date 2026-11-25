@@ -4,7 +4,7 @@ import { bccUpdatesOptInEnabled, soldOutWaitlistEnabled } from '@/lib/waitlist/b
 import { VISIBILITY_COLUMN } from '@/lib/storefront'
 import { resolveEventPricing } from '@/lib/pricing'
 import { isDedicatedFlowProduct } from '@/lib/smc/config'
-import { BCC_PRODUCT_SLUG, isCancelledEvent, isFriOrSat, isPastBookingCutoff, seatKey, seatsTaken } from '@/lib/bookingAvailability'
+import { BCC_PRODUCT_SLUG, isCancelledEvent, isPastBookingCutoff, seatKey, seatsTaken } from '@/lib/bookingAvailability'
 
 // Canonical event-availability layer (Phase 3).
 //
@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  // Phase 3B: genuinely full Friday/Saturday Bangkok Club Crawl nights (BCC
+  // Phase 3B: genuinely full Bangkok Club Crawl nights, any day (BCC
   // storefront only). Listed separately so the calendar can show "sold out"
   // with a next-night offer and a waitlist; `events` is unchanged and still
   // holds only bookable instances. Every other gate has already passed for
@@ -121,8 +121,7 @@ export async function GET(req: NextRequest) {
       if (
         storefront === 'bcc' &&
         product?.slug === BCC_PRODUCT_SLUG &&
-        row.capacity > 0 &&
-        isFriOrSat(row.event_date)
+        row.capacity > 0
       ) {
         soldOut.push({ eventId: row.id, eventDate: row.event_date, nightSlug: row.night_slug, nightName: row.night_name, productSlug: product.slug })
       }
