@@ -115,7 +115,7 @@ export function buildReopenEmail(
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#1A0015;"><tr><td align="center" style="padding:36px 18px;">
 <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">
   <tr><td style="padding-bottom:20px;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:#EA003A;">Bangkok Club Crawl · Waitlist</td></tr>
-  <tr><td style="background:#2F002F;border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:28px;">
+  <tr><td style="background:#161616;border:1px solid rgba(255,255,255,0.10);border-radius:16px;padding:28px;">
     <p style="margin:0 0 14px;font-size:15px;line-height:1.6;">${hello}</p>
     <p style="margin:0 0 20px;font-size:15px;line-height:1.6;white-space:pre-wrap;">${escapeHTML(intro)}</p>
     <p style="margin:0 0 24px;padding:10px 14px;border-left:3px solid #EA003A;background:rgba(255,255,255,0.04);font-size:14px;line-height:1.5;">${escapeHTML(line)}</p>
