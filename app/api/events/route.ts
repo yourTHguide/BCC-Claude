@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
+import { bccUpdatesOptInEnabled, soldOutWaitlistEnabled } from '@/lib/waitlist/bccInstances'
 import { VISIBILITY_COLUMN } from '@/lib/storefront'
 import { resolveEventPricing } from '@/lib/pricing'
 import { isDedicatedFlowProduct } from '@/lib/smc/config'
-import { isCancelledEvent, isPastBookingCutoff, seatKey, seatsTaken } from '@/lib/bookingAvailability'
+import { BCC_PRODUCT_SLUG, isCancelledEvent, isFriOrSat, isPastBookingCutoff, seatKey, seatsTaken } from '@/lib/bookingAvailability'
 
 // Canonical event-availability layer (Phase 3).
 //
@@ -89,6 +90,13 @@ export async function GET(req: NextRequest) {
     )
   }
 
+  // Phase 3B: genuinely full Friday/Saturday Bangkok Club Crawl nights (BCC
+  // storefront only). Listed separately so the calendar can show "sold out"
+  // with a next-night offer and a waitlist; `events` is unchanged and still
+  // holds only bookable instances. Every other gate has already passed for
+  // these rows — they are closed ONLY because every seat is taken.
+  const soldOut: { eventId: string; eventDate: string; nightSlug: string; nightName: string; productSlug: string }[] = []
+
   const events = rows.flatMap((row) => {
     // Supabase returns a to-one embed as an object; normalize defensively.
     const product = Array.isArray(row.products) ? row.products[0] : row.products
@@ -109,7 +117,17 @@ export async function GET(req: NextRequest) {
     if (isCancelledEvent(row)) return []
     if (isPastBookingCutoff(row.event_date, effectiveStartTime, product?.slug)) return []
     const remaining = row.capacity != null ? Math.max(0, row.capacity - (taken.get(seatKey(row)) ?? 0)) : null
-    if (remaining === 0) return []
+    if (remaining === 0) {
+      if (
+        storefront === 'bcc' &&
+        product?.slug === BCC_PRODUCT_SLUG &&
+        row.capacity > 0 &&
+        isFriOrSat(row.event_date)
+      ) {
+        soldOut.push({ eventId: row.id, eventDate: row.event_date, nightSlug: row.night_slug, nightName: row.night_name, productSlug: product.slug })
+      }
+      return []
+    }
 
     // Same tiering resolver checkout uses (lib/pricing.ts) — the calendar's
     // displayed price is always exactly what checkout would charge right
@@ -153,5 +171,10 @@ export async function GET(req: NextRequest) {
     }]
   })
 
-  return NextResponse.json({ events })
+  return NextResponse.json({
+    events,
+    soldOut,
+    waitlistEnabled: storefront === 'bcc' && soldOutWaitlistEnabled(),
+    updatesOptIn: storefront === 'bcc' && soldOutWaitlistEnabled() && bccUpdatesOptInEnabled(),
+  })
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Resend } from 'resend'
+import { sendEmail } from '@/lib/sendEmail'
 import { requireRole } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
 import { resendFromHeader } from '@/lib/storefrontBrand'
@@ -20,9 +20,6 @@ function testStamp() {
   return new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Bangkok', hour12: false })
 }
 
-function getResend() {
-  return new Resend(process.env.RESEND_API_KEY)
-}
 
 export async function GET() {
   const auth = await requireRole(['owner', 'admin'])
@@ -67,7 +64,7 @@ export async function POST(req: NextRequest) {
     const b = byId.get(ids[0])
     if (!b) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
     const { subject, html } = buildHalloweenEmail(b)
-    const { error } = await getResend().emails.send({
+    const { error } = await sendEmail({
       from,
       to: auth.admin.email,
       subject: `[TEST ${testStamp()}] ${subject}`,
@@ -93,7 +90,7 @@ export async function POST(req: NextRequest) {
       continue
     }
     const { subject, html } = buildHalloweenEmail(b)
-    const { error } = await getResend().emails.send({ from, to: b.guest_email, subject, html })
+    const { error } = await sendEmail({ from, to: b.guest_email, subject, html })
     if (error) {
       results.push({ id, name, ok: false, error: error.message })
       continue

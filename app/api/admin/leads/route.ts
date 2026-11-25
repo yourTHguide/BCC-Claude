@@ -5,6 +5,9 @@ import { recordAlert, sendLeadAlert, type LeadTable } from '@/lib/bnt/leads'
 import { buildContactAlert, buildInquiryAlert, buildWaitlistAlert } from '@/lib/bnt/leadEmails'
 import { WAITLIST_PRODUCTS } from '@/lib/bnt/waitlist'
 import { loadOpenDates } from '@/lib/bnt/announcements'
+import { BCC_PRODUCT_SLUG, bangkokNow } from '@/lib/bookingAvailability'
+import { loadBccInstancesByIds } from '@/lib/waitlist/bccInstances'
+import { previewInbox } from '@/lib/emailRecipients'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,7 +25,7 @@ export async function GET() {
   const [inquiries, contacts, waitlist, announcements, deliveries] = await Promise.all([
     supabase.from('bnt_experience_inquiries').select('*').order('created_at', { ascending: false }).limit(300),
     supabase.from('bnt_contact_messages').select('*').order('created_at', { ascending: false }).limit(300),
-    supabase.from('bnt_waitlist').select('id, product_slug, email, name, source, consent_scope, consent_text, consented_at, created_at, notified_at, unsubscribed_at, alert_status, alert_error').order('created_at', { ascending: false }),
+    supabase.from('bnt_waitlist').select('id, product_slug, email, name, source, consent_scope, consent_text, consented_at, created_at, notified_at, unsubscribed_at, alert_status, alert_error, event_date_id, event_date, night_slug, party_size').order('created_at', { ascending: false }),
     supabase.from('bnt_waitlist_announcements').select('*').order('created_at', { ascending: false }).limit(50),
     supabase.from('bnt_waitlist_deliveries').select('id, announcement_id, waitlist_id, status, attempted_at, attempts, error, resolved_by, resolved_at'),
   ])
@@ -31,12 +34,15 @@ export async function GET() {
 
   // pending + attempted_at = outcome unknown ("uncertain"); listed so an
   // admin can resolve it once the attempt is old enough to have ended.
-  type Counts = { sent: number; failed: number; queued: number; uncertain: number; unconfirmed: number }
+  type Counts = { sent: number; failed: number; queued: number; uncertain: number; unconfirmed: number; skipped: number }
   const counts: Record<string, Counts> = {}
   const uncertain: Record<string, { id: string; waitlist_id: string; attempted_at: string; error: string | null; resolvable: boolean }[]> = {}
+  // Per-person outcome of each notice, for the dashboard card (Phase 3B).
+  const results: Record<string, { waitlist_id: string; status: string; error: string | null }[]> = {}
   const cutoff = Date.now() - 2 * 60 * 1000
   for (const d of deliveries.data || []) {
-    const c = (counts[d.announcement_id] ||= { sent: 0, failed: 0, queued: 0, uncertain: 0, unconfirmed: 0 })
+    ;(results[d.announcement_id] ||= []).push({ waitlist_id: d.waitlist_id, status: d.status === 'pending' && d.attempted_at ? 'uncertain' : d.status, error: d.error })
+    const c = (counts[d.announcement_id] ||= { sent: 0, failed: 0, queued: 0, uncertain: 0, unconfirmed: 0, skipped: 0 })
     if (d.status === 'pending' && d.attempted_at) {
       c.uncertain++
       ;(uncertain[d.announcement_id] ||= []).push({
@@ -47,7 +53,7 @@ export async function GET() {
         resolvable: new Date(d.attempted_at).getTime() < cutoff,
       })
     } else if (d.status === 'pending') c.queued++
-    else c[d.status as 'sent' | 'failed' | 'unconfirmed']++
+    else c[d.status as 'sent' | 'failed' | 'unconfirmed' | 'skipped']++
   }
 
   const products = await Promise.all(
@@ -58,15 +64,62 @@ export async function GET() {
     }))
   )
 
+  // Phase 3B: Bangkok Club Crawl sold-out waitlist, one entry per upcoming
+  // date that has sign-ups, with the date's live state and seats left.
+  const today = bangkokNow().date
+  const soldOutRows = (waitlist.data || []).filter((r: any) => r.consent_scope === 'sold_out_date' && r.product_slug === BCC_PRODUCT_SLUG)
+  const dateIds = Array.from(new Set(soldOutRows.filter((r: any) => r.event_date >= today).map((r: any) => r.event_date_id as string)))
+  let instances: Awaited<ReturnType<typeof loadBccInstancesByIds>> = []
+  try {
+    instances = await loadBccInstancesByIds(supabase, dateIds)
+  } catch (err) {
+    console.error('leads: could not load sold-out dates', err)
+  }
+  const soldOutDates = instances
+    .sort((x, y) => x.eventDate.localeCompare(y.eventDate))
+    .map((i) => {
+      const rows = soldOutRows.filter((r: any) => r.event_date_id === i.id)
+      const active = rows.filter((r: any) => !r.unsubscribed_at)
+      const waiting = active.filter((r: any) => !r.notified_at)
+      const bySize = new Map<number, number>()
+      for (const r of waiting) bySize.set(r.party_size, (bySize.get(r.party_size) ?? 0) + 1)
+      return {
+        eventId: i.id,
+        eventDate: i.eventDate,
+        nightName: i.nightName,
+        state: i.state,
+        capacity: i.capacity,
+        taken: i.taken,
+        remaining: i.remaining,
+        signups: rows.length,
+        active: active.length,
+        waiting: waiting.length,
+        seatsWanted: waiting.reduce((n: number, r: any) => n + (r.party_size ?? 0), 0),
+        notified: active.length - waiting.length,
+        unsubscribed: rows.length - active.length,
+        bySize: Array.from(bySize.entries()).sort((x, y) => x[0] - y[0]).map(([size, count]) => ({ size, count })),
+      }
+    })
+
+  // Whether this deployment can send email, for the dashboard status line.
+  // Never includes the key itself.
+  const email = {
+    configured: !!process.env.RESEND_API_KEY,
+    previewOnlyTo: process.env.VERCEL_ENV === 'preview' ? previewInbox : null,
+  }
+
   return NextResponse.json({
     adminEmail: auth.admin.email,
+    email,
+    soldOutDates,
     inquiries: inquiries.data,
     contacts: contacts.data,
     waitlist: waitlist.data,
     announcements: (announcements.data || []).map((a) => ({
       ...a,
-      deliveries: counts[a.id] || { sent: 0, failed: 0, queued: 0, uncertain: 0, unconfirmed: 0 },
+      deliveries: counts[a.id] || { sent: 0, failed: 0, queued: 0, uncertain: 0, unconfirmed: 0, skipped: 0 },
       uncertain: uncertain[a.id] || [],
+      results: results[a.id] || [],
     })),
     products,
   })

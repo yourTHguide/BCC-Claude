@@ -1,4 +1,4 @@
-import { Resend } from 'resend'
+import { sendEmail } from '@/lib/sendEmail'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { resendFromHeader } from '@/lib/storefrontBrand'
 
@@ -45,7 +45,7 @@ export interface AlertResult {
 export async function sendLeadAlert(msg: AlertMessage): Promise<AlertResult> {
   if (!process.env.RESEND_API_KEY) return { ok: false, error: 'Email not configured (RESEND_API_KEY missing)' }
   try {
-    const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
+    const { error } = await sendEmail({
       from: resendFromHeader('bnt'),
       to: LEAD_ALERT_TO,
       subject: msg.subject,

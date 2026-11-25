@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import type { Storefront } from '@/lib/storefront'
 import { brandFor } from '@/lib/storefrontBrand'
 import { BCC_TERMS } from '@/lib/bccTerms'
+import SoldOutPanel, { type SoldOutNight } from './SoldOutPanel'
 
 declare global {
   interface Window {
@@ -110,12 +111,24 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const preselectedSlug = searchParams.get('night') || ''
+  // Phase 3B deep links (waitlist emails, ads): ?date=YYYY-MM-DD selects that
+  // night if it can be booked, shows "sold out" if it is full, otherwise says
+  // why it can't be booked. ?qty=N pre-fills the party size.
+  const rawDate = searchParams.get('date') || ''
+  const preselectedDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : ''
+  const preselectedQty = Math.min(24, Math.max(1, parseInt(searchParams.get('qty') || '1', 10) || 1))
 
   const todayISO = bangkokTodayISO()
   const [ty, tm] = todayISO.split('-').map(Number)
 
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [events, setEvents] = useState<EventInstance[]>([])
+  // Phase 3B: genuinely full Fri/Sat Club Crawl nights (BCC only).
+  const [soldOut, setSoldOut] = useState<SoldOutNight[]>([])
+  const [selectedSoldOutId, setSelectedSoldOutId] = useState<string | null>(null)
+  const [dateNotice, setDateNotice] = useState<string | null>(null)
+  const [waitlistEnabled, setWaitlistEnabled] = useState(false)
+  const [updatesOptIn, setUpdatesOptIn] = useState(false)
 
   const [viewYear, setViewYear] = useState(ty)
   const [viewMonth, setViewMonth] = useState(tm - 1) // 0-based
@@ -142,6 +155,9 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
       if (!res.ok) throw new Error(`events ${res.status}`)
       const data = await res.json()
       setEvents(Array.isArray(data.events) ? data.events : [])
+      setSoldOut(Array.isArray(data.soldOut) ? data.soldOut : [])
+      setWaitlistEnabled(data.waitlistEnabled === true)
+      setUpdatesOptIn(data.updatesOptIn === true)
       setStatus('ready')
     } catch {
       setStatus('error')
@@ -158,10 +174,57 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
     return acc
   }, {})
 
+  const soldOutByDate = soldOut.reduce<Record<string, SoldOutNight[]>>((acc, n) => {
+    ;(acc[n.eventDate] ||= []).push(n)
+    return acc
+  }, {})
+  const selectedSoldOut = soldOut.find((n) => n.eventId === selectedSoldOutId) ?? null
+
+  // ?date= deep link (runs once dates are loaded; takes precedence over ?night=).
+  useEffect(() => {
+    if (!preselectedDate || status !== 'ready') return
+    const [dy, dm] = preselectedDate.split('-').map(Number)
+    setViewYear(dy)
+    setViewMonth(dm - 1)
+    setQuantity(preselectedQty)
+    const bookable = events.filter((e) => e.eventDate === preselectedDate)
+    if (bookable.length) {
+      const ev = bookable.find((e) => e.nightSlug === preselectedSlug) ?? bookable[0]
+      setSelectedDateISO(preselectedDate)
+      setSelectedEventId(ev.eventId)
+      setQuantity(Math.max(1, Math.min(preselectedQty, ev.remaining ?? maxTickets())))
+      return
+    }
+    const full = soldOut.filter((n) => n.eventDate === preselectedDate)
+    if (full.length) {
+      setSelectedSoldOutId((full.find((n) => n.nightSlug === preselectedSlug) ?? full[0]).eventId)
+      return
+    }
+    // Neither bookable nor sold out: ask the server why (cancelled, closed,
+    // started, past...) instead of failing silently. Never offers a waitlist.
+    let cancelled = false
+    fetch(`/api/waitlist/sold-out?date=${preselectedDate}`, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled) return
+        const night = d?.nights?.[0]
+        setDateNotice(
+          `${formatDateLabel(preselectedDate)}: ${night ? night.message : 'there is no Club Crawl on this date.'} Pick another night below.`
+        )
+      })
+      .catch(() => {
+        if (!cancelled) setDateNotice(`We couldn’t check ${formatDateLabel(preselectedDate)}. Pick a night below.`)
+      })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preselectedDate, status, events, soldOut])
+
   // Auto-select the earliest open future event matching the preselected slug.
   // Events arrive sorted by date ascending, so the first match is the nearest.
   useEffect(() => {
-    if (!preselectedSlug || status !== 'ready') return
+    if (!preselectedSlug || status !== 'ready' || preselectedDate) return
     const match = events.find((e) => e.nightSlug === preselectedSlug)
     if (!match) return
     setSelectedDateISO(match.eventDate)
@@ -202,7 +265,16 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
 
   function handleDateClick(iso: string) {
     const dayEvents = eventsByDate[iso]
-    if (!dayEvents || dayEvents.length === 0) return
+    setDateNotice(null)
+    if (!dayEvents || dayEvents.length === 0) {
+      const full = soldOutByDate[iso]
+      if (!full?.length) return
+      setSelectedDateISO(null)
+      setSelectedEventId(null)
+      setSelectedSoldOutId(full[0].eventId)
+      return
+    }
+    setSelectedSoldOutId(null)
     setSelectedDateISO(iso)
     setQuantity(1)
     if (preselectedSlug && dayEvents.some((e) => e.nightSlug === preselectedSlug)) {
@@ -419,6 +491,8 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                   const iso = cellISO(viewYear, viewMonth, day)
                   const isPast = iso < todayISO
                   const hasEvent = !!eventsByDate[iso]
+                  const isSoldOut = !hasEvent && !!soldOutByDate[iso]
+                  const isSoldOutSelected = isSoldOut && soldOutByDate[iso].some((n) => n.eventId === selectedSoldOutId)
                   const isSelected = selectedDateISO === iso
                   const isToday = iso === todayISO
 
@@ -440,6 +514,13 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                     bg = 'rgba(255,255,255,0.06)'
                     border = '1px solid rgba(255,255,255,0.12)'
                     dotColor = '#EA003A'
+                  } else if (isSoldOut) {
+                    // Sold out: visible and clickable (next-night offer +
+                    // waitlist), but clearly not "Available".
+                    color = 'rgba(255,255,255,0.55)'
+                    cursor = 'pointer'
+                    bg = isSoldOutSelected ? 'rgba(255,255,255,0.14)' : 'transparent'
+                    border = '1px dashed rgba(255,255,255,0.30)'
                   } else {
                     color = 'rgba(255,255,255,0.35)'
                   }
@@ -451,7 +532,8 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                   return (
                     <div
                       key={day}
-                      onClick={() => hasEvent && handleDateClick(iso)}
+                      onClick={() => (hasEvent || isSoldOut) && handleDateClick(iso)}
+                      aria-label={isSoldOut ? `${iso} sold out` : undefined}
                       style={{
                         height: '40px', borderRadius: '10px', background: bg, border,
                         display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -468,6 +550,11 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                         {day}
                       </span>
 
+                      {isSoldOut && (
+                        <span style={{ fontSize: '7px', fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(255,255,255,0.45)', marginTop: '2px' }}>
+                          FULL
+                        </span>
+                      )}
                       {hasEvent && !isSelected && (
                         <div
                           style={{
@@ -496,8 +583,49 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                   <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(234,0,58,0.50)' }} />
                   <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.40)' }}>Today</span>
                 </div>
+                {soldOut.length > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '2px', border: '1px dashed rgba(255,255,255,0.45)' }} />
+                    <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.40)' }}>Sold out</span>
+                  </div>
+                )}
               </div>
             </div>
+
+            {dateNotice && (
+              <div
+                role="status"
+                style={{
+                  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: '12px', padding: '14px 16px', marginBottom: '16px',
+                  fontSize: '13px', color: 'rgba(255,255,255,0.75)', lineHeight: 1.5,
+                }}
+              >
+                {dateNotice}
+              </div>
+            )}
+
+            {/* ── SOLD-OUT PANEL (Phase 3B) ── */}
+            {selectedSoldOut && !selectedDateISO && (
+              <SoldOutPanel
+                night={selectedSoldOut}
+                events={events}
+                initialPartySize={quantity}
+                waitlistEnabled={waitlistEnabled}
+                updatesOptIn={updatesOptIn}
+                formatDateLabel={formatDateLabel}
+                formatPrice={formatPrice}
+                onChooseNight={(eventId, eventDate, partySize) => {
+                  const [ny, nm] = eventDate.split('-').map(Number)
+                  setSelectedSoldOutId(null)
+                  setViewYear(ny)
+                  setViewMonth(nm - 1)
+                  setSelectedDateISO(eventDate)
+                  setSelectedEventId(eventId)
+                  setQuantity(partySize)
+                }}
+              />
+            )}
 
             {/* ── EVENT PANEL ── */}
             {selectedDateISO && eventsOnSelected.length > 0 && (
@@ -896,7 +1024,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
             )}
 
             {/* No upcoming events at all */}
-            {!selectedDateISO && events.length === 0 && (
+            {!selectedDateISO && !selectedSoldOut && events.length === 0 && (
               <div
                 style={{
                   background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.08)',
@@ -915,7 +1043,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
             )}
 
             {/* Date not yet chosen (events exist) */}
-            {!selectedDateISO && events.length > 0 && (
+            {!selectedDateISO && !selectedSoldOut && events.length > 0 && (
               <div
                 style={{
                   background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.08)',

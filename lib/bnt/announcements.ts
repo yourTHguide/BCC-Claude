@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { escapeHTML } from '@/lib/bnt/leads'
 import { BEST_ORIGIN, WAITLIST_PRODUCTS, oneClickUnsubscribeUrl, unsubscribeUrl, type WaitlistProduct } from '@/lib/bnt/waitlist'
 import { bangkokToday } from '@/lib/dates'
+import { classifyInstance, seatKey, seatsTaken } from '@/lib/bookingAvailability'
 
 // Waitlist announcements (Phase 3 finalization, Nov 2026).
 //
@@ -31,28 +32,54 @@ export interface AnnouncementRecord {
   status: 'draft' | 'sending' | 'sent' | 'cancelled'
 }
 
-// Open, future dates for a waitlist product, straight from the database.
+// Genuinely bookable, future dates for a waitlist product, straight from the
+// database. Phase 3B: "open" now means exactly what checkout accepts on the
+// BEST storefront — product active AND visible on bestnightlifethailand.com,
+// date open, not cancelled, not past its cutoff, priced, and not full. So New
+// in Bangkok stays paused (nothing can be announced) until it has real,
+// published, bookable dates; a Draft product or a full date never qualifies.
 export async function loadOpenDates(supabase: SupabaseClient, productSlug: string): Promise<AnnouncementDate[]> {
   const { data: product } = await supabase
     .from('products')
-    .select('id, default_price, default_start_time, status')
+    .select('id, slug, default_price, default_start_time, status, visible_bnt')
     .eq('slug', productSlug)
     .maybeSingle()
   if (!product) return []
   const { data } = await supabase
     .from('event_dates')
-    .select('id, event_date, is_open, price_override, start_time_override')
+    .select('id, event_date, night_slug, is_open, price_override, start_time_override, capacity, operation_verdict')
     .eq('product_id', product.id)
     .eq('is_open', true)
     .gte('event_date', bangkokToday())
     .order('event_date', { ascending: true })
     .limit(30)
-  return (data || []).map((e: any) => ({
-    id: e.id,
-    date: e.event_date,
-    startTime: e.start_time_override || product.default_start_time ? String(e.start_time_override || product.default_start_time).slice(0, 5) : null,
-    priceThb: e.price_override ?? product.default_price ?? null,
-  }))
+  const rows = (data || []) as any[]
+  const capped = rows.filter((r) => r.capacity != null)
+  const taken = capped.length ? await seatsTaken(supabase, capped) : new Map<string, number>()
+  return rows.flatMap((e) => {
+    const startTime = e.start_time_override || product.default_start_time || null
+    const price = e.price_override ?? product.default_price ?? null
+    const { state, remaining } = classifyInstance({
+      eventDate: e.event_date,
+      isOpen: e.is_open,
+      operationVerdict: e.operation_verdict,
+      capacity: e.capacity,
+      taken: taken.get(seatKey(e)) ?? 0,
+      productSlug: product.slug,
+      productStatus: product.status,
+      visible: product.visible_bnt,
+      startTime,
+      price,
+    })
+    if (state !== 'bookable') return []
+    return [{
+      id: e.id,
+      date: e.event_date,
+      startTime: startTime ? String(startTime).slice(0, 5) : null,
+      priceThb: price,
+      remaining,
+    }]
+  })
 }
 
 export function longDate(iso: string): string {
