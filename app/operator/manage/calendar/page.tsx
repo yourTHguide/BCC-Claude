@@ -30,8 +30,9 @@ export default async function OperatorCalendarPage({
       <Link href="/operator/manage" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: T.textMuted, textDecoration: 'none', marginBottom: '10px' }}>
         <ChevronLeft size={14} /> Manage
       </Link>
-      <p style={eyebrow(T.textFaint)}>Calendar / Instances</p>
-      <h1 style={{ fontSize: '20px', fontWeight: 700, margin: '4px 0 16px' }}>Schedule</h1>
+      <p style={eyebrow(T.textFaint)}>Calendar</p>
+      <h1 style={{ fontSize: '20px', fontWeight: 700, margin: '4px 0 4px' }}>Schedule</h1>
+      <p style={{ fontSize: '13px', color: T.textMuted, margin: '0 0 16px' }}>Tap a date, then an event, to manage everything for that night.</p>
 
       <CalendarClient year={year} month={month} today={bangkokToday()} instances={instances} missingHostIds={missingHostIds} />
     </div>

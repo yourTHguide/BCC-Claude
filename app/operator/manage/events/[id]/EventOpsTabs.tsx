@@ -8,6 +8,7 @@ import { operatorTheme as T } from '@/lib/operator/theme'
 const TABS = [
   { seg: '', label: 'Overview' },
   { seg: '/guests', label: 'Guests' },
+  { seg: '/settings', label: 'Settings' },
   { seg: '/expenses', label: 'Expenses' },
   { seg: '/brief', label: 'Brief' },
   { seg: '/closeout', label: 'Closeout' },

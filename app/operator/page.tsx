@@ -78,8 +78,8 @@ export default async function OperatorHomePage() {
       key: 'events-overflow',
       icon: <CalendarDays size={17} color={T.statusAmber} />,
       title: `+${overflowCount} more event${overflowCount === 1 ? '' : 's'} today`,
-      detail: 'See the full list in Records',
-      href: '/operator/records/events',
+      detail: 'See them in Calendar',
+      href: '/operator/manage/calendar',
     })
   } else {
     agenda.push(...todaysEvents.map(eventRow))

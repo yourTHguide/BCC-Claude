@@ -126,7 +126,7 @@ export default function CalendarClient({
         return (
           <Link
             key={inst.id}
-            href={`/operator/manage/calendar/${inst.id}`}
+            href={`/operator/manage/events/${inst.id}`}
             style={{
               display: 'flex', alignItems: 'center', gap: '12px', padding: '13px 14px', marginBottom: '8px',
               background: T.bgElevated, border: `1px solid ${T.border}`, borderRadius: T.radiusSm, textDecoration: 'none', color: T.text,

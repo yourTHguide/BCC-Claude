@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import EventOpsTabs from './EventOpsTabs'
 
 export const dynamic = 'force-dynamic'
@@ -16,6 +17,7 @@ export default function EventOpsLayout({
 }) {
   return (
     <div style={{ paddingTop: '14px' }}>
+      <Link href="/operator/manage/calendar" style={{ display: 'inline-block', padding: '0 18px', marginBottom: '10px', fontSize: '12px', color: 'var(--op-muted)', textDecoration: 'none' }}>‹ Calendar</Link>
       <EventOpsTabs id={params.id} />
       {children}
     </div>
