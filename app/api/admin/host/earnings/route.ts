@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
 import { BCC_PRODUCT_SLUG } from '@/lib/bookingAvailability'
-import { addDaysISO, bangkokNightDate } from '@/lib/dates'
+import { addDaysISO, bangkokToday } from '@/lib/dates'
 import { PAYOUT_LABEL, payoutState } from '@/lib/hostPayout'
 
 export const dynamic = 'force-dynamic'
@@ -18,7 +18,7 @@ export async function GET() {
   const name = auth.admin.displayName
   if (!name) return NextResponse.json({ nights: [], totals: { fee: 0, expenses: 0 } })
   const db = getServiceSupabase()
-  const today = bangkokNightDate()
+  const today = bangkokToday()
   const { data: product } = await db.from('products').select('id').eq('slug', BCC_PRODUCT_SLUG).maybeSingle()
   if (!product) return NextResponse.json({ nights: [], totals: { fee: 0, expenses: 0 } })
   const { data: nights, error } = await db.from('event_dates')
