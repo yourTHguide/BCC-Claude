@@ -11,7 +11,7 @@ import { isOtaNight, otaNightName } from '@/lib/ota-import/nights'
 
 const PAGE_SIZE = 50
 const MAX_PAGES = 40
-const LOOKBACK_DAYS = 14     // recent nights, so moved or late-entered guests can still be imported
+const LOOKBACK_DAYS = 45     // covers the whole of last month, so past nights can be checked and caught up
 const LOOKAHEAD_DAYS = 365
 
 const addDays = (d: string, n: number) => new Date(Date.parse(d + 'T00:00:00Z') + n * 864e5).toISOString().slice(0, 10)

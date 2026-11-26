@@ -322,3 +322,16 @@ test('Move: to any date within 60 days (night created OFF if missing); moving ba
   row.booking_status = 'refunded'
   assert.equal((await press({ action: 'move', otaId: row.id, targetDate: FUTURE_SAT })).status, 409, 'refunded bookings are not moved from here')
 })
+
+test('period tabs: Monday–Sunday weeks and calendar months around today', async () => {
+  const { periods } = await import('../lib/bokun/periods.ts')
+  const p = Object.fromEntries(periods('2026-11-26').map((x) => [x.key, [x.from, x.to]]))  // a Thursday
+  assert.deepEqual(p['last-month'], ['2026-10-01', '2026-10-31'])
+  assert.deepEqual(p['last-week'], ['2026-11-16', '2026-11-22'])
+  assert.deepEqual(p['this-week'], ['2026-11-23', '2026-11-29'])
+  assert.deepEqual(p['next-week'], ['2026-11-30', '2026-12-06'])
+  assert.deepEqual(p['this-month'], ['2026-11-01', '2026-11-30'])
+  assert.deepEqual(p['next-month'], ['2026-12-01', '2026-12-31'])
+  assert.equal(p['later'][0], '2027-01-01')
+  assert.deepEqual(Object.fromEntries(periods('2026-11-30').map((x) => [x.key, x.from]))['this-week'], '2026-11-30', 'a Monday starts its own week')
+})

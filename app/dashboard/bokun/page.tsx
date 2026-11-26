@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import DatePicker, { type CalNight } from './DatePicker'
+import { periods } from '@/lib/bokun/periods'
 
 // Bókun review screen (owner/admin, Nov 2026 test period). Reads Bókun when
 // opened, then shows each night: Bókun's OTA guests next to the dashboard.
@@ -51,6 +52,20 @@ function NightCard({ p, threshold, calendar, onDone }: { p: any; threshold: numb
   const otaNow = p.otaGuestsAfter - p.toAdd
   const ready = p.night && !p.night.isOpen && p.open.reason !== 'Started or past' && p.open.reason !== 'Night cancelled' && otaNow >= threshold
   const matches = p.newBookings.length === 0 && !p.issues.some((i: any) => ATTENTION.has(i.kind))
+  const [open, setOpen] = useState(false)
+
+  // Nights that match Bókun and need nothing stay as one line; tap to see or move guests.
+  if (matches && !ready && !open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-4 py-2.5 text-left text-sm">
+        <span>
+          <span className="text-emerald-300">✓</span> <b>{pretty(p.date)}</b> · {p.night?.name ?? 'Club Crawl'}{' '}
+          <span className="text-white/50">· {p.night?.isOpen ? 'ON' : 'OFF'} · {p.dashboard.guests} OTA + {p.direct} website</span>
+        </span>
+        <span className="text-xs text-white/50">matches Bókun ›</span>
+      </button>
+    )
+  }
 
   return (
     <div className={`rounded-xl border p-4 ${ready ? 'border-emerald-400/60 bg-emerald-400/5' : 'border-white/10 bg-white/[0.03]'}`}>
@@ -59,7 +74,7 @@ function NightCard({ p, threshold, calendar, onDone }: { p: any; threshold: numb
           {pretty(p.date)} · {p.night ? p.night.name : p.createNight ? p.createNight.name : 'Club Crawl'}{' '}
           {p.night ? <span className={p.night.isOpen ? 'text-emerald-300' : 'text-white/50'}>· {p.night.isOpen ? 'ON' : 'OFF'}</span> : <span className="text-white/50">· no night on the calendar</span>}
         </h3>
-        {matches && <span className="text-xs text-emerald-300">✓ matches Bókun</span>}
+        {matches && <button type="button" onClick={() => setOpen(false)} className="text-xs text-emerald-300">✓ matches Bókun · close</button>}
       </div>
       <p className="mt-1 text-sm text-white/70">
         Bókun: <b className="text-white">{p.bokun.guests}</b> guest{p.bokun.guests === 1 ? '' : 's'} · Dashboard: <b className="text-white">{p.dashboard.guests}</b> OTA + <b className="text-white">{p.direct}</b> website
@@ -166,7 +181,7 @@ export default function BokunPage() {
   const [syncing, setSyncing] = useState(false)
   const [note, setNote] = useState('')
   const [onlyAction, setOnlyAction] = useState(true)
-  const [showPast, setShowPast] = useState(false)
+  const [period, setPeriod] = useState('this-week')
 
   const load = useCallback(async () => {
     const res = await fetch('/api/admin/bokun/sync', { cache: 'no-store' }).catch(() => null)
@@ -194,9 +209,12 @@ export default function BokunPage() {
   const plan: any[] = data?.plan ?? []
   const needsAction = (p: any) =>
     p.newBookings.length > 0 || p.issues.some((i: any) => ATTENTION.has(i.kind)) ||
-    (p.night && !p.night.isOpen && p.date >= today && p.otaGuestsAfter - p.toAdd >= threshold)
-  const visible = plan.filter((p) => (showPast || p.date >= today) && (!onlyAction || needsAction(p)))
-  const actionCount = plan.filter((p) => p.date >= today && needsAction(p)).length
+    (p.night && !p.night.isOpen && p.date >= today && p.otaGuestsAfter - p.toAdd >= threshold && p.open.reason !== 'Started or past' && p.open.reason !== 'Night cancelled')
+  const tabs = periods(today)
+  const tab = tabs.find((t) => t.key === period) ?? tabs[2]
+  const inTab = (t: { from: string; to: string }) => plan.filter((p) => p.date >= t.from && p.date <= t.to)
+  const visible = inTab(tab).filter((p) => !onlyAction || needsAction(p))
+  const tabActions = inTab(tab).filter(needsAction).length
   const last = data?.runs?.[0]
 
   return (
@@ -224,13 +242,24 @@ export default function BokunPage() {
 
         {data && (
           <>
-            <div className="mt-5 flex flex-wrap gap-4 text-sm text-white/70">
-              <label className="flex items-center gap-2"><input type="checkbox" checked={onlyAction} onChange={(e) => setOnlyAction(e.target.checked)} /> Only nights needing action ({actionCount})</label>
-              <label className="flex items-center gap-2"><input type="checkbox" checked={showPast} onChange={(e) => setShowPast(e.target.checked)} /> Include past nights</label>
+            <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
+              {tabs.map((t) => {
+                const n = inTab(t).filter(needsAction).length
+                return (
+                  <button key={t.key} onClick={() => setPeriod(t.key)}
+                    className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold ${t.key === tab.key ? 'bg-accent-primary text-white' : 'bg-white/10 text-white/70'}`}>
+                    {t.label}{n > 0 && <span className={`ml-1.5 rounded-full px-1.5 ${t.key === tab.key ? 'bg-white/25' : 'bg-amber-400/80 text-black'}`}>{n}</span>}
+                  </button>
+                )
+              })}
+            </div>
+            <div className="mt-3 inline-flex rounded-lg border border-white/15 p-0.5 text-xs">
+              <button onClick={() => setOnlyAction(true)} className={`rounded-md px-3 py-1.5 ${onlyAction ? 'bg-white/15 font-semibold' : 'text-white/60'}`}>Needs action ({tabActions})</button>
+              <button onClick={() => setOnlyAction(false)} className={`rounded-md px-3 py-1.5 ${!onlyAction ? 'bg-white/15 font-semibold' : 'text-white/60'}`}>All nights ({inTab(tab).length})</button>
             </div>
             <div className="mt-3 space-y-3">
               {visible.map((p) => <NightCard key={p.date} p={p} threshold={threshold} calendar={data.calendar ?? []} onDone={(msg) => { setNote(msg); load() }} />)}
-              {visible.length === 0 && <p className="text-sm text-white/50">{onlyAction ? 'All nights match Bókun. Nothing to do.' : 'No OTA bookings in Bókun.'}</p>}
+              {visible.length === 0 && <p className="text-sm text-white/50">{onlyAction && inTab(tab).length ? `Nothing to do ${tab.label.toLowerCase()} — every night matches Bókun. See them under “All nights”.` : `No OTA bookings in Bókun ${tab.label.toLowerCase()}.`}</p>}
             </div>
           </>
         )}
