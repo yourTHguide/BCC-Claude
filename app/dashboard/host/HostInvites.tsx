@@ -1,21 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 // Phase 3C on the host view: "+ Create booking" makes a personal invite link
-// for one guest; "My invites & commission" lists the host's own links and
-// what they earn (฿ per paid ticket, earned once the night has happened).
-// Hosts never see ticket prices or revenue here.
+// for one guest. The host's invites and commission are listed under
+// "My earnings" (HostEarnings.tsx). Hosts never see ticket prices or revenue.
 
-const STATE: Record<string, [string, string]> = {
-  waiting: ['Waiting for the guest to book', 'rgba(255,255,255,0.55)'],
-  upcoming: ['Booked — earns after the night', '#93C5FD'],
-  earned: ['Earned — to be paid', '#FCD34D'],
-  paid: ['Paid', '#6EE7B7'],
-  expired: ['Link expired', 'rgba(255,255,255,0.40)'],
-  cancelled: ['Cancelled', 'rgba(255,255,255,0.40)'],
-  no_commission: ['No commission (refunded or not via link)', 'rgba(255,255,255,0.40)'],
-}
 
 const field = {
   width: '100%', height: '42px', borderRadius: '8px', padding: '0 12px', boxSizing: 'border-box' as const,
@@ -29,8 +19,7 @@ function pretty(date: string | null) {
   return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
 }
 
-export default function HostInvites() {
-  const [data, setData] = useState<any>(null)
+export default function HostInvites({ commissionPerTicket, onCreated }: { commissionPerTicket?: number; onCreated?: () => void }) {
   const [nights, setNights] = useState<any[]>([])
   const [nightsLoaded, setNightsLoaded] = useState(false)
   const [open, setOpen] = useState(false)
@@ -40,11 +29,6 @@ export default function HostInvites() {
   const [link, setLink] = useState('')
   const [copied, setCopied] = useState(false)
 
-  const load = useCallback(async () => {
-    const res = await fetch('/api/admin/host/invites', { cache: 'no-store' }).catch(() => null)
-    if (res?.ok) setData(await res.json())
-  }, [])
-  useEffect(() => { load() }, [load])
   useEffect(() => {
     if (!open || nightsLoaded) return
     fetch('/api/events?storefront=bcc').then((r) => r.json())
@@ -60,18 +44,11 @@ export default function HostInvites() {
     setBusy(false)
     if (!res?.ok) return setError(json.error || 'Could not create the link.')
     setLink(json.link)
-    load()
-  }
-
-  async function cancel(id: string) {
-    if (!confirm('Cancel this link? The guest won’t be able to use it.')) return
-    await fetch('/api/admin/host/invites', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, action: 'cancel' }) }).catch(() => null)
-    load()
+    onCreated?.()
   }
 
   const night = nights.find((n) => n.eventId === form.eventId)
   const message = link ? `Hi ${form.guestName.split(' ')[0]}! Here's your link to join me at ${night?.nightName ?? 'Bangkok Club Crawl'} on ${pretty(night?.eventDate ?? null)} 🎉 ${link}` : ''
-  const t = data?.totals
 
   return (
     <div style={{ margin: '16px 0 8px' }}>
@@ -88,7 +65,7 @@ export default function HostInvites() {
           {!link ? (
             <>
               <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)', margin: '6px 0 0' }}>
-                Makes a personal booking link for one guest. They choose how many tickets and pay on the website. You earn ฿{data?.commissionPerTicket ?? 150} per paid ticket after the night. The link works for 7 days.
+                Makes a personal booking link for one guest. They choose how many tickets and pay on the website. You earn ฿{commissionPerTicket ?? 150} per paid ticket after the night. The link works for 7 days.
               </p>
               <span style={label}>Night</span>
               <select value={form.eventId} onChange={(e) => setForm({ ...form, eventId: e.target.value })} style={field} disabled={busy || (nightsLoaded && !nights.length)}>
@@ -135,37 +112,6 @@ export default function HostInvites() {
         </div>
       )}
 
-      {data && (
-        <div style={{ marginTop: '18px' }}>
-          <p style={{ fontWeight: 600, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.40)', margin: '0 0 8px' }}>My invites & commission</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '10px' }}>
-            {[['Upcoming', t?.upcoming], ['To be paid', t?.earned], ['Paid', t?.paid]].map(([l, v]) => (
-              <div key={l as string} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '10px' }}>
-                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>{l}</div>
-                <div style={{ fontSize: '18px', fontWeight: 700 }}>฿{(v as number ?? 0).toLocaleString()}</div>
-              </div>
-            ))}
-          </div>
-          {data.invites.length === 0 && <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.45)' }}>No invites yet. Tap “+ Create booking” to invite your first guest.</p>}
-          {data.invites.slice(0, 50).map((v: any) => (
-            <div key={v.id} style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '10px 0', fontSize: '13px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
-                <span><b>{v.guestName}</b> · {pretty(v.eventDate)}{v.tickets ? ` · ${v.tickets} ticket${v.tickets === 1 ? '' : 's'}` : ''}</span>
-                {v.amount > 0 && <b>฿{v.amount.toLocaleString()}</b>}
-              </div>
-              <div style={{ color: STATE[v.state]?.[1], marginTop: '2px' }}>
-                {STATE[v.state]?.[0] ?? v.state}
-                {v.state === 'waiting' && (
-                  <>
-                    {' · '}<button onClick={() => navigator.clipboard?.writeText(v.link)} style={{ background: 'none', border: 'none', color: '#fff', textDecoration: 'underline', cursor: 'pointer', padding: 0, fontSize: '13px' }}>copy link</button>
-                    {' · '}<button onClick={() => cancel(v.id)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', textDecoration: 'underline', cursor: 'pointer', padding: 0, fontSize: '13px' }}>cancel</button>
-                  </>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   )
 }

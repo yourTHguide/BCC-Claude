@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import HostInvites from './HostInvites'
+import { MyEarnings, ReportsDue, useHostMoney } from './HostEarnings'
 
 interface HostEvent {
   id: string
@@ -48,6 +49,7 @@ export default function HostEventsPage() {
       .catch(() => setError('Failed to load your events'))
   }, [mine])
 
+  const money = useHostMoney()
   const isManager = viewer && viewer.role !== 'staff'
   const tonight = events?.filter((e) => e.eventDate === viewer?.today) ?? []
   const later = events?.filter((e) => e.eventDate !== viewer?.today) ?? []
@@ -88,7 +90,7 @@ export default function HostEventsPage() {
           {viewer?.displayName ? `Hi ${viewer.displayName} — your nights` : 'Your Events'}
         </h1>
         <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.50)', marginBottom: '16px' }}>
-          Open a night for the guest list, check-in, route and WhatsApp group.
+          Tap one of your nights below to open its <b>Brief</b>, <b>Guests</b>, <b>Expenses</b> and <b>Report</b>.
         </p>
 
         {isManager && (
@@ -110,6 +112,8 @@ export default function HostEventsPage() {
           </div>
         )}
 
+        <ReportsDue earnings={money.earnings} />
+
         <Link
           href="/dashboard/checkin"
           style={{
@@ -120,13 +124,12 @@ export default function HostEventsPage() {
           Scan Ticket
         </Link>
 
-        <HostInvites />
 
         {error && <p style={{ color: '#EA003A', fontSize: '13px' }}>{error}</p>}
         {events === null && !error && <p style={{ color: 'rgba(255,255,255,0.50)', fontSize: '13px', marginTop: '16px' }}>Loading…</p>}
         {events?.length === 0 && (
           <p style={{ color: 'rgba(255,255,255,0.40)', fontSize: '13px', marginTop: '16px' }}>
-            {mine && isManager ? 'You are not assigned as host on any upcoming night.' : 'No events assigned to you yet.'}
+            {mine && isManager ? `You are not assigned as host on any upcoming night. Assign "${viewer?.displayName ?? 'yourself'}" as host on a night in the Calendar to see it here.` : 'No events assigned to you yet.'}
           </p>
         )}
 
@@ -134,6 +137,11 @@ export default function HostEventsPage() {
         {tonight.map((e) => <EventCard key={e.id} e={e} highlight />)}
         {later.length > 0 && <p style={S.section}>Coming up</p>}
         {later.map((e) => <EventCard key={e.id} e={e} />)}
+
+        <div style={{ marginTop: '18px' }}>
+          <HostInvites commissionPerTicket={money.invites?.commissionPerTicket} onCreated={money.reload} />
+        </div>
+        <MyEarnings earnings={money.earnings} invites={money.invites} reload={money.reload} />
       </div>
     </div>
   )
