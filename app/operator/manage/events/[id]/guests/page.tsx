@@ -4,6 +4,7 @@ import { loadDoorGuests } from '@/lib/doorList'
 import { getServiceSupabase } from '@/lib/supabase'
 import { operatorTheme as T } from '@/lib/operator/theme'
 import DoorList, { type DoorListTheme } from '@/components/doorlist/DoorList'
+import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,7 +26,15 @@ export default async function EventGuestsPage({ params }: { params: { id: string
 
   return (
     <div style={{ padding: '10px 18px 8px' }}>
-      <h1 style={{ fontSize: '17px', fontWeight: 700, margin: '4px 0 14px' }}>Door List</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '10px', margin: '4px 0 14px' }}>
+        <h1 style={{ fontSize: '17px', fontWeight: 700, margin: 0 }}>Door List</h1>
+        <Link
+          href={`/operator/manage/bookings?period=custom&from=${instance.eventDate}&to=${instance.eventDate}&event=${instance.id}&status=all`}
+          style={{ fontSize: '12.5px', color: T.accentText, textDecoration: 'none', whiteSpace: 'nowrap' }}
+        >
+          Reschedule / refund ›
+        </Link>
+      </div>
       {error ? (
         <p style={{ fontSize: '13px', color: T.statusRed }}>Failed to load guests.</p>
       ) : (

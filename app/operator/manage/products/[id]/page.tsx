@@ -133,7 +133,7 @@ export default async function ProductOverviewPage({ params }: { params: { id: st
       {upcoming.map((inst) => (
         <Link
           key={inst.id}
-          href={`/operator/manage/calendar/${inst.id}`}
+          href={`/operator/manage/events/${inst.id}`}
           style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', marginBottom: '8px', background: T.bgElevated, border: `1px solid ${T.border}`, borderRadius: T.radiusSm, textDecoration: 'none', color: T.text }}
         >
           <CalendarDays size={16} color={T.textMuted} />
@@ -148,7 +148,7 @@ export default async function ProductOverviewPage({ params }: { params: { id: st
       ))}
       {instances.length > upcoming.length && (
         <p style={{ fontSize: '11.5px', color: T.textFaint, marginTop: '2px' }}>
-          {instances.length - upcoming.length} more on Calendar / Instances.
+          {instances.length - upcoming.length} more on Calendar.
         </p>
       )}
     </div>

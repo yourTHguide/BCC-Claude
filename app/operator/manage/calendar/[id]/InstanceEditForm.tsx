@@ -19,6 +19,7 @@ export default function InstanceEditForm({
   defaultPrice,
   startTime24,
   hostAssigned,
+  scheduleOnly = false,
 }: {
   id: string
   isOpen: boolean
@@ -27,6 +28,8 @@ export default function InstanceEditForm({
   defaultPrice: number | null
   startTime24: string | null
   hostAssigned: string | null
+  // Event page → Settings tab: sales and host already live on Overview.
+  scheduleOnly?: boolean
 }) {
   const router = useRouter()
   const [cap, setCap] = useState(capacity != null ? String(capacity) : '')
@@ -71,7 +74,7 @@ export default function InstanceEditForm({
 
   return (
     <div style={{ display: 'grid', gap: '10px', marginBottom: '18px', opacity: saving ? 0.6 : 1 }}>
-      <div>
+      {!scheduleOnly && <div>
         <p style={{ ...eyebrow(T.textFaint), marginBottom: '5px' }}>Sales</p>
         <button
           type="button"
@@ -81,7 +84,7 @@ export default function InstanceEditForm({
         >
           {isOpen ? 'Open — tap to close sales' : 'Closed — tap to open sales'}
         </button>
-      </div>
+      </div>}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
         <div>
@@ -116,13 +119,13 @@ export default function InstanceEditForm({
         />
       </div>
 
-      <div>
+      {!scheduleOnly && <div>
         <p style={{ ...eyebrow(T.textFaint), marginBottom: '5px' }}>Host</p>
         <select value={host} disabled={saving} onChange={(e) => patchHost(e.target.value)} style={fieldStyle}>
           <option value="">Unassigned</option>
           {HOSTS.map((h) => <option key={h} value={h}>{h}</option>)}
         </select>
-      </div>
+      </div>}
     </div>
   )
 }
