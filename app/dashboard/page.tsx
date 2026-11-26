@@ -1030,6 +1030,7 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
 // ── Main Dashboard ──────────────────────────────────────────
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<'calendar'|'bookings'|'operations'>('calendar')
+  const [menuOpen, setMenuOpen] = useState(false)
 
   // The /dashboard layout redirects hosts ('staff') on a full page load,
   // but an in-app link (e.g. "Back" on the scanner) navigates client-side
@@ -1229,8 +1230,29 @@ export default function Dashboard() {
           always wins over a class for the same property — keeping them
           inline would silently defeat the sm: breakpoint overrides. */}
       <div className="flex flex-col gap-3 py-3 px-4 sm:h-14 sm:flex-row sm:items-center sm:justify-between sm:gap-0 sm:py-0 sm:px-6" style={{ background:'rgba(26,0,21,0.98)', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
-        <p style={S.eyebrow}>BCC DASHBOARD</p>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center justify-between sm:block">
+          <p style={S.eyebrow}>BCC DASHBOARD</p>
+          {/* Mobile: one ☰ menu instead of a long row of buttons (Nov 2026). */}
+          <button type="button" className="sm:hidden" aria-label="Menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(o => !o)}
+            style={{ ...S.btn, ...S.btnGhost, padding:'0 12px', fontSize:'18px', lineHeight:1 }}>
+            {menuOpen ? '✕' : '☰'}
+          </button>
+        </div>
+        {menuOpen && (
+          <div className="sm:hidden" style={{ display:'grid', gap:'4px', padding:'8px', borderRadius:'10px', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)' }}>
+            {(['calendar','bookings','operations'] as const).map(tab => (
+              <button key={tab} onClick={() => { setActiveTab(tab); setMenuOpen(false) }} style={{
+                ...S.btn, ...(activeTab===tab ? S.btnRed : S.btnGhost), justifyContent:'flex-start', width:'100%', textAlign:'left',
+              }}>
+                {tab === 'calendar' ? '📅 Calendar' : tab === 'bookings' ? '📋 Bookings' : '📊 Operations'}
+              </button>
+            ))}
+            {([['/dashboard/bokun','🔄 Bókun'],['/dashboard/leads','📨 Leads'],['/dashboard/products','🧩 Products'],['/dashboard/host','🎤 Host view'],['/dashboard/team','👥 Team']] as const).map(([href,label]) => (
+              <Link key={href} href={href} style={{ ...S.btn, ...S.btnGhost, display:'flex', alignItems:'center', textDecoration:'none', width:'100%' }}>{label}</Link>
+            ))}
+          </div>
+        )}
+        <div className="hidden sm:flex flex-wrap items-center gap-2">
           {(['calendar','bookings','operations'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)} style={{
               ...S.btn,
@@ -1251,6 +1273,9 @@ export default function Dashboard() {
           </Link>
           <Link href="/dashboard/leads" style={{ ...S.btn, ...S.btnGhost, display:'inline-flex', alignItems:'center', textDecoration:'none' }}>
             📨 Leads
+          </Link>
+          <Link href="/dashboard/bokun" style={{ ...S.btn, ...S.btnGhost, display:'inline-flex', alignItems:'center', textDecoration:'none' }}>
+            🔄 Bókun
           </Link>
         </div>
         <div className="flex items-center justify-center gap-3">
@@ -1417,12 +1442,13 @@ export default function Dashboard() {
               pills, not the new mobile dots) since the desktop legend
               doesn't need to change beyond spacing. Color meaning unchanged. */}
           <div className="flex flex-wrap gap-2 mt-4 p-3 sm:gap-3 sm:mt-6 sm:p-4" style={{ background:'rgba(255,255,255,0.02)', borderRadius:'10px', border:'1px solid rgba(255,255,255,0.05)' }}>
-            {Object.entries(nightColors).slice(0,6).map(([slug,color]) => {
-              const name = events.find(e=>e.night_slug===slug)?.night_name || slug
+            {/* Current night types only (Nov 2026); older themes keep their colour on past dates. */}
+            {([['tgif','TGIF'],['saturday-signature','Signature Night'],['club-crawl','BKK Club Crawl']] as const).map(([slug,name]) => {
+              const color = nightColors[slug]
               return (
                 <div key={slug} style={{ display:'flex', alignItems:'center', gap:'6px' }}>
                   <div style={{ width:'10px', height:'10px', borderRadius:'3px', background:color, flexShrink:0 }} />
-                  <span style={{ fontSize:'11px', color:'rgba(255,255,255,0.40)' }}>{name.split(' ').slice(0,2).join(' ')}</span>
+                  <span style={{ fontSize:'11px', color:'rgba(255,255,255,0.40)' }}>{name}</span>
                 </div>
               )
             })}
