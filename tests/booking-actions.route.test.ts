@@ -56,7 +56,8 @@ test('reschedule moves the booking, records the original date, and emails the ow
   assert.equal(m.reply_to, 'bestnightlifethailand@gmail.com')
   assert.match(m.html, /We need a better mix of guests\./)
   assert.match(m.html, /See you in January!/)
-  assert.match(m.html, /BEST NIGHTLIFE THAILAND/)
+  assert.match(m.html, /Single <span[^>]*>Meet Club<\/span>/, 'SMC bookings get the SMC look')
+  assert.match(m.html, /#F0444B/)
 })
 
 test('reschedule with notify off sends nothing; message HTML is escaped', async () => {
@@ -162,4 +163,14 @@ test('preview renders without changing anything or sending', async () => {
   assert.match(r.json.html, /refunding <strong[^>]*>฿400/)
   assert.equal(mail().length, 0)
   assert.equal(db.tables.bookings[0].status, 'confirmed')
+})
+
+test('non-SMC bookings keep the BEST / BCC look', async () => {
+  const crawl = db.insertRow('event_dates', { event_date: '2027-12-03', night_slug: 'tgif', night_name: 'TGIF Bangkok', product_id: 'p-bcc', is_open: true, capacity: 20, notes: null })
+  const crawl2 = db.insertRow('event_dates', { event_date: '2027-12-10', night_slug: 'tgif', night_name: 'TGIF Bangkok', product_id: 'p-bcc', is_open: true, capacity: 20, notes: null })
+  const b = booking({ event_id: crawl.id, event_date: crawl.event_date, night_slug: 'tgif', night_name: 'TGIF Bangkok', product_id: 'p-bcc', storefront: 'bcc' })
+  const r = await call(reschedule.POST, 'http://x', { bookingId: b.id, newEventId: crawl2.id })
+  assert.equal(r.status, 200)
+  assert.match(mail()[0].html, /BANGKOK CLUB CRAWL/)
+  assert.doesNotMatch(mail()[0].html, /Meet Club<\/span>/)
 })

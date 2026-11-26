@@ -12,7 +12,7 @@ import { resendFromHeader, brandFor } from '@/lib/storefrontBrand'
 import type { Storefront } from '@/lib/storefront'
 import type { AdminRole } from '@/lib/admin-auth'
 import { bangkokToday } from '@/lib/dates'
-import { generateBookingUpdateEmail, bookingUpdateSubject, type RefundMode } from '@/emails/booking-update'
+import { generateBookingUpdateEmail, bookingUpdateSubject, themeForNight, type RefundMode } from '@/emails/booking-update'
 
 export const BOOKING_ACTION_ROLES: AdminRole[] = ['owner']
 
@@ -149,7 +149,7 @@ export async function rescheduleBooking(db: Db, input: RescheduleInput): Promise
   if (notify) {
     const html = generateBookingUpdateEmail({
       kind: 'reschedule', guestName: booking.guest_name, nightName: target.night_name, oldDate, newDate: target.event_date,
-      quantity: booking.quantity ?? 1, totalPaid: booking.total_paid ?? 0, message, storefront: storefrontOf(booking),
+      quantity: booking.quantity ?? 1, totalPaid: booking.total_paid ?? 0, message, storefront: storefrontOf(booking), theme: themeForNight(target.night_slug),
     })
     email = await mailGuest(booking, bookingUpdateSubject({ kind: 'reschedule', nightName: target.night_name }), html)
   }
@@ -227,7 +227,7 @@ export async function cancelBooking(db: Db, input: CancelInput): Promise<ActionR
     const html = generateBookingUpdateEmail({
       kind: 'cancel', guestName: booking.guest_name, nightName: booking.night_name, oldDate: booking.event_date,
       quantity: booking.quantity ?? 1, totalPaid: booking.total_paid ?? 0, refundMode: effective,
-      message: cleanMessage(input.message), storefront: storefrontOf(booking),
+      message: cleanMessage(input.message), storefront: storefrontOf(booking), theme: themeForNight(booking.night_slug),
     })
     email = await mailGuest(booking, bookingUpdateSubject({ kind: 'cancel', nightName: booking.night_name }), html)
   }
@@ -292,7 +292,7 @@ export async function moveEvent(db: Db, input: MoveEventInput): Promise<ActionRe
     if (!notify) continue
     const html = generateBookingUpdateEmail({
       kind: 'reschedule', guestName: b.guest_name, nightName: ev.night_name, oldDate, newDate,
-      quantity: b.quantity ?? 1, totalPaid: b.total_paid ?? 0, message, storefront: storefrontOf(b),
+      quantity: b.quantity ?? 1, totalPaid: b.total_paid ?? 0, message, storefront: storefrontOf(b), theme: themeForNight(ev.night_slug),
     })
     const sent = await mailGuest(b, bookingUpdateSubject({ kind: 'reschedule', nightName: ev.night_name }), html)
     if (sent === 'sent') result.emailed++
@@ -335,7 +335,7 @@ export async function previewEmail(db: Db, input: PreviewInput): Promise<ActionR
   const message = cleanMessage(input.message)
   if (input.action === 'move_event') {
     if (!input.eventId || !input.newDate || !ISO.test(input.newDate)) return fail(400, 'Missing eventId or newDate')
-    const { data: ev } = await db.from('event_dates').select('id, event_date, night_name').eq('id', input.eventId).maybeSingle()
+    const { data: ev } = await db.from('event_dates').select('id, event_date, night_name, night_slug').eq('id', input.eventId).maybeSingle()
     if (!ev) return fail(404, 'Event not found')
     const { data: guests } = await db.from('bookings').select('*').eq('event_id', ev.id).eq('status', 'confirmed').limit(1)
     const sample = guests?.[0] ?? { guest_name: 'Alex', quantity: 1, total_paid: 0, storefront: 'bnt' }
@@ -343,7 +343,7 @@ export async function previewEmail(db: Db, input: PreviewInput): Promise<ActionR
       subject: bookingUpdateSubject({ kind: 'reschedule', nightName: ev.night_name }),
       html: generateBookingUpdateEmail({
         kind: 'reschedule', guestName: sample.guest_name, nightName: ev.night_name, oldDate: ev.event_date, newDate: input.newDate,
-        quantity: sample.quantity ?? 1, totalPaid: sample.total_paid ?? 0, message, storefront: storefrontOf(sample),
+        quantity: sample.quantity ?? 1, totalPaid: sample.total_paid ?? 0, message, storefront: storefrontOf(sample), theme: themeForNight(ev.night_slug),
       }),
     })
   }
@@ -355,7 +355,7 @@ export async function previewEmail(db: Db, input: PreviewInput): Promise<ActionR
   if (input.action === 'reschedule') {
     let target: any = null
     if (input.newEventId) {
-      const { data } = await db.from('event_dates').select('id, event_date, night_name').eq('id', input.newEventId).maybeSingle()
+      const { data } = await db.from('event_dates').select('id, event_date, night_name, night_slug').eq('id', input.newEventId).maybeSingle()
       target = data
     }
     if (!target) return fail(400, 'Pick the new event first')
@@ -364,7 +364,7 @@ export async function previewEmail(db: Db, input: PreviewInput): Promise<ActionR
       subject: bookingUpdateSubject({ kind: 'reschedule', nightName: target.night_name }),
       html: generateBookingUpdateEmail({
         kind: 'reschedule', guestName: b.guest_name, nightName: target.night_name, oldDate: b.event_date, newDate: target.event_date,
-        quantity: b.quantity ?? 1, totalPaid: b.total_paid ?? 0, message, storefront: storefrontOf(b),
+        quantity: b.quantity ?? 1, totalPaid: b.total_paid ?? 0, message, storefront: storefrontOf(b), theme: themeForNight(target.night_slug),
       }),
     })
   }
@@ -375,7 +375,7 @@ export async function previewEmail(db: Db, input: PreviewInput): Promise<ActionR
     subject: bookingUpdateSubject({ kind: 'cancel', nightName: b.night_name }),
     html: generateBookingUpdateEmail({
       kind: 'cancel', guestName: b.guest_name, nightName: b.night_name, oldDate: b.event_date,
-      quantity: b.quantity ?? 1, totalPaid: b.total_paid ?? 0, refundMode, message, storefront: storefrontOf(b),
+      quantity: b.quantity ?? 1, totalPaid: b.total_paid ?? 0, refundMode, message, storefront: storefrontOf(b), theme: themeForNight(b.night_slug),
     }),
   })
 }
