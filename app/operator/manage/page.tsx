@@ -17,6 +17,7 @@ const IN_SHELL_OPERATIONS = [
   { href: '/operator/manage/products', label: 'Products / Experiences', detail: 'Catalog — content, media, pricing context', Icon: Package },
   { href: '/operator/manage/calendar', label: 'Calendar / Instances', detail: 'Month view, scheduling, capacity, pricing', Icon: CalendarDays },
   { href: '/operator/manage/events', label: 'Event Operations', detail: 'Overview, guests, expenses, brief, closeout', Icon: ClipboardCheck },
+  { href: '/operator/manage/bookings', label: 'Bookings', detail: 'Website + OTA by event — reschedule, cancel, refund', Icon: Ticket },
   { href: '/operator/manage/operations', label: 'Operations Sheet', detail: 'Filter by date/host: route, guests, expenses, earnings', Icon: BarChart3 },
   { href: '/operator/manage/checkin', label: 'Check-in', detail: 'QR scanner + confirmation', Icon: QrCode },
   { href: '/operator/manage/partners', label: 'Partners', detail: 'Directory, deals, proposal history', Icon: Handshake },
@@ -24,7 +25,6 @@ const IN_SHELL_OPERATIONS = [
 
 // Already built and in-shell — no link-out needed, these stay on /operator.
 const IN_SHELL_RECORDS = [
-  { href: '/operator/more/records/bookings', label: 'Bookings', detail: 'Website + OTA, read-only', Icon: Ticket },
   { href: '/operator/more/records/events', label: 'Events', detail: 'event_dates, read-only', Icon: CalendarDays },
 ]
 

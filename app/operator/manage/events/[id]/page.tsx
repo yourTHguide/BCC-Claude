@@ -3,6 +3,10 @@ import { CalendarDays, Users, CheckCircle2, MapPin, Wallet } from 'lucide-react'
 import { getEventInstance, getEventOpsData } from '@/lib/operator/eventOps'
 import { operatorTheme as T, eyebrow } from '@/lib/operator/theme'
 import OverviewControls from './OverviewControls'
+import MoveEventControl from './MoveEventControl'
+import { getAdminUser } from '@/lib/admin-auth'
+import { BOOKING_ACTION_ROLES } from '@/lib/bookingActions'
+import { bangkokToday } from '@/lib/dates'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,7 +20,8 @@ export default async function EventOverviewPage({ params }: { params: { id: stri
   const instance = await getEventInstance(params.id)
   if (!instance) notFound()
 
-  const ops = await getEventOpsData(instance.eventDate, instance.nightSlug)
+  const [ops, admin] = await Promise.all([getEventOpsData(instance.eventDate, instance.nightSlug), getAdminUser()])
+  const canMove = !!admin && BOOKING_ACTION_ROLES.includes(admin.role) && instance.eventDate >= bangkokToday()
   const checkedInPct = ops.totalGuests > 0 ? Math.round((ops.checkedInGuests / ops.totalGuests) * 100) : 0
 
   return (
@@ -28,6 +33,7 @@ export default async function EventOverviewPage({ params }: { params: { id: stri
       </p>
 
       <OverviewControls id={instance.id} isOpen={instance.isOpen} hostAssigned={instance.hostAssigned} operationVerdict={instance.operationVerdict} />
+      {canMove && <MoveEventControl id={instance.id} eventDate={instance.eventDate} nightName={instance.nightName} guests={ops.totalGuests} />}
 
       <p style={{ ...eyebrow(T.textFaint), marginBottom: '9px' }}>At a Glance</p>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '9px', marginBottom: '18px' }}>

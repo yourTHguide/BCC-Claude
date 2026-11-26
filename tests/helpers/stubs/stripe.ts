@@ -2,6 +2,14 @@
 // fake URL. No Stripe client is constructed and nothing leaves the process.
 // getPriceId / NIGHT_NAMES mirror lib/stripe.ts (legacy path only).
 export const stripe = {
+  refunds: {
+    create: async (params: any) => {
+      const s = (globalThis as any).__stripe
+      ;(s.refunds ??= []).push(params)
+      if (s.refundError) throw new Error(s.refundError)
+      return { id: `re_test_${s.refunds.length}` }
+    },
+  },
   checkout: {
     sessions: {
       create: async (params: any) => {

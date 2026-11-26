@@ -1,98 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { stripe } from '@/lib/stripe'
 import { getServiceSupabase } from '@/lib/supabase'
-import { sendEmail } from '@/lib/sendEmail'
-import { generateCancellationEmail } from '@/emails/cancellation'
-import type { Storefront } from '@/lib/storefront'
-import { resendFromHeader } from '@/lib/storefrontBrand'
 import { requireRole } from '@/lib/admin-auth'
+import { BOOKING_ACTION_ROLES, cancelBooking } from '@/lib/bookingActions'
 
-
+// Cancel one booking. Owner-only (BOOKING_ACTION_ROLES).
+// Body: { bookingId, refundMode?: 'stripe' | 'manual' | 'none', refundNote?, message?, notify? (default true) }
+// refundMode omitted = the original /dashboard behaviour (Stripe refund when
+// there is a payment on file). 'manual' on an already-cancelled booking just
+// marks it refunded.
 export async function POST(req: NextRequest) {
-  const auth = await requireRole(['owner', 'admin'])
+  const auth = await requireRole(BOOKING_ACTION_ROLES)
   if ('response' in auth) return auth.response
-
   try {
-    const { bookingId } = await req.json()
-
-    if (!bookingId) {
-      return NextResponse.json({ error: 'Missing bookingId' }, { status: 400 })
-    }
-
-    const supabase = getServiceSupabase()
-
-    const { data: booking, error: fetchError } = await supabase
-      .from('bookings')
-      .select('*')
-      .eq('id', bookingId)
-      .single()
-
-    if (fetchError || !booking) {
-      return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
-    }
-    if (booking.status !== 'confirmed') {
-      return NextResponse.json({ error: `Booking is already ${booking.status}` }, { status: 400 })
-    }
-
-    // ── Issue the Stripe refund first — if this fails, we don't want to mark
-    // the booking cancelled and email the guest a refund promise we can't keep ──
-    let refundId: string | null = null
-    if (booking.stripe_payment_id) {
-      try {
-        const refund = await stripe.refunds.create({
-          payment_intent: booking.stripe_payment_id,
-        })
-        refundId = refund.id
-      } catch (refundErr: any) {
-        console.error('Stripe refund error:', refundErr)
-        return NextResponse.json({ error: `Refund failed: ${refundErr.message}` }, { status: 500 })
-      }
-    } else {
-      console.warn(`Booking ${bookingId} has no stripe_payment_id — skipping refund, marking cancelled anyway`)
-    }
-
-    const { error: updateError } = await supabase
-      .from('bookings')
-      .update({
-        status: 'cancelled',
-        notes: `${booking.notes ? booking.notes + ' | ' : ''}Cancelled on ${new Date().toISOString()}${refundId ? ` — refunded via Stripe (${refundId})` : ' — no stripe_payment_id on file, refund not processed automatically'}`,
-      })
-      .eq('id', bookingId)
-
-    if (updateError) {
-      console.error('Cancel update error:', updateError)
-      return NextResponse.json({ error: 'Refund processed but failed to update booking status — please check Supabase manually' }, { status: 500 })
-    }
-
-    if (booking.guest_email) {
-      // Booking-persisted storefront (Stage 10 Phase 5 column, written by the
-      // webhook from Stripe metadata) — the same value the confirmation
-      // email itself was branded with, so a guest can never see a
-      // cancellation for a different brand than the one they booked.
-      const storefront: Storefront = booking.storefront === 'bnt' ? 'bnt' : 'bcc'
-      const emailHtml = generateCancellationEmail({
-        guestName: booking.guest_name,
-        nightName: booking.night_name,
-        eventDate: booking.event_date,
-        quantity: booking.quantity,
-        totalPaid: booking.total_paid,
-        storefront,
-      })
-
-      const { error: emailError } = await sendEmail({
-        from: resendFromHeader(storefront),
-        to: booking.guest_email,
-        subject: `Your booking has been cancelled — ${booking.night_name}`,
-        html: emailHtml,
-      })
-
-      if (emailError) {
-        console.error('Resend cancellation email error:', emailError)
-        // Refund + DB update already succeeded — don't fail the request over email delivery
-      }
-    }
-
-    return NextResponse.json({ success: true, refundId })
+    const body = await req.json()
+    const r = await cancelBooking(getServiceSupabase(), body)
+    return NextResponse.json(r.body, { status: r.status })
   } catch (err: any) {
     console.error('Cancel-booking route error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
