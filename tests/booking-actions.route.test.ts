@@ -174,3 +174,16 @@ test('non-SMC bookings keep the BEST / BCC look', async () => {
   assert.match(mail()[0].html, /BANGKOK CLUB CRAWL/)
   assert.doesNotMatch(mail()[0].html, /Meet Club<\/span>/)
 })
+
+test('only the owner can reschedule, cancel or move an event', async () => {
+  const b = booking()
+  ;(globalThis as any).__admin = { email: 'ice@example.test', userId: 'ice', role: 'admin', displayName: 'Ice' }
+  try {
+    assert.equal((await call(reschedule.POST, 'http://x', { bookingId: b.id, newEventId: jan.id })).status, 403)
+    assert.equal((await call(cancel.POST, 'http://x', { bookingId: b.id, refundMode: 'none' })).status, 403)
+    assert.equal((await call(move.POST, 'http://x', { newDate: '2027-12-16' }, { params: { id: nov.id } })).status, 403)
+    assert.equal(db.tables.bookings[0].status, 'confirmed')
+  } finally {
+    delete (globalThis as any).__admin
+  }
+})

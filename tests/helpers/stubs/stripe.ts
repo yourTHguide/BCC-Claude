@@ -10,6 +10,10 @@ export const stripe = {
       return { id: `re_test_${s.refunds.length}` }
     },
   },
+  // Webhook tests send the event as the raw body; no signature check here.
+  webhooks: { constructEvent: (body: string) => JSON.parse(body) },
+  paymentIntents: { retrieve: async (id: string) => ({ id, latest_charge: `ch_${id}` }) },
+  promotionCodes: { retrieve: async (id: string) => ({ id, code: 'PROMO' }) },
   checkout: {
     sessions: {
       create: async (params: any) => {
