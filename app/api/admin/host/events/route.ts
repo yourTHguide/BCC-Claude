@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
-import { bangkokToday } from '@/lib/dates'
+import { bangkokToday, hostWindowStart } from '@/lib/dates'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,11 +37,14 @@ export async function GET(req: NextRequest) {
   if ('response' in auth) return auth.response
 
   const supabase = getServiceSupabase()
+  // Nights stay listed for 24 hours after their date ('Last night'), so the
+  // host can still open them, check guests in and add expenses.
   const today = bangkokToday()
+  const from = hostWindowStart()
   let query = supabase
     .from('event_dates')
     .select('id, event_date, night_name, night_slug, is_open, host_assigned, operation_verdict')
-    .gte('event_date', today)
+    .gte('event_date', from)
     .order('event_date', { ascending: true })
 
   // ?mine=1 lets an owner/admin see exactly what a host sees: only the
@@ -76,7 +79,7 @@ export async function GET(req: NextRequest) {
 
   const actionable = candidates.filter((e: any) => {
     if (e.is_open) return true
-    if (e.event_date === today) return true
+    if (e.event_date <= today) return true // tonight or last night (24-hour window)
     if (e.operation_verdict && e.operation_verdict !== 'Pending') return true
     if (bookedKeys.has(`${e.event_date}::${e.night_slug}`)) return true
     return false

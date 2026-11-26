@@ -9,6 +9,16 @@ export function bangkokToday(): string {
   }).format(new Date())
 }
 
+// Hosts keep working a night (open it, check guests in, add expenses) for
+// 24 hours, so a crawl that runs past midnight, or a late check-in, is never
+// cut off (owner decision, 27 Nov 2026). Returns the earliest night date
+// (Bangkok) still open to its host: the Bangkok date 24 hours ago.
+export const HOST_WINDOW_HOURS = 24
+export function hostWindowStart(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' })
+    .format(new Date(now.getTime() - HOST_WINDOW_HOURS * 3600_000))
+}
+
 // Add N days to a YYYY-MM-DD date using UTC math (no timezone drift).
 export function addDaysISO(iso: string, days: number): string {
   const [y, m, d] = iso.split('-').map(Number)

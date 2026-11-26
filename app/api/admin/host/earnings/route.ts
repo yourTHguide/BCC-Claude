@@ -46,5 +46,5 @@ export async function GET() {
     return { eventId: n.id, date: n.event_date, nightName: n.night_name, reportStatus: rep.get(n.id) ?? 'none', fee, expenses: approved, pendingExpenses: pending, total: (fee ?? 0) + approved, state, stateLabel: PAYOUT_LABEL[state] }
   })
   const sum = (s: string) => out.filter((n) => n.state === s).reduce((t, n) => t + n.total, 0)
-  return NextResponse.json({ nights: out, totals: { readyToPay: sum('ready_to_pay'), paid: sum('paid'), reportsDue: out.filter((n) => n.state === 'report_due').length } })
+  return NextResponse.json({ tonight: today, nights: out, totals: { readyToPay: sum('ready_to_pay'), paid: sum('paid'), reportsDue: out.filter((n) => n.state === 'report_due').length } })
 }

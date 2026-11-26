@@ -52,7 +52,9 @@ export default function HostEventsPage() {
   const money = useHostMoney()
   const isManager = viewer && viewer.role !== 'staff'
   const tonight = events?.filter((e) => e.eventDate === viewer?.today) ?? []
-  const later = events?.filter((e) => e.eventDate !== viewer?.today) ?? []
+  // Last night stays here for 24 hours so the host can still check guests in.
+  const lastNight = events?.filter((e) => viewer && e.eventDate < viewer.today) ?? []
+  const later = events?.filter((e) => viewer && e.eventDate > viewer.today) ?? []
 
   const S = {
     page: { minHeight: '100vh', background: '#0D000A', color: '#fff', fontFamily: 'Inter, sans-serif', padding: '24px 20px' },
@@ -135,6 +137,8 @@ export default function HostEventsPage() {
 
         {tonight.length > 0 && <p style={S.section}>Tonight</p>}
         {tonight.map((e) => <EventCard key={e.id} e={e} highlight />)}
+        {lastNight.length > 0 && <p style={S.section}>Last night · open for 24 hours</p>}
+        {lastNight.map((e) => <EventCard key={e.id} e={e} highlight />)}
         {later.length > 0 && <p style={S.section}>Coming up</p>}
         {later.map((e) => <EventCard key={e.id} e={e} />)}
 
