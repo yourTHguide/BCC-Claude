@@ -10,7 +10,7 @@ import { BCC_PRODUCT_SLUG, bangkokNow } from '@/lib/bookingAvailability'
 
 const PAGE_SIZE = 50
 const MAX_PAGES = 40
-const LOOKBACK_DAYS = 2      // keeps last night's late changes
+const LOOKBACK_DAYS = 14     // recent nights, so moved or late-entered guests can still be imported
 const LOOKAHEAD_DAYS = 365
 
 const addDays = (d: string, n: number) => new Date(Date.parse(d + 'T00:00:00Z') + n * 864e5).toISOString().slice(0, 10)

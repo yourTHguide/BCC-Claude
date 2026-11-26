@@ -26,7 +26,15 @@ function NightCard({ p, threshold, onDone }: { p: any; threshold: number; onDone
   const [ticked, setTicked] = useState<Set<string>>(new Set(p.newBookings.map((b: any) => b.bokunId)))
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
-  useEffect(() => { setTicked(new Set(p.newBookings.map((b: any) => b.bokunId))) }, [p])
+  const today = bangkokToday()
+  // Default night for Import: the night on the booked date; for a past date
+  // without one, the next night within a week (guests often join the next night).
+  const sameDay = p.nearbyNights.find((n: any) => n.date === p.date)
+  const defaultTarget = sameDay ? sameDay.eventId : p.date >= today ? '' : (p.nearbyNights.find((n: any) => n.date > p.date)?.eventId ?? p.nearbyNights[p.nearbyNights.length - 1]?.eventId ?? '')
+  const [target, setTarget] = useState<string>(defaultTarget)
+  const [moveTo, setMoveTo] = useState<Record<string, string>>({})
+  useEffect(() => { setTicked(new Set(p.newBookings.map((b: any) => b.bokunId))); setTarget(defaultTarget) }, [p]) // eslint-disable-line react-hooks/exhaustive-deps
+  const nightLabel = (n: any) => `${pretty(n.date)} · ${n.name}${n.date === p.date ? ' (booked date)' : ''}`
 
   async function act(label: string, body: object, done: (j: any) => string) {
     setBusy(label)
@@ -71,18 +79,56 @@ function NightCard({ p, threshold, onDone }: { p: any; threshold: number; onDone
               </li>
             ))}
           </ul>
-          <button disabled={!!busy || toImport.length === 0}
-            onClick={() => act('import', { action: 'import', date: p.date, bokunIds: toImport.map((b: any) => b.bokunId) },
-              (j) => `${pretty(p.date)}: imported ${j.imported.length}${j.night?.created ? ` · ${j.night.name} created (OFF)` : ''}${j.skipped?.length ? ` · skipped: ${j.skipped.join('; ')}` : ''}`)}
+          <label className="mt-2 block text-sm">
+            <span className="text-white/60">Import onto </span>
+            <select value={target} onChange={(e) => setTarget(e.target.value)} disabled={!!busy} className="mt-1 w-full rounded bg-white/10 p-2 text-sm sm:w-auto">
+              {!sameDay && p.date >= today && <option value="">{pretty(p.date)} · new {p.createNight?.name ?? 'night'} (created OFF)</option>}
+              {!sameDay && p.date < today && !p.nearbyNights.length && <option value="">No night within a week — add one on the calendar</option>}
+              {p.nearbyNights.map((n: any) => <option key={n.eventId} value={n.eventId}>{nightLabel(n)}</option>)}
+            </select>
+          </label>
+          {target && target !== sameDay?.eventId && (
+            <p className="mt-1 text-xs text-sky-300">Saved as rescheduled: booked for {pretty(p.date)}, joining {pretty(p.nearbyNights.find((n: any) => n.eventId === target)?.date ?? p.date)}.</p>
+          )}
+          <button disabled={!!busy || toImport.length === 0 || (!target && p.date < today)}
+            onClick={() => act('import', { action: 'import', date: p.date, bokunIds: toImport.map((b: any) => b.bokunId), ...(target ? { eventId: target } : {}) },
+              (j) => `${pretty(p.date)}: imported ${j.imported.length} onto ${j.night?.name ?? 'the night'}${j.night?.date && j.night.date !== p.date ? ` on ${pretty(j.night.date)} (rescheduled)` : ''}${j.night?.created ? ' · night created (OFF)' : ''}${j.skipped?.length ? ` · skipped: ${j.skipped.join('; ')}` : ''}`)}
             className="mt-2 rounded-lg bg-accent-primary px-4 py-2 text-sm font-semibold disabled:opacity-50">
             {busy === 'import' ? 'Importing…' : `Import ${guestsToImport} guest${guestsToImport === 1 ? '' : 's'}`}
           </button>
         </div>
       )}
 
-      {p.issues.length > 0 && (
+      {p.onDashboard.length > 0 && (
+        <div className="mt-3">
+          <p className="text-xs font-semibold uppercase tracking-wider text-white/50">On the dashboard</p>
+          <ul className="mt-1 space-y-2">
+            {p.onDashboard.map((d: any) => (
+              <li key={d.otaId} className="text-sm">
+                <span className="font-mono text-xs text-white/60">{d.code}</span> · {d.guests} guest{d.guests === 1 ? '' : 's'} · on {pretty(d.onDate)} {d.nightName}{d.onDate !== p.date ? ' (rescheduled)' : ''}
+                {p.nearbyNights.length > 1 && (
+                  <span className="ml-2 inline-flex items-center gap-1">
+                    <select value={moveTo[d.otaId] ?? ''} onChange={(e) => setMoveTo((m) => ({ ...m, [d.otaId]: e.target.value }))} disabled={!!busy} className="rounded bg-white/10 px-1 py-0.5 text-xs">
+                      <option value="">Move to…</option>
+                      {p.nearbyNights.filter((n: any) => n.date !== d.onDate).map((n: any) => <option key={n.eventId} value={n.eventId}>{nightLabel(n)}</option>)}
+                    </select>
+                    {moveTo[d.otaId] && (
+                      <button disabled={!!busy} onClick={() => act('move', { action: 'move', otaId: d.otaId, eventId: moveTo[d.otaId] }, (j) => j.unchanged ? `${j.ref} is already on that night` : `${j.ref} moved to ${pretty(j.to)} ${j.name}${j.to !== j.bookedFor ? ` (booked for ${pretty(j.bookedFor)})` : ''}`)}
+                        className="rounded border border-white/20 px-2 py-0.5 text-xs">
+                        {busy === 'move' ? '…' : 'Move'}
+                      </button>
+                    )}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {p.issues.filter((i: any) => i.kind !== 'moved').length > 0 && (
         <ul className="mt-3 space-y-1 text-sm">
-          {p.issues.map((i: any, n: number) => (
+          {p.issues.filter((i: any) => i.kind !== 'moved').map((i: any, n: number) => (
             <li key={n} className={ATTENTION.has(i.kind) ? 'text-amber-300' : 'text-white/50'}>
               {i.kind === 'cancelled_in_bokun' ? '⚠ ' : ''}{i.text}
               {i.kind === 'guests_differ' && (

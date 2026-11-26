@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { BCC_PRODUCT_SLUG, bangkokNow, isCancelledEvent, isPastBookingCutoff } from '@/lib/bookingAvailability'
 import { isOtaNight, otaNightName, otaNightSlug } from '@/lib/ota-import/nights'
 import { ACTIVE_STATUSES, type BokunRow } from './normalize'
+import { MOVE_DAYS, dayDiff } from './plan'
 
 // The owner's buttons on the Bókun screen (Nov 2026 test period). Nothing
 // reaches the dashboard until the owner presses one of them:
@@ -54,7 +55,24 @@ async function nightFor(db: SupabaseClient, productId: string, date: string, tod
   return { night: data as any, created: true }
 }
 
-export async function importBookings(db: SupabaseClient, date: string, bokunIds: string[], now = new Date()) {
+// A chosen Club Crawl night within a week of the booked date (moved guests).
+async function chosenNight(db: SupabaseClient, productId: string, eventId: string, bookedDate: string) {
+  const { data, error } = await db.from('event_dates').select('id, event_date, night_slug, night_name, is_open, capacity, product_id, operation_verdict').eq('id', String(eventId)).maybeSingle()
+  if (error) throw new ImportError(503, 'Could not read the night. Try again.')
+  const n = data as any
+  if (!n || n.product_id !== productId || !isOtaNight(n.night_slug)) throw new ImportError(404, 'That night was not found.')
+  if (isCancelledEvent(n)) throw new ImportError(409, 'That night is cancelled.')
+  if (Math.abs(dayDiff(n.event_date, bookedDate)) > MOVE_DAYS) throw new ImportError(409, `Guests can only be moved up to ${MOVE_DAYS} days from the booked date.`)
+  return n
+}
+
+// Moved guests are recorded the way the dashboard already does reschedules:
+// booking_status 'rescheduled' + booked_for_date = the night they booked.
+function moveFields(bookedDate: string, onDate: string) {
+  return bookedDate === onDate ? { booking_status: null, booked_for_date: null } : { booking_status: 'rescheduled', booked_for_date: bookedDate }
+}
+
+export async function importBookings(db: SupabaseClient, date: string, bokunIds: string[], now = new Date(), targetEventId?: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new ImportError(400, 'Choose a valid date.')
   const ids = Array.from(new Set(bokunIds.map(String))).slice(0, 100)
   if (!ids.length) throw new ImportError(400, 'Tick at least one booking to import.')
@@ -79,15 +97,18 @@ export async function importBookings(db: SupabaseClient, date: string, bokunIds:
 
   const product = await bccProduct(db)
   const today = bangkokNow(now).date
-  const { night, created } = await nightFor(db, product.id, date, today)
+  const { night, created } = targetEventId
+    ? { night: await chosenNight(db, product.id, targetEventId, date), created: false }
+    : await nightFor(db, product.id, date, today)
   const imported: string[] = []
   const skipped: string[] = []
   for (const b of ok) {
     const ref = (b.platform_code || b.bokun_code) as string
     if (onDash.has(upper(ref))) { skipped.push(`${ref}: already on the dashboard`); continue }
     const { error: ie } = await db.from('ota_bookings').insert({
-      event_date: date,
+      event_date: night.event_date,
       night_slug: night.night_slug,
+      ...(night.event_date === date ? {} : moveFields(date, night.event_date)),
       source: b.source === 'other' ? 'bokun' : b.source,
       guest_name: b.guest_name,
       quantity: b.guests,
@@ -100,7 +121,25 @@ export async function importBookings(db: SupabaseClient, date: string, bokunIds:
     else if (ie) throw new ImportError(500, `Imported ${imported.length}; stopped at ${ref}. Try again — already imported ones are skipped.`)
     else imported.push(ref)
   }
-  return { imported, skipped: [...skipped, ...problems], night: { id: night.id, name: night.night_name, isOpen: !!night.is_open, created } }
+  return { imported, skipped: [...skipped, ...problems], night: { id: night.id, date: night.event_date, name: night.night_name, isOpen: !!night.is_open, created } }
+}
+
+// Moves an OTA booking already on the dashboard to another night within a
+// week of the date it was booked for. Moving it back to that date clears
+// the reschedule.
+export async function moveBooking(db: SupabaseClient, otaId: string, eventId: string) {
+  const { data: o, error } = await db.from('ota_bookings').select('id, event_date, night_slug, booking_ref, booking_status, booked_for_date').eq('id', String(otaId)).maybeSingle()
+  if (error) throw new ImportError(503, 'Could not read the booking. Try again.')
+  if (!o) throw new ImportError(404, 'Booking not found.')
+  const row = o as any
+  if (row.booking_status && row.booking_status !== 'rescheduled') throw new ImportError(409, `This booking is marked "${row.booking_status}" — change it on the night instead.`)
+  const bookedDate = row.booked_for_date ?? row.event_date
+  const product = await bccProduct(db)
+  const night = await chosenNight(db, product.id, eventId, bookedDate)
+  if (night.event_date === row.event_date && night.night_slug === row.night_slug) return { ref: row.booking_ref, to: night.event_date, name: night.night_name, unchanged: true }
+  const { error: ue } = await db.from('ota_bookings').update({ event_date: night.event_date, night_slug: night.night_slug, ...moveFields(bookedDate, night.event_date) }).eq('id', row.id)
+  if (ue) throw new ImportError(500, 'Could not move the booking. Try again.')
+  return { ref: row.booking_ref, from: row.event_date, to: night.event_date, name: night.night_name, bookedFor: bookedDate }
 }
 
 export async function useBokunCount(db: SupabaseClient, otaId: string, bokunId: string) {

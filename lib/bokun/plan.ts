@@ -53,6 +53,11 @@ export interface Issue { kind: IssueKind; code: string | null; text: string; bok
 // A Bókun booking that can be imported onto this night.
 export interface NewBooking { bokunId: string; code: string; source: string; guests: number; name: string | null; hasEmail: boolean; hasPhone: boolean }
 
+// A booking already on the dashboard (matched to Bókun by code), and the
+// nights it could be moved to.
+export interface OnDashboard { otaId: string; code: string; guests: number; onDate: string; nightName: string }
+export interface NightChoice { eventId: string; date: string; name: string; isOpen: boolean }
+
 export interface DatePlan {
   date: string
   night: { id: string; slug: string; name: string; isOpen: boolean; capacity: number | null } | null
@@ -61,6 +66,8 @@ export interface DatePlan {
   dashboard: { bookings: number; guests: number }
   direct: number               // confirmed website guests on the night
   newBookings: NewBooking[]
+  onDashboard: OnDashboard[]
+  nearbyNights: NightChoice[]  // Club Crawl nights within a week, for moved guests
   issues: Issue[]
   toAdd: number                // guests the live sync would add to the dashboard
   otaGuestsAfter: number
@@ -68,6 +75,9 @@ export interface DatePlan {
 }
 
 const upper = (s: string | null | undefined) => (s ?? '').trim().toUpperCase()
+// Guests may join a night up to a week from the date they booked (same rule as the OTA report import).
+export const MOVE_DAYS = 7
+export const dayDiff = (a: string, b: string) => Math.round((Date.parse(a + 'T00:00:00Z') - Date.parse(b + 'T00:00:00Z')) / 864e5)
 const counted = (o: OtaRow) => !NOT_COUNTED.has(o.booking_status ?? '')
 
 export function buildSyncPlan(input: {
@@ -102,6 +112,7 @@ export function buildSyncPlan(input: {
     const issues: Issue[] = []
     let toAdd = 0
     const newBookings: NewBooking[] = []
+    const onDashboard: OnDashboard[] = []
 
     const bokunHere = input.bokun.filter((b) => b.event_date === date)
     const active = bokunHere.filter((b) => ACTIVE_STATUSES.has(b.status))
@@ -116,6 +127,8 @@ export function buildSyncPlan(input: {
           newBookings.push({ bokunId: b.bokun_booking_id, code: (who ?? b.bokun_booking_id) as string, source: b.source, guests: b.guests, name: b.guest_name, hasEmail: !!b.email, hasPhone: !!b.phone })
           toAdd += b.guests
         } else {
+          const n = input.nights.find((x) => x.event_date === match.event_date && x.night_slug === match.night_slug)
+          onDashboard.push({ otaId: match.id, code: (who ?? '') as string, guests: match.quantity, onDate: match.event_date, nightName: n?.night_name ?? otaNightName(match.night_slug) })
           if (match.event_date !== date) issues.push({ kind: 'moved', code: who, text: `${who}: on your ${match.event_date} night (moved)` })
           if (match.quantity !== b.guests) issues.push({ kind: 'guests_differ', code: who, text: `${who}: dashboard ${match.quantity}, Bókun ${b.guests} guest(s)`, bokunId: b.bokun_booking_id, otaId: match.id })
         }
@@ -136,8 +149,8 @@ export function buildSyncPlan(input: {
     const onNight = nightRow ? input.ota.filter((o) => o.event_date === date && o.night_slug === nightRow.night_slug && !NOT_OTA.has(o.source) && counted(o)) : []
     const otaGuestsAfter = onNight.reduce((s, o) => s + (o.quantity ?? 0), 0) + toAdd
     // Nights are only created for today onwards; a past date without a night is flagged instead.
-    const createNight = !nightRow && active.length > 0 && date >= today ? { slug, name: otaNightName(slug) } : null
-    if (!nightRow && active.length > 0 && date < today) issues.push({ kind: 'no_night', code: null, text: 'Past date with OTA guests but no night on the dashboard' })
+    const createNight = !nightRow && newBookings.length > 0 && date >= today ? { slug, name: otaNightName(slug) } : null
+    if (!nightRow && newBookings.length > 0 && date < today) issues.push({ kind: 'no_night', code: null, text: 'No night on this past date: import onto the night they joined, or add the night on the calendar' })
 
     let open = { would: false, reason: '' }
     if (!nightRow && !createNight) open.reason = 'No night'
@@ -155,6 +168,11 @@ export function buildSyncPlan(input: {
       dashboard: { bookings: dashHere.length, guests: dashHere.reduce((s, o) => s + (o.quantity ?? 0), 0) },
       direct: nightRow ? input.direct?.get(`${date}|${nightRow.night_slug}`) ?? 0 : 0,
       newBookings,
+      onDashboard,
+      nearbyNights: input.nights
+        .filter((n) => isOtaNight(n.night_slug) && !isCancelledEvent(n) && Math.abs(dayDiff(n.event_date, date)) <= MOVE_DAYS)
+        .sort((a, b) => a.event_date.localeCompare(b.event_date))
+        .map((n) => ({ eventId: n.id, date: n.event_date, name: n.night_name ?? otaNightName(n.night_slug), isOpen: !!n.is_open })),
       issues,
       toAdd,
       otaGuestsAfter,
