@@ -31,15 +31,17 @@ export default function BccPrivacyNotice({ effectiveDate }: { effectiveDate: str
           rows={[
             ['Book on our website', 'Name, email and phone number (entered on Stripe’s secure checkout page); billing details if Stripe asks for them; the night, date and number of guests', 'To confirm your booking, send your ticket and meeting-point details, check you in, and handle changes or cancellations', <>Performance of a contract (s.24(3))</>],
             ['Pay', 'Payment reference, amount and status (card details are handled by Stripe, not us)', 'Payment, refunds, accounting', 'Contract (s.24(3)); legal obligation (s.24(6))'],
-            ['Book through a booking platform (e.g. GetYourGuide, Viator, Airbnb Experiences, Klook)', 'What the platform passes to us — usually your name and number of guests, sometimes email or phone', 'To run your night and check you in', 'Contract (s.24(3)). The platform’s own privacy policy covers what you give the platform'],
+            ['Book through a booking platform (e.g. GetYourGuide, Viator, Airbnb Experiences, Tripadvisor, Klook)', 'What the platform passes to us, through our booking system Bókun — usually your name, number of guests, the night and the platform’s booking reference; sometimes your phone number or email. Some platforms give us a forwarding email address of their own instead of yours', 'To run your night, check you in, and keep our guest numbers accurate when you book, change or cancel', 'Contract (s.24(3)). The platform’s own privacy policy covers what you give the platform'],
             ['Show your ticket at check-in', 'Ticket code; attendance', 'Admission and capacity control', 'Contract (s.24(3))'],
+            ['Join the waitlist for a sold-out night', 'Name, email, number of seats wanted, which night, when you joined and the exact wording you agreed to', 'To email you once if seats open up for that night — nothing else', 'Your consent (s.19), which you can withdraw at any time'],
+            ['Tick “Keep me updated” (optional, when joining a waitlist)', 'Name, email, when you agreed and the exact wording you agreed to', 'To email you about new Bangkok Club Crawl nights and events', 'Your consent (s.19), which you can withdraw at any time'],
             ['Contact us on WhatsApp, Instagram or email', 'What you send us', 'To answer you and coordinate your night', <>Contract, or our legitimate interest in answering enquiries (s.24(5))</>],
             ['Choose “Accept” in the cookie banner', 'Cookie identifiers, browser and device information, pages visited, booking events (viewing a night, starting checkout, completing a purchase)', 'Measuring and improving our Facebook and Instagram advertising; showing guest reviews and a map', 'Your consent (s.19)'],
           ]}
         />
         <p>
-          We don&apos;t use your booking details for marketing, and Bangkok Club Crawl has no marketing mailing list. If we start one, joining it will be a
-          separate, optional choice. We do not sell personal data.
+          We don&apos;t use your booking details for marketing. Our only mailing lists are the sold-out waitlist and the optional “Keep me updated” list,
+          and you are on them only if you chose to join. Forwarding addresses from booking platforms are never added to them. We do not sell personal data.
         </p>
       </Section>
 
@@ -48,13 +50,18 @@ export default function BccPrivacyNotice({ effectiveDate }: { effectiveDate: str
           We send what your booking needs: confirmation, ticket and QR code, meeting-point details, and any change or cancellation notice. On the night, your host
           may contact you on WhatsApp.
         </p>
+        <p>
+          If you joined the waitlist for a sold-out night, we email you once if seats open up. It is not a reservation: seats go to whoever books first. If
+          you ticked “Keep me updated”, we may email you about new nights and events. Every one of these emails has an unsubscribe link, which stops that
+          list only.
+        </p>
       </Section>
 
       <Section id="sharing" title="4. Who we share personal data with">
         <ul>
           <li>
-            <strong>Service providers</strong> that process personal data on our behalf to run our website and services: Supabase (database hosting), Vercel (website hosting), Resend (booking emails) and Google
-            (our email inbox).
+            <strong>Service providers</strong> that process personal data on our behalf to run our website and services: Supabase (database hosting), Vercel (website hosting), Resend (booking and waitlist emails),
+            Bókun (our booking system, which connects the booking platforms) and Google (our email inbox).
           </li>
           <li><strong>Stripe</strong>, to process payments (also under its own privacy policy).</li>
           <li><strong>Booking platforms</strong>, if you booked through one — for example to confirm attendance.</li>
@@ -83,6 +90,8 @@ export default function BccPrivacyNotice({ effectiveDate }: { effectiveDate: str
           rows={[
             ['Bookings, tickets, check-in and payment records (website and platform bookings)', <>We retain booking, payment and associated transaction records for the period required under applicable Thai accounting and tax laws, and longer where necessary to address disputes, legal claims or other legal obligations.</>],
             ['Messages and enquiries that don’t lead to a booking', 'Up to 24 months after our last meaningful interaction, unless needed for an ongoing relationship, a dispute or a legal requirement'],
+            ['Sold-out waitlist entries', 'Until 30 days after the night you asked about'],
+            ['“Keep me updated” list', <>Until you unsubscribe, or 24 months after you joined or last received an email from us, whichever is first. After you unsubscribe we keep your email address and the date for 24 months as a suppression record, so we don&apos;t email you again, and then delete it.</>],
             ['Your cookie choice', '12 months, then we ask again'],
           ]}
         />
