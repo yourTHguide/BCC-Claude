@@ -19,6 +19,7 @@ export class FakeDb {
     products: [], event_dates: [], bookings: [], ota_bookings: [],
     bnt_waitlist: [], bnt_waitlist_announcements: [], bnt_waitlist_deliveries: [],
     bnt_experience_inquiries: [], bnt_contact_messages: [],
+    bokun_bookings: [], bokun_sync_runs: [], bokun_sync_log: [],
   }
   failRules: FailRule[] = []
   from(table: string) {
@@ -48,7 +49,8 @@ const DEFAULTS: Record<string, Row> = {
 }
 
 export class Builder implements PromiseLike<any> {
-  op: 'select' | 'insert' | 'update' = 'select'
+  op: 'select' | 'insert' | 'update' | 'upsert' = 'select'
+  conflictKey?: string
   cols = '*'
   filters: Filter[] = []
   filterDesc: string[] = []
@@ -71,6 +73,7 @@ export class Builder implements PromiseLike<any> {
   }
   insert(p: any) { this.op = 'insert'; this.payload = p; return this }
   update(p: any) { this.op = 'update'; this.payload = p; return this }
+  upsert(p: any, o?: { onConflict?: string }) { this.op = 'upsert'; this.payload = p; this.conflictKey = o?.onConflict; return this }
   private f(desc: string, fn: Filter) { this.filters.push(fn); this.filterDesc.push(desc); return this }
   eq(c: string, v: any) { return this.f(`${c}=${v}`, (r) => getPath(r, c) === v) }
   neq(c: string, v: any) { return this.f(`${c}!=${v}`, (r) => getPath(r, c) !== v) }
@@ -133,6 +136,17 @@ export class Builder implements PromiseLike<any> {
       return this.returning ? this.shape(out.map((r) => ({ ...r }))) : { data: null, error: null }
     }
 
+    if (this.op === 'upsert') {
+      const items = Array.isArray(this.payload) ? this.payload : [this.payload]
+      const key = this.conflictKey ?? 'id'
+      for (const it of items) {
+        const hit = this.db.tables[this.table].find((r) => r[key] === it[key])
+        if (hit) Object.assign(hit, it)
+        else this.db.insertRow(this.table, { ...(DEFAULTS[this.table] ?? {}), ...it })
+      }
+      return { data: null, error: null }
+    }
+
     if (this.op === 'update') {
       const hit = this.db.tables[this.table].filter(match)
       for (const r of hit) Object.assign(r, this.payload)
@@ -153,6 +167,7 @@ export class Builder implements PromiseLike<any> {
     if (this.table === 'bnt_waitlist_deliveries' && t.some((r) => r.announcement_id === row.announcement_id && r.waitlist_id === row.waitlist_id)) return 'bnt_waitlist_deliveries_once'
     if (this.table === 'bnt_waitlist_announcements' && row.kind === 'sold_out_reopen' && ['draft', 'sending'].includes(row.status) &&
         t.some((r) => r.kind === 'sold_out_reopen' && r.event_date_id === row.event_date_id && ['draft', 'sending'].includes(r.status))) return 'one_open_reopen'
+    if (this.table === 'bokun_sync_log' && t.some((r) => r.mode === row.mode && r.kind === row.kind && r.event_date === row.event_date)) return 'bokun_sync_log_once'
     if (this.table === 'bnt_waitlist') {
       if (row.consent_scope === 'event_dates' && t.some((r) => r.consent_scope === 'event_dates' && r.product_slug === row.product_slug && r.email === row.email)) return 'product_email'
       if (row.consent_scope === 'sold_out_date' && t.some((r) => r.consent_scope === 'sold_out_date' && r.event_date_id === row.event_date_id && r.email === row.email)) return 'date_email'
