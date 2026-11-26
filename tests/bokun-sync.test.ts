@@ -88,6 +88,12 @@ test('plan: matched by platform code even after the team moved the guest; cancel
   assert.equal(sat.open.reason, 'Already ON')
 })
 
+test('plan: never creates a night in the past; flags it instead', () => {
+  const p = buildSyncPlan({ bokun: [row(1, '2027-02-23', 2)], nights: [], ota: [], defaultStartTime: '21:30:00', now: NOW })[0]
+  assert.equal(p.createNight, null)
+  assert.deepEqual(p.issues.map((i) => i.kind).sort(), ['missing', 'no_night'])
+})
+
 test('plan: never opens a cancelled, past or already-started night; threshold is a setting', () => {
   const base = { ota: [], defaultStartTime: '21:30:00' }
   const three = [row(1, '2027-03-05', 4)]

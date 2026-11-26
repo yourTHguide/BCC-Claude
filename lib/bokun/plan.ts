@@ -47,7 +47,7 @@ export interface OtaRow {
   booking_status?: string | null
 }
 
-export type IssueKind = 'missing' | 'moved' | 'guests_differ' | 'cancelled_in_bokun' | 'not_in_bokun' | 'pending_in_bokun' | 'no_code' | 'other_channel'
+export type IssueKind = 'missing' | 'moved' | 'guests_differ' | 'cancelled_in_bokun' | 'not_in_bokun' | 'pending_in_bokun' | 'no_code' | 'other_channel' | 'no_night'
 export interface Issue { kind: IssueKind; code: string | null; text: string }
 
 export interface DatePlan {
@@ -128,7 +128,9 @@ export function buildSyncPlan(input: {
 
     const onNight = nightRow ? input.ota.filter((o) => o.event_date === date && o.night_slug === nightRow.night_slug && !NOT_OTA.has(o.source) && counted(o)) : []
     const otaGuestsAfter = onNight.reduce((s, o) => s + (o.quantity ?? 0), 0) + toAdd
-    const createNight = !nightRow && active.length > 0 ? { slug, name: otaNightName(slug) } : null
+    // Nights are only created for today onwards; a past date without a night is flagged instead.
+    const createNight = !nightRow && active.length > 0 && date >= today ? { slug, name: otaNightName(slug) } : null
+    if (!nightRow && active.length > 0 && date < today) issues.push({ kind: 'no_night', code: null, text: 'Past date with OTA guests but no night on the dashboard' })
 
     let open = { would: false, reason: '' }
     if (!nightRow && !createNight) open.reason = 'No night'

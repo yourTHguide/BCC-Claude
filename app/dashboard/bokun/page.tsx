@@ -16,6 +16,7 @@ const ISSUE_STYLE: Record<string, string> = {
   pending_in_bokun: 'text-white/50',
   no_code: 'text-amber-300',
   other_channel: 'text-amber-300',
+  no_night: 'text-amber-300',
 }
 // Moved guests and unconfirmed requests are expected, not problems.
 const isProblem = (k: string) => k !== 'moved' && k !== 'pending_in_bokun'
