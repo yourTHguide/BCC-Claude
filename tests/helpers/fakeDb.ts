@@ -21,11 +21,21 @@ export class FakeDb {
     bnt_waitlist: [], bnt_waitlist_announcements: [], bnt_waitlist_deliveries: [],
     bnt_experience_inquiries: [], bnt_contact_messages: [],
     bokun_bookings: [], bokun_sync_runs: [], bokun_sync_log: [], host_invites: [], admin_users: [], booking_attendees: [], product_content: [],
+    host_reports: [], host_expenses: [], expenses: [],
   }
   failRules: FailRule[] = []
   from(table: string) {
     if (!this.tables[table]) throw new Error(`fakeDb: unknown table ${table}`)
     return new Builder(this, table)
+  }
+  // Stand-in for Supabase Storage (receipts): files kept in memory.
+  files: Record<string, { bytes: number; contentType: string }> = {}
+  storage = {
+    from: (bucket: string) => ({
+      upload: async (path: string, body: Buffer, o: { contentType: string }) => { this.files[`${bucket}/${path}`] = { bytes: body.length, contentType: o.contentType }; return { data: { path }, error: null } },
+      remove: async (paths: string[]) => { for (const p of paths) delete this.files[`${bucket}/${p}`]; return { data: null, error: null } },
+      createSignedUrl: async (path: string, secs: number) => (this.files[`${bucket}/${path}`] ? { data: { signedUrl: `https://storage.test/${bucket}/${path}?expires=${secs}` }, error: null } : { data: null, error: { message: 'not found' } }),
+    }),
   }
   rpc() {
     throw new Error('fakeDb: rpc not supported')
@@ -47,10 +57,12 @@ const DEFAULTS: Record<string, Row> = {
   bnt_waitlist: { consent_scope: 'event_dates', unsubscribed_at: null, notified_at: null, event_date_id: null, party_size: null },
   bnt_waitlist_announcements: { kind: 'product_dates', status: 'draft', event_date_id: null },
   bnt_waitlist_deliveries: { status: 'pending', attempted_at: null, attempts: 0, error: null },
+  host_expenses: { status: 'pending', expense_id: null, review_note: null, reviewed_at: null },
+  host_reports: { status: 'draft', submitted_at: null, incident_alert_sent_at: null },
 }
 
 export class Builder implements PromiseLike<any> {
-  op: 'select' | 'insert' | 'update' | 'upsert' = 'select'
+  op: 'select' | 'insert' | 'update' | 'upsert' | 'delete' = 'select'
   conflictKey?: string
   cols = '*'
   filters: Filter[] = []
@@ -74,6 +86,7 @@ export class Builder implements PromiseLike<any> {
   }
   insert(p: any) { this.op = 'insert'; this.payload = p; return this }
   update(p: any) { this.op = 'update'; this.payload = p; return this }
+  delete() { this.op = 'delete'; return this }
   upsert(p: any, o?: { onConflict?: string }) { this.op = 'upsert'; this.payload = p; this.conflictKey = o?.onConflict; return this }
   private f(desc: string, fn: Filter) { this.filters.push(fn); this.filterDesc.push(desc); return this }
   eq(c: string, v: any) { return this.f(`${c}=${v}`, (r) => getPath(r, c) === v) }
@@ -149,6 +162,12 @@ export class Builder implements PromiseLike<any> {
       return { data: null, error: null }
     }
 
+    if (this.op === 'delete') {
+      const hit = this.db.tables[this.table].filter(match)
+      this.db.tables[this.table] = this.db.tables[this.table].filter((r) => !match(r))
+      return this.returning ? this.shape(hit.map((r) => ({ ...r }))) : { data: null, error: null }
+    }
+
     if (this.op === 'update') {
       const hit = this.db.tables[this.table].filter(match)
       for (const r of hit) Object.assign(r, this.payload)
@@ -170,6 +189,7 @@ export class Builder implements PromiseLike<any> {
     if (this.table === 'bnt_waitlist_announcements' && row.kind === 'sold_out_reopen' && ['draft', 'sending'].includes(row.status) &&
         t.some((r) => r.kind === 'sold_out_reopen' && r.event_date_id === row.event_date_id && ['draft', 'sending'].includes(r.status))) return 'one_open_reopen'
     if (this.table === 'host_invites' && t.some((r) => r.code === row.code)) return 'host_invites_code_key'
+    if (this.table === 'host_reports' && t.some((r) => r.event_id === row.event_id)) return 'host_reports_event_id_key'
     if (this.table === 'bookings' && row.host_invite_id && t.some((r) => r.host_invite_id === row.host_invite_id)) return 'bookings_host_invite_once'
     if (this.table === 'bookings' && row.stripe_session_id && t.some((r) => r.stripe_session_id === row.stripe_session_id)) return 'bookings_stripe_session_id_key'
     if (this.table === 'ota_bookings' && row.booking_ref && t.some((r) => r.source === row.source && r.booking_ref === row.booking_ref)) return 'ota_bookings_source_booking_ref_key'

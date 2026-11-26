@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
+import { bangkokToday } from '@/lib/dates'
 import { loadDoorGuests } from '@/lib/doorList'
 
 export const dynamic = 'force-dynamic'
@@ -60,17 +61,21 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: 'Not your assigned event' }, { status: 403 })
   }
 
-  const [{ guests, error: guestsError }, { data: expenses, error: expensesError }] = await Promise.all([
+  // Host-paid expenses for this night (with their approval status) and the
+  // night's report status. The business's own expenses ledger, host fee and
+  // revenue are never returned here.
+  const [{ guests, error: guestsError }, { data: expenses, error: expensesError }, { data: report, error: reportError }] = await Promise.all([
     loadDoorGuests(supabase, event.event_date, event.night_slug),
     supabase
-      .from('expenses')
-      .select('id, category, description, amount')
-      .eq('event_date', event.event_date)
-      .eq('night_slug', event.night_slug),
+      .from('host_expenses')
+      .select('id, host_name, category, note, amount, receipt_path, status, review_note, created_at')
+      .eq('event_id', event.id)
+      .order('created_at', { ascending: true }),
+    supabase.from('host_reports').select('status, submitted_at').eq('event_id', event.id).maybeSingle(),
   ])
 
-  if (guestsError || expensesError) {
-    console.error('admin/host/events/[id]: sub-query error:', guestsError || expensesError)
+  if (guestsError || expensesError || reportError) {
+    console.error('admin/host/events/[id]: sub-query error:', guestsError || expensesError || reportError)
     return NextResponse.json({ error: 'Failed to load event details' }, { status: 500 })
   }
 
@@ -93,6 +98,10 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     },
     guests,
     headcount: { total: totalGuests, checkedIn: checkedInGuests },
-    expenses: expenses ?? [],
+    expenses: (expenses ?? []).map((e: any) => ({
+      id: e.id, hostName: e.host_name, category: e.category, note: e.note, amount: e.amount,
+      hasReceipt: !!e.receipt_path, status: e.status, reviewNote: e.review_note, createdAt: e.created_at,
+    })),
+    report: { status: (report as any)?.status ?? 'none', submittedAt: (report as any)?.submitted_at ?? null, canStart: event.event_date <= bangkokToday() },
   })
 }

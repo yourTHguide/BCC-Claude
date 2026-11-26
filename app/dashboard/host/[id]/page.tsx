@@ -4,12 +4,18 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import DoorList, { type DoorListTheme } from '@/components/doorlist/DoorList'
 import type { DoorGuest } from '@/lib/doorList'
+import HostExpenses from './HostExpenses'
+import HostReport from './HostReport'
 
 interface Expense {
   id: string
+  hostName: string
   category: string
-  description: string | null
+  note: string | null
   amount: number
+  hasReceipt: boolean
+  status: 'pending' | 'approved' | 'rejected'
+  reviewNote: string | null
 }
 
 interface HostEventDetail {
@@ -29,7 +35,10 @@ interface HostEventDetail {
   guests: DoorGuest[]
   headcount: { total: number; checkedIn: number }
   expenses: Expense[]
+  report: { status: 'none' | 'draft' | 'submitted'; submittedAt: string | null; canStart: boolean }
 }
+
+type Tab = 'brief' | 'guests' | 'expenses' | 'report'
 
 const HOST_DOOR_THEME: DoorListTheme = {
   elevated: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.10)', text: '#fff',
@@ -39,19 +48,22 @@ const HOST_DOOR_THEME: DoorListTheme = {
   red: '#F87171', redSoft: 'rgba(248,113,113,0.14)', chipBg: 'rgba(255,255,255,0.08)', radius: '10px',
 }
 
-const EXPENSE_CATEGORIES = ['van', 'host_pay', 'drinks', 'cover_charge', 'extra']
 
 // Stage 9j — the restricted Host operational view. Deliberately shows no
 // revenue, total_paid, host fee, or profit anywhere — that data is never
 // even fetched by the API route this page calls (see its doc comment for
-// the RLS caveat this does NOT fix). Everything here is read/write through
-// EXISTING shared endpoints (update-attendance, this event's own expenses
-// route) — no separate host data model.
+// the RLS caveat this does NOT fix).
+// Nov 2026: four tabs like the operator screens — Brief (read-only), Guests
+// (door list + check-in), Expenses (host-paid, with receipts, waiting for the
+// owner's approval) and Report (after the night; submit locks it).
 export default function HostEventDetailPage({ params }: { params: { id: string } }) {
   const [data, setData] = useState<HostEventDetail | null>(null)
   const [state, setState] = useState<'loading' | 'ready' | 'notfound' | 'forbidden' | 'error'>('loading')
-  const [addingExpense, setAddingExpense] = useState(false)
-  const [expForm, setExpForm] = useState({ category: 'van', description: '', amount: '' })
+  const [tab, setTab] = useState<Tab>('brief')
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('tab')
+    if (t === 'guests' || t === 'expenses' || t === 'report') setTab(t)
+  }, [])
 
   function load() {
     fetch(`/api/admin/host/events/${params.id}`)
@@ -66,30 +78,6 @@ export default function HostEventDetailPage({ params }: { params: { id: string }
   }
 
   useEffect(load, [params.id])
-
-  const [savingExpense, setSavingExpense] = useState(false)
-  async function addExpense() {
-    if (savingExpense) return
-    setSavingExpense(true)
-    try {
-      const res = await fetch(`/api/admin/host/events/${params.id}/expenses`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...expForm, amount: parseInt(expForm.amount) || 0 }),
-      })
-      if (res.ok) {
-        setAddingExpense(false)
-        setExpForm({ category: 'van', description: '', amount: '' })
-        load()
-      } else {
-        alert("Couldn't save the expense — please try again.")
-      }
-    } catch {
-      alert("Couldn't save the expense — check your connection and try again.")
-    } finally {
-      setSavingExpense(false)
-    }
-  }
 
   const S = {
     page: { minHeight: '100vh', background: '#0D000A', color: '#fff', fontFamily: 'Inter, sans-serif', padding: '24px 20px' },
@@ -119,6 +107,16 @@ export default function HostEventDetailPage({ params }: { params: { id: string }
               {!data.event.isOpen && ' · Closed'}
             </p>
 
+            <div role="tablist" style={{ display: 'flex', gap: '6px', overflowX: 'auto', marginBottom: '16px', paddingBottom: '2px' }}>
+              {([['brief', 'Brief'], ['guests', `Guests (${data.headcount.checkedIn}/${data.headcount.total})`], ['expenses', `Expenses${data.expenses.length ? ` (${data.expenses.length})` : ''}`], ['report', data.report.status === 'submitted' ? 'Report ✓' : data.report.canStart ? 'Report •' : 'Report']] as [Tab, string][]).map(([k, label]) => (
+                <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
+                  style={{ ...S.btn, whiteSpace: 'nowrap', borderRadius: '999px', background: tab === k ? '#EA003A' : 'rgba(255,255,255,0.08)', color: tab === k ? '#fff' : 'rgba(255,255,255,0.75)' }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {tab === 'brief' && (<>
             {/* WhatsApp group — the host's most-used link on the night */}
             {data.event.whatsappGroupLink && (
               <a
@@ -163,41 +161,18 @@ export default function HostEventDetailPage({ params }: { params: { id: string }
               )}
             </div>
 
-            {/* Door list: everyone (direct + OTA), one-tap check-in, Scan at the top */}
-            <div style={{ marginBottom: '14px' }}>
-              <DoorList guests={data.guests} theme={HOST_DOOR_THEME} scanHref="/dashboard/checkin" />
-            </div>
+            </>)}
 
-            {/* Expenses — entry only, no revenue/profit shown */}
-            <div style={S.card}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <p style={{ ...S.label, marginBottom: 0 }}>Expenses</p>
-                <button onClick={() => setAddingExpense(true)} style={{ ...S.btn, background: 'rgba(234,0,58,0.12)', color: '#EA003A', border: '1px solid rgba(234,0,58,0.25)', height: '28px', padding: '0 10px', fontSize: '12px' }}>+ Add</button>
+            {/* Door list: everyone (direct + OTA), one-tap check-in, Scan at the top */}
+            {tab === 'guests' && (
+              <div style={{ marginBottom: '14px' }}>
+                <DoorList guests={data.guests} theme={HOST_DOOR_THEME} scanHref="/dashboard/checkin" />
               </div>
-              {addingExpense && (
-                <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '14px', marginBottom: '12px' }}>
-                  <select value={expForm.category} onChange={(e) => setExpForm((f) => ({ ...f, category: e.target.value }))} style={{ ...S.input, marginBottom: '8px' }}>
-                    {EXPENSE_CATEGORIES.map((c) => <option key={c} value={c}>{c.replace('_', ' ')}</option>)}
-                  </select>
-                  <input value={expForm.description} onChange={(e) => setExpForm((f) => ({ ...f, description: e.target.value }))} placeholder="Description (optional)" style={{ ...S.input, marginBottom: '8px' }} />
-                  <input type="number" value={expForm.amount} onChange={(e) => setExpForm((f) => ({ ...f, amount: e.target.value }))} placeholder="Amount (฿)" style={{ ...S.input, marginBottom: '10px' }} />
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button onClick={addExpense} disabled={savingExpense} style={{ ...S.btn, background: 'linear-gradient(135deg,#EA003A,#820065)', color: '#fff', opacity: savingExpense ? 0.6 : 1 }}>{savingExpense ? 'Saving…' : 'Save'}</button>
-                    <button onClick={() => setAddingExpense(false)} style={{ ...S.btn, background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.70)', border: '1px solid rgba(255,255,255,0.10)' }}>Cancel</button>
-                  </div>
-                </div>
-              )}
-              {data.expenses.length === 0 && !addingExpense && <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.35)' }}>No expenses logged.</p>}
-              {data.expenses.map((e) => (
-                <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '8px', marginBottom: '8px' }}>
-                  <div>
-                    <p style={{ fontSize: '13px', color: '#fff', textTransform: 'capitalize', margin: 0 }}>{e.category.replace('_', ' ')}</p>
-                    {e.description && <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', margin: '2px 0 0' }}>{e.description}</p>}
-                  </div>
-                  <p style={{ fontSize: '13px', color: '#EA003A', fontWeight: 600 }}>฿{e.amount.toLocaleString()}</p>
-                </div>
-              ))}
-            </div>
+            )}
+
+            {tab === 'expenses' && <HostExpenses eventId={data.event.id} expenses={data.expenses} onChange={load} />}
+            {tab === 'report' && <HostReport eventId={data.event.id} canStart={data.report.canStart} onSubmitted={load} />}
+
           </>
         )}
       </div>

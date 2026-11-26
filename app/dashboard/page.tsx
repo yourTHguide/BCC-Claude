@@ -1252,7 +1252,7 @@ export default function Dashboard() {
                 {tab === 'calendar' ? '📅 Calendar' : tab === 'bookings' ? '📋 Bookings' : '📊 Operations'}
               </button>
             ))}
-            {([['/dashboard/bokun','🔄 Bókun'],['/dashboard/leads','📨 Leads'],['/dashboard/products','🧩 Products'],['/dashboard/commissions','💸 Commission'],['/dashboard/host','🎤 Host view'],['/dashboard/team','👥 Team']] as const).map(([href,label]) => (
+            {([['/dashboard/bokun','🔄 Bókun'],['/dashboard/leads','📨 Leads'],['/dashboard/products','🧩 Products'],['/dashboard/reports','📝 Reports'],['/dashboard/commissions','💸 Commission'],['/dashboard/host','🎤 Host view'],['/dashboard/team','👥 Team']] as const).map(([href,label]) => (
               <Link key={href} href={href} style={{ ...S.btn, ...S.btnGhost, display:'flex', alignItems:'center', textDecoration:'none', width:'100%' }}>{label}</Link>
             ))}
           </div>
@@ -1281,6 +1281,9 @@ export default function Dashboard() {
           </Link>
           <Link href="/dashboard/bokun" style={{ ...S.btn, ...S.btnGhost, display:'inline-flex', alignItems:'center', textDecoration:'none' }}>
             🔄 Bókun
+          </Link>
+          <Link href="/dashboard/reports" style={{ ...S.btn, ...S.btnGhost, display:'inline-flex', alignItems:'center', textDecoration:'none' }}>
+            📝 Reports
           </Link>
           <Link href="/dashboard/commissions" style={{ ...S.btn, ...S.btnGhost, display:'inline-flex', alignItems:'center', textDecoration:'none' }}>
             💸 Commission
