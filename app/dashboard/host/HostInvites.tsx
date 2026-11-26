@@ -32,6 +32,7 @@ function pretty(date: string | null) {
 export default function HostInvites() {
   const [data, setData] = useState<any>(null)
   const [nights, setNights] = useState<any[]>([])
+  const [nightsLoaded, setNightsLoaded] = useState(false)
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({ eventId: '', guestName: '', guestEmail: '', guestPhone: '' })
   const [busy, setBusy] = useState(false)
@@ -45,9 +46,12 @@ export default function HostInvites() {
   }, [])
   useEffect(() => { load() }, [load])
   useEffect(() => {
-    if (!open || nights.length) return
-    fetch('/api/events?storefront=bcc').then((r) => r.json()).then((j) => setNights((j.events ?? []).filter((e: any) => e.remaining == null || e.remaining > 0))).catch(() => {})
-  }, [open, nights.length])
+    if (!open || nightsLoaded) return
+    fetch('/api/events?storefront=bcc').then((r) => r.json())
+      .then((j) => setNights((j.events ?? []).filter((e: any) => e.remaining == null || e.remaining > 0)))
+      .catch(() => setError('Could not load the nights. Close and try again.'))
+      .finally(() => setNightsLoaded(true))
+  }, [open, nightsLoaded])
 
   async function create() {
     setBusy(true); setError(''); setLink(''); setCopied(false)
@@ -87,8 +91,8 @@ export default function HostInvites() {
                 Makes a personal booking link for one guest. They choose how many tickets and pay on the website. You earn ฿{data?.commissionPerTicket ?? 150} per paid ticket after the night. The link works for 7 days.
               </p>
               <span style={label}>Night</span>
-              <select value={form.eventId} onChange={(e) => setForm({ ...form, eventId: e.target.value })} style={field} disabled={busy}>
-                <option value="">Choose a night…</option>
+              <select value={form.eventId} onChange={(e) => setForm({ ...form, eventId: e.target.value })} style={field} disabled={busy || (nightsLoaded && !nights.length)}>
+                <option value="">{!nightsLoaded ? 'Loading nights…' : nights.length ? 'Choose a night…' : 'No nights on sale right now'}</option>
                 {nights.map((n) => <option key={n.eventId} value={n.eventId}>{pretty(n.eventDate)} · {n.nightName}</option>)}
               </select>
               <span style={label}>Guest’s full name</span>
@@ -97,7 +101,14 @@ export default function HostInvites() {
               <input type="email" inputMode="email" value={form.guestEmail} onChange={(e) => setForm({ ...form, guestEmail: e.target.value })} style={field} disabled={busy} autoComplete="off" />
               <span style={label}>Guest’s phone (WhatsApp)</span>
               <input type="tel" inputMode="tel" value={form.guestPhone} onChange={(e) => setForm({ ...form, guestPhone: e.target.value })} style={field} disabled={busy} placeholder="+66…" autoComplete="off" />
+              {nightsLoaded && !nights.length && (
+                <p style={{ color: '#FCD34D', fontSize: '12px', margin: '6px 0 0' }}>Invites can only be made for nights that are on sale with seats left. Ask the owner to switch a night ON.</p>
+              )}
               {error && <p role="alert" style={{ color: '#FCA5A5', fontSize: '13px', margin: '10px 0 0' }}>{error}</p>}
+              {(() => {
+                const missing = [!form.eventId && 'a night', form.guestName.trim().length < 2 && 'the guest’s full name', !form.guestEmail.includes('@') && 'the guest’s email'].filter(Boolean)
+                return missing.length > 0 ? <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px', margin: '10px 0 0' }}>To create the link, add {missing.join(', ')}.</p> : null
+              })()}
               <button onClick={create} disabled={busy || !form.eventId || form.guestName.trim().length < 2 || !form.guestEmail.includes('@')}
                 style={{ width: '100%', height: '46px', marginTop: '14px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg,#EA003A,#820065)', color: '#fff', fontWeight: 600, fontSize: '14px', cursor: 'pointer', opacity: busy ? 0.6 : 1 }}>
                 {busy ? 'Creating…' : 'Create link'}
