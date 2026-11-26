@@ -15,6 +15,7 @@ function pretty(date: string | null) {
   return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
 }
 const baht = (n: number) => `฿${(n ?? 0).toLocaleString()}`
+const bangkokToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date())
 
 export function useHostMoney() {
   const [earnings, setEarnings] = useState<any>(null)
@@ -28,7 +29,9 @@ export function useHostMoney() {
 }
 
 export function ReportsDue({ earnings }: { earnings: any }) {
-  const due = (earnings?.nights ?? []).filter((n: any) => n.state === 'report_due')
+  // From the day after the night: tonight's crawl hasn't happened yet.
+  const today = bangkokToday()
+  const due = (earnings?.nights ?? []).filter((n: any) => n.state === 'report_due' && n.date < today)
   if (!due.length) return null
   return (
     <div style={{ display: 'grid', gap: '8px', marginBottom: '12px' }}>
@@ -60,6 +63,7 @@ const row = { display: 'block', textDecoration: 'none', color: '#fff', borderTop
 
 export function MyEarnings({ earnings, invites, reload }: { earnings: any; invites: any; reload: () => void }) {
   if (!earnings && !invites) return null
+  const today = bangkokToday()
   const nights: any[] = earnings?.nights ?? []
   const inv: any[] = invites?.invites ?? []
   const it = invites?.totals ?? { upcoming: 0, earned: 0, paid: 0 }
@@ -92,13 +96,13 @@ export function MyEarnings({ earnings, invites, reload }: { earnings: any; invit
       <p style={sub}>Nights you hosted</p>
       {nights.length === 0 && <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>None in the last 90 days.</p>}
       {nights.map((n) => (
-        <Link key={n.eventId} href={`/dashboard/host/${n.eventId}${n.state === 'report_due' ? '?tab=report' : ''}`} style={row}>
+        <Link key={n.eventId} href={`/dashboard/host/${n.eventId}${n.state === 'report_due' && n.date < today ? '?tab=report' : ''}`} style={row}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
             <span><b>{pretty(n.date)}</b> · {n.nightName}</span>
             <b>{n.fee == null ? '—' : baht(n.total)}</b>
           </div>
-          <div style={{ color: HOST_STATE[n.state]?.[1], marginTop: '2px' }}>
-            {HOST_STATE[n.state]?.[0]}
+          <div style={{ color: n.state === 'report_due' && n.date === today ? '#93C5FD' : HOST_STATE[n.state]?.[1], marginTop: '2px' }}>
+            {n.state === 'report_due' && n.date === today ? 'Tonight — report after the crawl' : HOST_STATE[n.state]?.[0]}
             <span style={{ color: 'rgba(255,255,255,0.45)' }}>
               {n.fee != null ? ` · fee ${baht(n.fee)}` : ''}{n.expenses ? ` + expenses ${baht(n.expenses)}` : ''}{n.pendingExpenses ? ` · ${n.pendingExpenses} expense(s) waiting` : ''} ›
             </span>
