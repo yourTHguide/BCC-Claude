@@ -2,6 +2,10 @@
 // fake URL. No Stripe client is constructed and nothing leaves the process.
 // getPriceId / NIGHT_NAMES mirror lib/stripe.ts (legacy path only).
 export const stripe = {
+  // Webhook tests send the event as the raw body; no signature check here.
+  webhooks: { constructEvent: (body: string) => JSON.parse(body) },
+  paymentIntents: { retrieve: async (id: string) => ({ id, latest_charge: `ch_${id}` }) },
+  promotionCodes: { retrieve: async (id: string) => ({ id, code: 'PROMO' }) },
   checkout: {
     sessions: {
       create: async (params: any) => {

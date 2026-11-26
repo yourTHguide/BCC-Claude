@@ -20,7 +20,7 @@ export class FakeDb {
     products: [], event_dates: [], bookings: [], ota_bookings: [],
     bnt_waitlist: [], bnt_waitlist_announcements: [], bnt_waitlist_deliveries: [],
     bnt_experience_inquiries: [], bnt_contact_messages: [],
-    bokun_bookings: [], bokun_sync_runs: [], bokun_sync_log: [],
+    bokun_bookings: [], bokun_sync_runs: [], bokun_sync_log: [], host_invites: [], admin_users: [], booking_attendees: [], product_content: [],
   }
   failRules: FailRule[] = []
   from(table: string) {
@@ -83,6 +83,7 @@ export class Builder implements PromiseLike<any> {
     if (op !== 'is') throw new Error('fakeDb: not() supports is only')
     return this.f(`${c} not is ${v}`, (r) => (getPath(r, c) ?? null) !== v)
   }
+  gt(c: string, v: any) { return this.f(`${c}>${v}`, (r) => getPath(r, c) != null && getPath(r, c) > v) }
   lt(c: string, v: any) { return this.f(`${c}<${v}`, (r) => getPath(r, c) != null && getPath(r, c) < v) }
   lte(c: string, v: any) { return this.f(`${c}<=${v}`, (r) => getPath(r, c) != null && getPath(r, c) <= v) }
   gte(c: string, v: any) { return this.f(`${c}>=${v}`, (r) => getPath(r, c) != null && getPath(r, c) >= v) }
@@ -168,6 +169,9 @@ export class Builder implements PromiseLike<any> {
     if (this.table === 'bnt_waitlist_deliveries' && t.some((r) => r.announcement_id === row.announcement_id && r.waitlist_id === row.waitlist_id)) return 'bnt_waitlist_deliveries_once'
     if (this.table === 'bnt_waitlist_announcements' && row.kind === 'sold_out_reopen' && ['draft', 'sending'].includes(row.status) &&
         t.some((r) => r.kind === 'sold_out_reopen' && r.event_date_id === row.event_date_id && ['draft', 'sending'].includes(r.status))) return 'one_open_reopen'
+    if (this.table === 'host_invites' && t.some((r) => r.code === row.code)) return 'host_invites_code_key'
+    if (this.table === 'bookings' && row.host_invite_id && t.some((r) => r.host_invite_id === row.host_invite_id)) return 'bookings_host_invite_once'
+    if (this.table === 'bookings' && row.stripe_session_id && t.some((r) => r.stripe_session_id === row.stripe_session_id)) return 'bookings_stripe_session_id_key'
     if (this.table === 'ota_bookings' && row.booking_ref && t.some((r) => r.source === row.source && r.booking_ref === row.booking_ref)) return 'ota_bookings_source_booking_ref_key'
     if (this.table === 'bokun_sync_log' && t.some((r) => r.mode === row.mode && r.kind === row.kind && r.event_date === row.event_date)) return 'bokun_sync_log_once'
     if (this.table === 'bnt_waitlist') {

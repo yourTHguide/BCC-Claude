@@ -65,7 +65,7 @@ export default function BokunCheckPage() {
               <table className="w-full text-left text-xs">
                 <thead className="text-white/50">
                   <tr>
-                    {['Date', 'Guests', 'Status', 'Channel', 'Bókun code', 'Platform code', 'Guest', 'Email', 'Phone'].map((h) => (
+                    {['Date', 'Guests', 'Status', 'Channel', 'Bókun code', 'Platform code', 'Price', 'Platform cut', 'Other comm.', 'Discount', 'Paid', 'Guest', 'Email', 'Phone'].map((h) => (
                       <th key={h} className="px-2 py-1">{h}</th>
                     ))}
                   </tr>
@@ -73,12 +73,17 @@ export default function BokunCheckPage() {
                 <tbody>
                   {result.bookings.map((b: any, i: number) => (
                     <tr key={i} className="border-t border-white/10">
-                      <td className="px-2 py-1">{String(b.date ?? '—')}</td>
+                      <td className="px-2 py-1 whitespace-nowrap">{typeof b.date === 'number' ? new Date(b.date).toISOString().slice(0, 10) : String(b.date ?? '—')}</td>
                       <td className="px-2 py-1">{String(b.guests ?? '—')}</td>
                       <td className="px-2 py-1">{String(b.status ?? '—')}</td>
                       <td className="px-2 py-1">{String(b.channel ?? '—')}</td>
                       <td className="px-2 py-1">{String(b.bokunCode ?? '—')}</td>
                       <td className="px-2 py-1">{String(b.platformCode ?? '—')}</td>
+                      <td className="px-2 py-1 whitespace-nowrap">{b.totalPrice ?? '—'} {b.currency ?? ''}</td>
+                      <td className="px-2 py-1">{b.sellerCommission ?? '—'}</td>
+                      <td className="px-2 py-1">{(b.agentCommission ?? 0) + (b.affiliateCommission ?? 0)}</td>
+                      <td className="px-2 py-1">{b.discountAmount ?? '—'}</td>
+                      <td className="px-2 py-1 whitespace-nowrap">{b.paidAmount ?? '—'}{b.paymentStatus ? ` (${String(b.paymentStatus).toLowerCase()})` : ''}</td>
                       <td className="px-2 py-1">{b.guestInitials ?? '—'}</td>
                       <td className="px-2 py-1">{b.emailKind}{b.emailDomain ? ` (${b.emailDomain})` : ''}</td>
                       <td className="px-2 py-1">{b.phone ?? '—'}</td>
