@@ -89,7 +89,7 @@ export default function HostEventsPage() {
           {viewer?.displayName ? `Hi ${viewer.displayName} — your nights` : 'Your Events'}
         </h1>
         <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.50)', marginBottom: '16px' }}>
-          Open a night for the guest list, check-in, route and WhatsApp group.
+          Tap one of your nights below to open its <b>Brief</b>, <b>Guests</b>, <b>Expenses</b> and <b>Report</b>.
         </p>
 
         {isManager && (
@@ -128,7 +128,7 @@ export default function HostEventsPage() {
         {events === null && !error && <p style={{ color: 'rgba(255,255,255,0.50)', fontSize: '13px', marginTop: '16px' }}>Loading…</p>}
         {events?.length === 0 && (
           <p style={{ color: 'rgba(255,255,255,0.40)', fontSize: '13px', marginTop: '16px' }}>
-            {mine && isManager ? 'You are not assigned as host on any upcoming night.' : 'No events assigned to you yet.'}
+            {mine && isManager ? `You are not assigned as host on any upcoming night. Assign "${viewer?.displayName ?? 'yourself'}" as host on a night in the Calendar to see it here.` : 'No events assigned to you yet.'}
           </p>
         )}
 

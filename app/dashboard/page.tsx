@@ -187,6 +187,16 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
   const [otaForm, setOtaForm] = useState({ source:'klook', guest_name:'', guest_email:'', quantity:1, total_paid:'' })
   const [expForm, setExpForm] = useState({ category:'van', description:'', amount:'' })
   const [localEvent, setLocalEvent] = useState(event)
+  // Host choices: the usual four plus every display name on the Team page, so
+  // whatever name a host signs in with can be assigned (and their Host view,
+  // report and earnings match the night).
+  const [hostNames, setHostNames] = useState<string[]>(HOSTS)
+  useEffect(() => {
+    fetch('/api/admin/hosts').then((r) => (r.ok ? r.json() : null)).then((j) => {
+      const names = (j?.hosts ?? []).map((h: any) => (h.displayName ?? '').trim()).filter(Boolean)
+      setHostNames(Array.from(new Set([...HOSTS, ...names])))
+    }).catch(() => {})
+  }, [])
 
   // ── Operations layer state ──
   const [confirmModal, setConfirmModal] = useState<{ title:string, message:string, confirmLabel:string, onConfirm:()=>void } | null>(null)
@@ -716,7 +726,7 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
           <label style={S.label}>ASSIGNED HOST</label>
           <select value={localEvent.host_assigned||''} onChange={e => updateHost(e.target.value)} style={S.input}>
             <option value="">Unassigned</option>
-            {HOSTS.map(h => <option key={h} value={h}>{h}</option>)}
+            {Array.from(new Set([...hostNames, ...(localEvent.host_assigned ? [localEvent.host_assigned] : [])])).map(h => <option key={h} value={h}>{h}</option>)}
           </select>
         </div>
 
