@@ -117,6 +117,14 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
   const rawDate = searchParams.get('date') || ''
   const preselectedDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : ''
   const preselectedQty = Math.min(24, Math.max(1, parseInt(searchParams.get('qty') || '1', 10) || 1))
+  // Phase 3C host invite (/with/<host>/<code> redirects here with ?invite=).
+  // Checkout re-checks it; this only greets the guest and passes it on.
+  const inviteCode = (searchParams.get('invite') || '').toLowerCase()
+  const [invite, setInvite] = useState<{ valid: boolean; hostName?: string; eventId?: string; message?: string } | null>(null)
+  useEffect(() => {
+    if (!/^[a-z0-9]{6,20}$/.test(inviteCode)) return
+    fetch(`/api/invite/${inviteCode}`).then((r) => r.json()).then(setInvite).catch(() => setInvite(null))
+  }, [inviteCode])
 
   const todayISO = bangkokTodayISO()
   const [ty, tm] = todayISO.split('-').map(Number)
@@ -374,6 +382,16 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
           <h1 style={{ fontWeight: 600, fontSize: '24px', color: '#fff' }}>
             When are you joining us?
           </h1>
+          {invite?.valid && (
+            <p role="status" style={{ marginTop: '12px', padding: '12px 14px', borderRadius: '12px', background: 'rgba(234,0,58,0.12)', border: '1px solid rgba(234,0,58,0.35)', color: '#fff', fontSize: '14px', lineHeight: 1.5 }}>
+              🎉 <b>{invite.hostName}</b> invited you! Your night is picked below — choose how many of you are coming and book.
+            </p>
+          )}
+          {invite && !invite.valid && (
+            <p role="status" style={{ marginTop: '12px', fontSize: '13px', color: 'rgba(255,255,255,0.6)' }}>
+              {invite.message} You can still book any night below.
+            </p>
+          )}
         </div>
 
         {/* ── LOADING ── */}
@@ -953,6 +971,8 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                               // computes the actual price, never trusting
                               // anything sent here.
                               ...(hasTierPricing && selectedTier ? { priceTier: selectedTier } : {}),
+                              // Host invite: only for the night it was made for.
+                              ...(invite?.valid && invite.eventId === selectedEvent.eventId ? { inviteCode } : {}),
                             }),
                           })
                           const data = await res.json()

@@ -8,6 +8,7 @@ import { sendEmail } from '@/lib/sendEmail'
 import { generateConfirmationEmail } from '@/emails/confirmation'
 import type { Storefront } from '@/lib/storefront'
 import { resendFromHeader } from '@/lib/storefrontBrand'
+import { claimInvite } from '@/lib/hostInvites'
 
 
 export async function POST(req: NextRequest) {
@@ -112,6 +113,22 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Phase 3C: a booking paid through a host's invite link is credited to
+    // that host. The invite is claimed once; a retry of the same payment, a
+    // second payment on the same link, or the host paying for themselves is
+    // saved as a normal booking without credit. A lookup error never blocks
+    // saving the paid booking.
+    let hostInviteId: string | null = null
+    if (meta.host_invite_code) {
+      try {
+        const claim = await claimInvite(supabase, String(meta.host_invite_code), eventId, guestEmail)
+        hostInviteId = claim.inviteId
+        if (!claim.inviteId) console.warn(`webhook: invite ${meta.host_invite_code} not credited (${claim.reason})`)
+      } catch (e) {
+        console.error('webhook: invite claim failed', e)
+      }
+    }
+
     const { data: insertedRows, error: dbError } = await supabase
       .from('bookings')
       .insert({
@@ -137,6 +154,7 @@ export async function POST(req: NextRequest) {
         stripe_payment_id: session.payment_intent,
         stripe_charge_id: stripeChargeId,
         ticket_token: ticketToken,
+        ...(hostInviteId ? { host_invite_id: hostInviteId } : {}),
       })
       .select('id')
 
@@ -145,6 +163,14 @@ export async function POST(req: NextRequest) {
     // booking already saved. Acknowledge without a second booking or email.
     if (dbError?.code === '23505' && /stripe_session_id/.test(`${dbError.message} ${dbError.details ?? ''}`)) {
       return NextResponse.json({ received: true, duplicate: true })
+    }
+    if (hostInviteId) {
+      if (insertedRows?.[0]?.id) {
+        await supabase.from('host_invites').update({ booking_id: insertedRows[0].id }).eq('id', hostInviteId)
+      } else {
+        // The booking didn't save: give the link back so the guest can retry.
+        await supabase.from('host_invites').update({ used_at: null }).eq('id', hostInviteId).is('booking_id', null)
+      }
     }
 
     if (dbError) {

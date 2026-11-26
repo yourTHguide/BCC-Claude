@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import HostInvites from './HostInvites'
 
 interface HostEvent {
   id: string
@@ -118,6 +119,8 @@ export default function HostEventsPage() {
         >
           Scan Ticket
         </Link>
+
+        <HostInvites />
 
         {error && <p style={{ color: '#EA003A', fontSize: '13px' }}>{error}</p>}
         {events === null && !error && <p style={{ color: 'rgba(255,255,255,0.50)', fontSize: '13px', marginTop: '16px' }}>Loading…</p>}

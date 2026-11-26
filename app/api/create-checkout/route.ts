@@ -7,6 +7,7 @@ import { isCancelledEvent, isPastBookingCutoff, seatKey, seatsTaken } from '@/li
 import { resolveStorefront, VISIBILITY_COLUMN } from '@/lib/storefront'
 import { resolveEventPricing } from '@/lib/pricing'
 import { stripePaymentLabel } from '@/lib/stripePaymentLabel'
+import { INVITE_PROBLEM_TEXT, inviteProblem, loadInvite, type InviteRow } from '@/lib/hostInvites'
 
 // Format the YYYY-MM-DD string into a friendly label.
 // Parse into LOCAL date components (not new Date(eventDate), which parses as
@@ -24,7 +25,7 @@ function formatEventDate(eventDate: string): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const { eventId, nightSlug, eventDate, quantity, priceTier } = await req.json()
+    const { eventId, nightSlug, eventDate, quantity, priceTier, inviteCode } = await req.json()
 
     // Identity: prefer the canonical event-instance id (event_id) when the
     // caller supplies it; otherwise fall back to the legacy (night_slug,
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest) {
       // — a forged/absent storefront in the body can't buy BNT-only pricing
       // or bypass BCC visibility, because the body never carries one at all.
       const storefront = resolveStorefront(req.headers.get('host'))
-      return await createDynamicCheckout({ eventId, nightSlug, eventDate, quantity, storefront, priceTier })
+      return await createDynamicCheckout({ eventId, nightSlug, eventDate, quantity, storefront, priceTier, inviteCode })
     }
     // Same resolver every other URL-building call site uses (ticket page, QR
     // route, confirmation email, dynamic checkout above) — Preview deployments
@@ -71,7 +72,9 @@ async function createDynamicCheckout({
   quantity,
   storefront,
   priceTier,
+  inviteCode,
 }: {
+  inviteCode?: string | null
   eventId?: string | null
   nightSlug?: string | null
   eventDate?: string | null
@@ -291,6 +294,23 @@ async function createDynamicCheckout({
     effectivePrice = pricing.earlyBirdPrice
   }
 
+  // 9. Phase 3C host invite (optional). The link must still be open and for
+  //    this exact night; otherwise the guest is told to book normally. The
+  //    price is the normal price — an invite never changes what is charged.
+  let invite: InviteRow | null = null
+  if (inviteCode) {
+    try {
+      invite = await loadInvite(getServiceSupabase(), String(inviteCode))
+    } catch (err) {
+      console.error('create-checkout: invite lookup failed:', err)
+      return NextResponse.json({ error: 'Booking temporarily unavailable. Please try again.' }, { status: 503 })
+    }
+    const problem = inviteProblem(invite, event.id)
+    if (problem) {
+      return NextResponse.json({ error: `${INVITE_PROBLEM_TEXT[problem]} You can still book on the calendar.`, inviteProblem: problem }, { status: 409 })
+    }
+  }
+
   // ── Build the Stripe session from canonical data ──
   // unit_amount is in the smallest currency unit (satang); THB is 2-decimal, so
   // ฿1,200 → 120000. This preserves the webhook's amount_total / 100 math and
@@ -317,6 +337,8 @@ async function createDynamicCheckout({
     // Collect name, email, phone at checkout
     billing_address_collection: 'auto',
     phone_number_collection: { enabled: true },
+    // Invited guests get the email their host entered pre-filled.
+    ...(invite ? { customer_email: invite.guest_email } : {}),
 
     // Allow promo codes (managed in Stripe dashboard)
     allow_promotion_codes: true,
@@ -342,6 +364,7 @@ async function createDynamicCheckout({
       event_date: event.event_date,
       quantity: String(qty),
       formatted_date: formattedDate,
+      ...(invite ? { host_invite_code: invite.code } : {}),
     },
 
     // Label the payment itself so Stripe's Transactions list shows the night.
