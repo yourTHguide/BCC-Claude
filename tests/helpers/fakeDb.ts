@@ -168,6 +168,7 @@ export class Builder implements PromiseLike<any> {
     if (this.table === 'bnt_waitlist_deliveries' && t.some((r) => r.announcement_id === row.announcement_id && r.waitlist_id === row.waitlist_id)) return 'bnt_waitlist_deliveries_once'
     if (this.table === 'bnt_waitlist_announcements' && row.kind === 'sold_out_reopen' && ['draft', 'sending'].includes(row.status) &&
         t.some((r) => r.kind === 'sold_out_reopen' && r.event_date_id === row.event_date_id && ['draft', 'sending'].includes(r.status))) return 'one_open_reopen'
+    if (this.table === 'ota_bookings' && row.booking_ref && t.some((r) => r.source === row.source && r.booking_ref === row.booking_ref)) return 'ota_bookings_source_booking_ref_key'
     if (this.table === 'bokun_sync_log' && t.some((r) => r.mode === row.mode && r.kind === row.kind && r.event_date === row.event_date)) return 'bokun_sync_log_once'
     if (this.table === 'bnt_waitlist') {
       if (row.consent_scope === 'event_dates' && t.some((r) => r.consent_scope === 'event_dates' && r.product_slug === row.product_slug && r.email === row.email)) return 'product_email'

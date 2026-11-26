@@ -1252,6 +1252,9 @@ export default function Dashboard() {
           <Link href="/dashboard/leads" style={{ ...S.btn, ...S.btnGhost, display:'inline-flex', alignItems:'center', textDecoration:'none' }}>
             📨 Leads
           </Link>
+          <Link href="/dashboard/bokun" style={{ ...S.btn, ...S.btnGhost, display:'inline-flex', alignItems:'center', textDecoration:'none' }}>
+            🔄 Bókun
+          </Link>
         </div>
         <div className="flex items-center justify-center gap-3">
           <button onClick={prevMonth} style={{ ...S.btn, ...S.btnGhost, padding:'0 12px' }}>‹</button>

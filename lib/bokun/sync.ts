@@ -102,9 +102,18 @@ export async function loadPlan(db: SupabaseClient, now = new Date()): Promise<Da
     loadOta(db, addDays(win.from, -7), addDays(win.to, 7)),
   ])
   if (e1 || e2 || e3) throw e1 ?? e2 ?? e3
+  const nightList = (nights ?? []) as NightRow[]
+  const direct = new Map<string, number>()
+  if (nightList.length) {
+    const { data: dir, error: e4 } = await db.from('bookings').select('event_date, night_slug, quantity')
+      .in('event_date', Array.from(new Set(nightList.map((n) => n.event_date)))).eq('status', 'confirmed')
+    if (e4) throw e4
+    for (const b of (dir ?? []) as any[]) direct.set(`${b.event_date}|${b.night_slug}`, (direct.get(`${b.event_date}|${b.night_slug}`) ?? 0) + (b.quantity ?? 0))
+  }
   return buildSyncPlan({
+    direct,
     bokun: (bokun ?? []) as BokunRow[],
-    nights: (nights ?? []) as NightRow[],
+    nights: nightList,
     ota: (ota ?? []) as OtaRow[],
     defaultStartTime: (product as any)?.default_start_time ?? null,
     now,

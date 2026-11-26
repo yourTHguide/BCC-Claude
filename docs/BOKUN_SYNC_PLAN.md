@@ -51,7 +51,25 @@ Bókun facts (from the Bókun connection, 26 Nov 2026):
 4. Add the Vault secret `bokun_sync_secret` (same value), then apply `cron_bokun_sync.sql`.
 5. Compare `/dashboard/bokun` with Bókun for 1–2 weeks.
 
+## Test period: review and Import (owner decision, 26 Nov 2026)
+Instead of writing to the dashboard automatically, the sync feeds a review screen, `/dashboard/bokun` (🔄 Bókun on the dashboard):
+- Opening the screen reads Bókun fresh (no schedule, no secret needed yet).
+- One card per night: Bókun's OTA guests next to the dashboard's OTA + website guests.
+- **Import** (owner/admin): the ticked new bookings become `ota_bookings` rows on that night (platform, booking code, guest name, guest count, real email only, note "Imported from Bókun …", `imported_at`). A missing future night is created **OFF**; past dates need the night added first. Re-checked at the press: cancelled or moved bookings are refused, codes already on the dashboard are skipped (unique source + booking_ref), so a double tap or stale screen can't duplicate.
+- **Use Bókun's number** when the dashboard's guest count differs.
+- **Open for website booking** button appears once a night has 4 OTA guests on the dashboard (owner's tap, confirm dialog; never a started or cancelled night). Importing never opens a night.
+- Cancelled in Bókun: flagged only; the owner handles it on the night as today (no deletes from this screen).
+- Staging copy caught up with production's `ota_bookings.booking_ref` / `booking_status` columns (26 Nov) so Import can be tested on Preview.
+
+After the test period: automatic import + automatic opening at 4 with an email, and the 10-minute schedule (`cron_bokun_sync.sql`).
+
+### Production rollout for the test period (needs owner go-ahead)
+1. Apply `20261127000001_bokun_sync_shadow.sql` to production.
+2. Vercel: `BOKUN_ACCESS_KEY` / `BOKUN_SECRET_KEY` ticked for Production.
+3. Merge and deploy. No schedule, no `BOKUN_SYNC_SECRET` needed yet.
+
 ## Step status
 - Step 1, read-only connection check: done 26 Nov (all channels visible).
 - Step 2, sync in shadow mode: built and tested; on Preview/staging.
+- Step 2b, review screen with Import / Use Bókun's number / Open for website: built 26 Nov; on Preview/staging.
 - Step 3, go live, including automatic night creation and opening.

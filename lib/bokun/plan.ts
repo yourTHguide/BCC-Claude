@@ -48,7 +48,10 @@ export interface OtaRow {
 }
 
 export type IssueKind = 'missing' | 'moved' | 'guests_differ' | 'cancelled_in_bokun' | 'not_in_bokun' | 'pending_in_bokun' | 'no_code' | 'other_channel' | 'no_night'
-export interface Issue { kind: IssueKind; code: string | null; text: string }
+export interface Issue { kind: IssueKind; code: string | null; text: string; bokunId?: string; otaId?: string }
+
+// A Bókun booking that can be imported onto this night.
+export interface NewBooking { bokunId: string; code: string; source: string; guests: number; name: string | null; hasEmail: boolean; hasPhone: boolean }
 
 export interface DatePlan {
   date: string
@@ -56,6 +59,8 @@ export interface DatePlan {
   createNight: { slug: string; name: string } | null
   bokun: { bookings: number; guests: number }
   dashboard: { bookings: number; guests: number }
+  direct: number               // confirmed website guests on the night
+  newBookings: NewBooking[]
   issues: Issue[]
   toAdd: number                // guests the live sync would add to the dashboard
   otaGuestsAfter: number
@@ -73,6 +78,7 @@ export function buildSyncPlan(input: {
   now?: Date
   threshold?: number
   window?: { from: string; to: string }   // dates Bókun was read for
+  direct?: Map<string, number>             // "date|night_slug" → confirmed website guests
 }): DatePlan[] {
   const now = input.now ?? new Date()
   const threshold = input.threshold ?? autoOpenThreshold()
@@ -80,6 +86,7 @@ export function buildSyncPlan(input: {
   const otaByRef = new Map<string, OtaRow>()
   for (const o of input.ota) if (o.booking_ref) otaByRef.set(upper(o.booking_ref), o)
   const bokunCodes = new Set(input.bokun.map((b) => upper(b.platform_code)).filter(Boolean))
+  const bokunOwnCodes = new Set(input.bokun.map((b) => upper(b.bokun_code)).filter(Boolean))
 
   const dates = new Set<string>()
   for (const b of input.bokun) dates.add(b.event_date)
@@ -94,23 +101,23 @@ export function buildSyncPlan(input: {
     const nightRow = nightsOnDate.find((n) => n.night_slug === slug && isOtaNight(n.night_slug)) ?? null
     const issues: Issue[] = []
     let toAdd = 0
+    const newBookings: NewBooking[] = []
 
     const bokunHere = input.bokun.filter((b) => b.event_date === date)
     const active = bokunHere.filter((b) => ACTIVE_STATUSES.has(b.status))
     for (const b of bokunHere) {
-      const match = b.platform_code ? otaByRef.get(upper(b.platform_code)) : undefined
+      // Imported without a platform code → saved under Bókun's own code.
+      const match = (b.platform_code ? otaByRef.get(upper(b.platform_code)) : undefined) ?? (b.bokun_code ? otaByRef.get(upper(b.bokun_code)) : undefined)
       const who = b.platform_code ?? b.bokun_code
       if (ACTIVE_STATUSES.has(b.status)) {
         if (b.source === 'other') issues.push({ kind: 'other_channel', code: who, text: `${who}: from "${b.channel_title ?? 'unknown channel'}" — check which platform this is` })
-        if (!b.platform_code) {
-          issues.push({ kind: 'no_code', code: b.bokun_code, text: `${b.bokun_code}: no platform code, can't be matched` })
-          toAdd += b.guests
-        } else if (!match) {
-          issues.push({ kind: 'missing', code: who, text: `${who} (${b.guests} guest${b.guests === 1 ? '' : 's'}) is in Bókun but not on the dashboard` })
+        if (!match) {
+          if (!b.platform_code) issues.push({ kind: 'no_code', code: b.bokun_code, text: `${b.bokun_code}: no platform code; imported under Bókun's code` })
+          newBookings.push({ bokunId: b.bokun_booking_id, code: (who ?? b.bokun_booking_id) as string, source: b.source, guests: b.guests, name: b.guest_name, hasEmail: !!b.email, hasPhone: !!b.phone })
           toAdd += b.guests
         } else {
           if (match.event_date !== date) issues.push({ kind: 'moved', code: who, text: `${who}: on your ${match.event_date} night (moved)` })
-          if (match.quantity !== b.guests) issues.push({ kind: 'guests_differ', code: who, text: `${who}: dashboard ${match.quantity}, Bókun ${b.guests} guest(s)` })
+          if (match.quantity !== b.guests) issues.push({ kind: 'guests_differ', code: who, text: `${who}: dashboard ${match.quantity}, Bókun ${b.guests} guest(s)`, bokunId: b.bokun_booking_id, otaId: match.id })
         }
       } else if (b.status === 'CANCELLED') {
         if (match && !match.booking_status) issues.push({ kind: 'cancelled_in_bokun', code: who, text: `${who}: cancelled in Bókun, still counted on your ${match.event_date} night` })
@@ -121,7 +128,7 @@ export function buildSyncPlan(input: {
 
     const dashHere = input.ota.filter((o) => o.event_date === date && !NOT_OTA.has(o.source) && counted(o))
     for (const o of dashHere) {
-      if (BOKUN_SOURCES.has(o.source) && !(o.booking_ref && bokunCodes.has(upper(o.booking_ref)))) {
+      if (BOKUN_SOURCES.has(o.source) && !(o.booking_ref && (bokunCodes.has(upper(o.booking_ref)) || bokunOwnCodes.has(upper(o.booking_ref))))) {
         issues.push({ kind: 'not_in_bokun', code: o.booking_ref, text: `${o.source} ${o.booking_ref ?? '(no code)'} (${o.quantity}) is on the dashboard but not found in Bókun` })
       }
     }
@@ -146,6 +153,8 @@ export function buildSyncPlan(input: {
       createNight,
       bokun: { bookings: active.length, guests: active.reduce((s, b) => s + b.guests, 0) },
       dashboard: { bookings: dashHere.length, guests: dashHere.reduce((s, o) => s + (o.quantity ?? 0), 0) },
+      direct: nightRow ? input.direct?.get(`${date}|${nightRow.night_slug}`) ?? 0 : 0,
+      newBookings,
       issues,
       toAdd,
       otaGuestsAfter,

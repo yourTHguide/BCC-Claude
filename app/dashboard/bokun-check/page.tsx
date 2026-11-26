@@ -43,7 +43,7 @@ export default function BokunCheckPage() {
       <div className="mx-auto max-w-5xl">
         <div className="mb-1 flex items-center justify-between">
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent-primary">Admin only · Read-only</p>
-          <span className="flex gap-3"><Link href="/dashboard/bokun" className="text-xs text-white/60 underline">Bókun sync →</Link><Link href="/dashboard" className="text-xs text-white/60 underline">← Dashboard</Link></span>
+          <span className="flex gap-3"><Link href="/dashboard/bokun" className="text-xs text-white/60 underline">Bókun bookings →</Link><Link href="/dashboard" className="text-xs text-white/60 underline">← Dashboard</Link></span>
         </div>
         <h1 className="text-2xl font-bold">Bókun connection check</h1>
         <p className="mt-1 text-sm text-white/60">Reads recent Club Crawl bookings from Bókun with this site&apos;s keys. Nothing is saved or changed.</p>
