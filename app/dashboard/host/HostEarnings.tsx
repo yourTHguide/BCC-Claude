@@ -1,62 +1,129 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 
-// "My earnings" (the host's own only): nights hosted in the last 90 days with
-// report status, the fee the owner set, approved expenses and payout state.
-// Reports still to write are shown first. Commission is listed under
-// "My invites & commission".
+// Host landing, money and reports (the host's own only; never prices or revenue).
+// - ReportsDue: one big card per night whose report is still to write.
+// - MyEarnings: one place for everything a host earns: hosting (fee + approved
+//   expenses, once the report is in and the owner has reviewed) and commission
+//   for guests booked through their invite links.
 
-const COLOR: Record<string, string> = { report_due: '#FCD34D', in_review: '#93C5FD', ready_to_pay: '#6EE7B7', paid: 'rgba(255,255,255,0.5)' }
-function pretty(date: string) {
+function pretty(date: string | null) {
+  if (!date) return ''
   const [y, m, d] = date.split('-').map(Number)
   return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
 }
+const baht = (n: number) => `฿${(n ?? 0).toLocaleString()}`
 
-export default function HostEarnings() {
-  const [data, setData] = useState<any>(null)
-  useEffect(() => {
-    fetch('/api/admin/host/earnings', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then(setData).catch(() => {})
+export function useHostMoney() {
+  const [earnings, setEarnings] = useState<any>(null)
+  const [invites, setInvites] = useState<any>(null)
+  const reload = useCallback(() => {
+    fetch('/api/admin/host/earnings', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then(setEarnings).catch(() => {})
+    fetch('/api/admin/host/invites', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then(setInvites).catch(() => {})
   }, [])
-  if (!data || !data.nights.length) return null
-  const due = data.nights.filter((n: any) => n.state === 'report_due')
+  useEffect(() => { reload() }, [reload])
+  return { earnings, invites, reload }
+}
+
+export function ReportsDue({ earnings }: { earnings: any }) {
+  const due = (earnings?.nights ?? []).filter((n: any) => n.state === 'report_due')
+  if (!due.length) return null
+  return (
+    <div style={{ display: 'grid', gap: '8px', marginBottom: '12px' }}>
+      {due.map((n: any) => (
+        <Link key={n.eventId} href={`/dashboard/host/${n.eventId}?tab=report`}
+          style={{ display: 'block', textDecoration: 'none', color: '#fff', borderRadius: '12px', padding: '14px 16px', background: 'linear-gradient(135deg, rgba(234,0,58,0.22), rgba(130,0,101,0.22))', border: '1px solid rgba(234,0,58,0.6)' }}>
+          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)' }}>📝 Report to write</div>
+          <div style={{ fontSize: '16px', fontWeight: 700, margin: '2px 0 10px' }}>{pretty(n.date)} · {n.nightName}</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.65)' }}>Your pay for this night is ready once it’s in.</span>
+            <span style={{ whiteSpace: 'nowrap', background: '#EA003A', borderRadius: '8px', padding: '8px 14px', fontWeight: 700, fontSize: '14px' }}>Write report →</span>
+          </div>
+        </Link>
+      ))}
+    </div>
+  )
+}
+
+const HOST_STATE: Record<string, [string, string]> = {
+  report_due: ['Report due', '#FCD34D'], in_review: ['Owner reviewing', '#93C5FD'], ready_to_pay: ['Ready to pay', '#6EE7B7'], paid: ['Paid', 'rgba(255,255,255,0.5)'],
+}
+const INVITE_STATE: Record<string, [string, string]> = {
+  waiting: ['Waiting for the guest to book', 'rgba(255,255,255,0.55)'], upcoming: ['Booked — earns after the night', '#93C5FD'],
+  earned: ['Earned — ready to pay', '#6EE7B7'], paid: ['Paid', 'rgba(255,255,255,0.5)'], expired: ['Link expired', 'rgba(255,255,255,0.4)'],
+  cancelled: ['Cancelled', 'rgba(255,255,255,0.4)'], no_commission: ['No commission (refunded or not via link)', 'rgba(255,255,255,0.4)'],
+}
+const sub = { fontWeight: 600, fontSize: '11px', color: 'rgba(255,255,255,0.55)', margin: '14px 0 4px' }
+const row = { display: 'block', textDecoration: 'none', color: '#fff', borderTop: '1px solid rgba(255,255,255,0.06)', padding: '9px 0', fontSize: '13px' }
+
+export function MyEarnings({ earnings, invites, reload }: { earnings: any; invites: any; reload: () => void }) {
+  if (!earnings && !invites) return null
+  const nights: any[] = earnings?.nights ?? []
+  const inv: any[] = invites?.invites ?? []
+  const it = invites?.totals ?? { upcoming: 0, earned: 0, paid: 0 }
+  const hostingUpcoming = nights.filter((n) => n.state === 'in_review').reduce((t, n) => t + n.total, 0)
+  const totals = {
+    ready: (earnings?.totals?.readyToPay ?? 0) + (it.earned ?? 0),
+    upcoming: hostingUpcoming + (it.upcoming ?? 0),
+    paid: (earnings?.totals?.paid ?? 0) + (it.paid ?? 0),
+  }
+
+  async function cancel(id: string) {
+    if (!confirm('Cancel this link? The guest won’t be able to use it.')) return
+    await fetch('/api/admin/host/invites', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, action: 'cancel' }) }).catch(() => null)
+    reload()
+  }
 
   return (
-    <div style={{ margin: '18px 0 4px' }}>
-      {due.length > 0 && (
-        <div style={{ background: 'rgba(252,211,77,0.08)', border: '1px solid rgba(252,211,77,0.35)', borderRadius: '12px', padding: '12px 14px', marginBottom: '14px' }}>
-          <b style={{ fontSize: '14px' }}>📝 Report{due.length > 1 ? 's' : ''} to write ({due.length})</b>
-          {due.map((n: any) => (
-            <Link key={n.eventId} href={`/dashboard/host/${n.eventId}?tab=report`} style={{ display: 'block', color: '#fff', fontSize: '13px', marginTop: '6px' }}>
-              {pretty(n.date)} · {n.nightName} → write report
-            </Link>
-          ))}
-          <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)', margin: '6px 0 0' }}>Your pay for a night is ready once its report is in.</p>
-        </div>
-      )}
-      <p style={{ fontWeight: 600, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.40)', margin: '0 0 8px' }}>My earnings (hosting)</p>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
-        {[['Ready to pay', data.totals.readyToPay], ['Paid (90 days)', data.totals.paid]].map(([l, v]) => (
+    <div style={{ marginTop: '22px' }}>
+      <p style={{ fontWeight: 600, fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.40)', margin: '0 0 8px' }}>My earnings</p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+        {[['Ready to pay', totals.ready, '#6EE7B7'], ['Upcoming', totals.upcoming, '#93C5FD'], ['Paid', totals.paid, 'rgba(255,255,255,0.8)']].map(([l, v, c]) => (
           <div key={l as string} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '10px' }}>
             <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>{l}</div>
-            <div style={{ fontSize: '18px', fontWeight: 700 }}>฿{(v as number).toLocaleString()}</div>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: c as string }}>{baht(v as number)}</div>
           </div>
         ))}
       </div>
-      {data.nights.map((n: any) => (
-        <Link key={n.eventId} href={`/dashboard/host/${n.eventId}`} style={{ display: 'block', textDecoration: 'none', color: '#fff', borderTop: '1px solid rgba(255,255,255,0.06)', padding: '9px 0', fontSize: '13px' }}>
+      <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', margin: '6px 0 0' }}>Hosting pay (fee + approved expenses) and ฿{invites?.commissionPerTicket ?? 150} per ticket for guests who booked through your links.</p>
+
+      <p style={sub}>Nights you hosted</p>
+      {nights.length === 0 && <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>None in the last 90 days.</p>}
+      {nights.map((n) => (
+        <Link key={n.eventId} href={`/dashboard/host/${n.eventId}${n.state === 'report_due' ? '?tab=report' : ''}`} style={row}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
             <span><b>{pretty(n.date)}</b> · {n.nightName}</span>
-            <b>{n.fee == null ? '—' : `฿${n.total.toLocaleString()}`}</b>
+            <b>{n.fee == null ? '—' : baht(n.total)}</b>
           </div>
-          <div style={{ color: COLOR[n.state], marginTop: '2px' }}>
-            {n.stateLabel}
+          <div style={{ color: HOST_STATE[n.state]?.[1], marginTop: '2px' }}>
+            {HOST_STATE[n.state]?.[0]}
             <span style={{ color: 'rgba(255,255,255,0.45)' }}>
-              {n.fee != null ? ` · fee ฿${n.fee.toLocaleString()}` : ''}{n.expenses ? ` + expenses ฿${n.expenses.toLocaleString()}` : ''}{n.pendingExpenses ? ` · ${n.pendingExpenses} expense(s) waiting` : ''}
+              {n.fee != null ? ` · fee ${baht(n.fee)}` : ''}{n.expenses ? ` + expenses ${baht(n.expenses)}` : ''}{n.pendingExpenses ? ` · ${n.pendingExpenses} expense(s) waiting` : ''} ›
             </span>
           </div>
         </Link>
+      ))}
+
+      <p style={sub}>Guests you invited</p>
+      {inv.length === 0 && <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>No invites yet — use “+ Create booking”.</p>}
+      {inv.slice(0, 50).map((v) => (
+        <div key={v.id} style={{ ...row, cursor: 'default' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+            <span><b>{v.guestName}</b> · {pretty(v.eventDate)}{v.tickets ? ` · ${v.tickets} ticket${v.tickets === 1 ? '' : 's'}` : ''}</span>
+            {v.amount > 0 && <b>{baht(v.amount)}</b>}
+          </div>
+          <div style={{ color: INVITE_STATE[v.state]?.[1], marginTop: '2px' }}>
+            {INVITE_STATE[v.state]?.[0] ?? v.state}
+            {v.state === 'waiting' && (
+              <>
+                {' · '}<button onClick={() => navigator.clipboard?.writeText(v.link)} style={{ background: 'none', border: 'none', color: '#fff', textDecoration: 'underline', cursor: 'pointer', padding: 0, fontSize: '13px' }}>copy link</button>
+                {' · '}<button onClick={() => cancel(v.id)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', textDecoration: 'underline', cursor: 'pointer', padding: 0, fontSize: '13px' }}>cancel</button>
+              </>
+            )}
+          </div>
+        </div>
       ))}
     </div>
   )

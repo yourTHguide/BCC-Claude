@@ -6,6 +6,7 @@ import DoorList, { type DoorListTheme } from '@/components/doorlist/DoorList'
 import type { DoorGuest } from '@/lib/doorList'
 import HostExpenses from './HostExpenses'
 import HostReport from './HostReport'
+import HostBrief from './HostBrief'
 
 interface Expense {
   id: string
@@ -31,6 +32,7 @@ interface HostEventDetail {
     vanOrTaxiContact: string | null
     specialNotes: string | null
     operationVerdict: string
+    startTime: string | null
   }
   guests: DoorGuest[]
   headcount: { total: number; checkedIn: number }
@@ -116,52 +118,7 @@ export default function HostEventDetailPage({ params }: { params: { id: string }
               ))}
             </div>
 
-            {tab === 'brief' && (<>
-            {/* WhatsApp group — the host's most-used link on the night */}
-            {data.event.whatsappGroupLink && (
-              <a
-                href={data.event.whatsappGroupLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', height: '48px', borderRadius: '10px',
-                  marginBottom: '14px', background: '#25D366', color: '#062b14', fontWeight: 700, fontSize: '15px', textDecoration: 'none',
-                }}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.8 11.9 11.9 0 0 0 4.6 4c1.7.7 2.4.8 3.2.7a2.8 2.8 0 0 0 1.8-1.3 2.3 2.3 0 0 0 .2-1.3c-.1-.1-.3-.2-.5-.3Z" />
-                </svg>
-                Open WhatsApp group
-              </a>
-            )}
-
-            {/* Operational brief — read-only for a Host */}
-            <div style={S.card}>
-              <p style={S.label}>Operational Brief</p>
-              {data.event.meetUpLocation && (
-                <p style={{ fontSize: '13px', marginBottom: '6px' }}>
-                  <strong>Meet-up:</strong> {data.event.meetUpLocation}{' '}
-                  <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(data.event.meetUpLocation + ', Bangkok')}`} target="_blank" rel="noopener noreferrer" style={{ color: '#EA003A', whiteSpace: 'nowrap' }}>Map ↗</a>
-                </p>
-              )}
-              {data.event.vanOrTaxiContact && <p style={{ fontSize: '13px', marginBottom: '6px' }}><strong>Van/Taxi:</strong> {data.event.vanOrTaxiContact}</p>}
-              {data.event.venueRoute && ['venue1', 'venue2', 'venue3', 'venue4'].some((k) => data.event.venueRoute?.[k]) && (
-                <div style={{ fontSize: '13px', marginBottom: '6px' }}>
-                  <strong>Route:</strong>
-                  <ol style={{ margin: '4px 0 0', paddingLeft: '20px', color: 'rgba(255,255,255,0.80)' }}>
-                    {['venue1', 'venue2', 'venue3', 'venue4'].map((k) => data.event.venueRoute?.[k]).filter(Boolean).map((v, i) => <li key={i} style={{ marginBottom: '2px' }}>{v}</li>)}
-                  </ol>
-                  {data.event.venueRoute.backup && <p style={{ margin: '4px 0 0', color: 'rgba(255,255,255,0.60)' }}>Backup: {data.event.venueRoute.backup}</p>}
-                  {data.event.venueRoute.notes && <p style={{ margin: '4px 0 0', color: 'rgba(255,255,255,0.60)' }}>Route notes: {data.event.venueRoute.notes}</p>}
-                </div>
-              )}
-              {data.event.specialNotes && <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.70)' }}><strong>Notes:</strong> {data.event.specialNotes}</p>}
-              {!data.event.meetUpLocation && !data.event.whatsappGroupLink && !data.event.vanOrTaxiContact && !data.event.specialNotes && (
-                <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.40)' }}>No operational details set yet.</p>
-              )}
-            </div>
-
-            </>)}
+            {tab === 'brief' && <HostBrief event={data.event} headcount={data.headcount} onTab={setTab} />}
 
             {/* Door list: everyone (direct + OTA), one-tap check-in, Scan at the top */}
             {tab === 'guests' && (

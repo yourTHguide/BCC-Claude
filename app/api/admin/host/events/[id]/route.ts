@@ -42,7 +42,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     .select(
       'id, event_date, night_name, night_slug, is_open, host_assigned, ' +
         'meet_up_location, whatsapp_group_link, venue_route, van_or_taxi_contact, ' +
-        'special_notes, operation_verdict'
+        'special_notes, operation_verdict, start_time_override, products ( default_start_time )'
     )
     .eq('id', params.id)
     .maybeSingle()
@@ -95,6 +95,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       vanOrTaxiContact: event.van_or_taxi_contact,
       specialNotes: event.special_notes,
       operationVerdict: event.operation_verdict,
+      startTime: event.start_time_override ?? (Array.isArray(event.products) ? event.products[0] : event.products)?.default_start_time ?? null,
     },
     guests,
     headcount: { total: totalGuests, checkedIn: checkedInGuests },

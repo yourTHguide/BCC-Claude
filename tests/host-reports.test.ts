@@ -163,3 +163,14 @@ test('a pending expense blocks Mark paid; the host can remove only their own pen
   assert.equal((await call(expenses.DELETE, 'DELETE', { id: exp.id })).status, 200)
   assert.equal(Object.keys(db.files).length, 0, 'receipt removed too')
 })
+
+test('report lists the route venues even when some stops are skipped (venue1, venue3, venue4)', async () => {
+  ev.venue_route = { venue1: 'DOTF', venue3: 'Singsing', venue4: 'Cavo' }
+  const g = await call(report.GET, 'GET')
+  assert.deepEqual(g.json.report.venues.map((v: any) => v.venue), ['DOTF', 'Singsing', 'Cavo'])
+  // A draft saved before the route was set still picks the route up later.
+  ev.venue_route = {}
+  await call(report.PUT, 'PUT', { vibe: 'x' })
+  ev.venue_route = { venue1: 'DOTF' }
+  assert.deepEqual((await call(report.GET, 'GET')).json.report.venues.map((v: any) => v.venue), ['DOTF'])
+})
