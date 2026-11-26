@@ -79,6 +79,16 @@ export async function saveBokunRows(db: SupabaseClient, rows: BokunRow[], nowIso
   return { added, changed }
 }
 
+// OTA bookings for the comparison. Older databases (the staging copy behind
+// Preview) predate booking_ref / booking_status: read without them there,
+// so every Bókun booking simply shows as not yet on the dashboard.
+async function loadOta(db: SupabaseClient, from: string, to: string) {
+  const full = await db.from('ota_bookings').select('id, event_date, night_slug, source, quantity, booking_ref, booking_status').gte('event_date', from).lte('event_date', to)
+  if (!full.error || !/column .* does not exist/i.test(full.error.message ?? '')) return full
+  const basic = await db.from('ota_bookings').select('id, event_date, night_slug, source, quantity').gte('event_date', from).lte('event_date', to)
+  return { data: (basic.data ?? []).map((r: any) => ({ ...r, booking_ref: null, booking_status: null })), error: basic.error }
+}
+
 // The comparison, from what is saved (no Bókun call).
 export async function loadPlan(db: SupabaseClient, now = new Date()): Promise<DatePlan[]> {
   const win = syncWindow(now)
@@ -89,7 +99,7 @@ export async function loadPlan(db: SupabaseClient, now = new Date()): Promise<Da
     product
       ? db.from('event_dates').select('id, event_date, night_slug, night_name, is_open, capacity, operation_verdict, start_time_override, product_id').eq('product_id', (product as any).id).gte('event_date', addDays(win.from, -7)).lte('event_date', win.to)
       : Promise.resolve({ data: [], error: null }),
-    db.from('ota_bookings').select('id, event_date, night_slug, source, quantity, booking_ref, booking_status').gte('event_date', addDays(win.from, -7)).lte('event_date', addDays(win.to, 7)),
+    loadOta(db, addDays(win.from, -7), addDays(win.to, 7)),
   ])
   if (e1 || e2 || e3) throw e1 ?? e2 ?? e3
   return buildSyncPlan({

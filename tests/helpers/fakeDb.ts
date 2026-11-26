@@ -12,6 +12,7 @@ export interface FailRule {
   table: string
   op: 'select' | 'insert' | 'update'
   when?: (b: Builder) => boolean
+  message?: string
 }
 
 export class FakeDb {
@@ -117,8 +118,8 @@ export class Builder implements PromiseLike<any> {
   private run(): any {
     const rule = this.db.failRules.findIndex((x) => x.table === this.table && x.op === this.op && (!x.when || x.when(this)))
     if (rule >= 0) {
-      this.db.failRules.splice(rule, 1)
-      return { data: null, error: { code: 'XX000', message: `injected ${this.op} failure on ${this.table}` } }
+      const [hit] = this.db.failRules.splice(rule, 1)
+      return { data: null, error: { code: 'XX000', message: hit.message ?? `injected ${this.op} failure on ${this.table}` } }
     }
     const match = (r: Row) => this.filters.every((fn) => fn(r))
 

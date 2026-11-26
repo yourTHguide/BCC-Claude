@@ -9,7 +9,7 @@ import { ACTIVE_STATUSES, type BokunRow } from './normalize'
 // - A date with OTA bookings but no Club Crawl night gets one, created OFF
 //   (Fri → TGIF, Sat → Signature Night, other days → BKK Club Crawl).
 // - A night opens for website booking once its OTA guests reach the
-//   threshold (BOKUN_AUTO_OPEN_MIN_GUESTS, default 3), only for future nights
+//   threshold (BOKUN_AUTO_OPEN_MIN_GUESTS, default 4), only for future nights
 //   before their start time, never a cancelled night, and (once live) never
 //   a night the owner switched OFF by hand. Nights are never closed by the sync.
 // - Guests the team moved to a nearby night stay where they are: a booking is
@@ -17,7 +17,7 @@ import { ACTIVE_STATUSES, type BokunRow } from './normalize'
 
 export function autoOpenThreshold(): number {
   const n = Number(process.env.BOKUN_AUTO_OPEN_MIN_GUESTS)
-  return Number.isInteger(n) && n >= 1 ? n : 3
+  return Number.isInteger(n) && n >= 1 ? n : 4
 }
 
 // Rows in ota_bookings that are not OTA platforms.

@@ -20,7 +20,7 @@ Bókun facts (from the Bókun connection, 26 Nov 2026):
    - platform forwarding emails (GetYourGuide, Tripadvisor, etc.) are stored as **masked**, never used as the guest's email, and never added to any list;
    - phones are kept when given.
 4. **No night on that date:** a night is **created automatically, OFF** (Fri → TGIF, Sat → Signature Night, other days → BKK Club Crawl) and the OTA booking is placed on it.
-5. **Automatic opening (owner decision, updated 26 Nov):** a night switches **ON automatically once its OTA guests reach 3**, so website bookings can help a 3–4 guest night reach the minimum. Setting: `BOKUN_AUTO_OPEN_MIN_GUESTS` (default 3). Safety rules:
+5. **Automatic opening (owner decision, updated 26 Nov):** a night switches **ON automatically once its OTA guests reach 4**, so website bookings can help the night reach the minimum. Setting: `BOKUN_AUTO_OPEN_MIN_GUESTS` (default 4). Safety rules:
    - only future nights, before their start time;
    - a night the owner switched OFF by hand is never re-opened automatically;
    - no automatic closing when cancellations drop below 5;

@@ -45,9 +45,9 @@ test('normalize: Bókun timestamp → night date, platform names, masked emails 
 const night = (date: string, slug: string, isOpen: boolean, extra: object = {}) => ({ id: `n-${date}`, event_date: date, night_slug: slug, night_name: null, is_open: isOpen, capacity: 12, ...extra })
 const row = (id: number, date: string, guests = 1, status = 'CONFIRMED', ref?: string | null) => normalizeBooking(bk(id, { date, guests, status, ref }))!
 
-test('plan: missing bookings are added; a date without a night gets one created OFF; opens at 3 OTA guests', () => {
+test('plan: missing bookings are added; a date without a night gets one created OFF; opens at 4 OTA guests', () => {
   const plan = buildSyncPlan({
-    bokun: [row(1, '2027-03-03', 2), row(2, '2027-03-05', 2), row(3, '2027-03-05', 1)],
+    bokun: [row(1, '2027-03-03', 3), row(2, '2027-03-05', 2), row(3, '2027-03-05', 2)],
     nights: [night('2027-03-05', 'tgif', false)],
     ota: [],
     defaultStartTime: '21:30:00',
@@ -55,11 +55,11 @@ test('plan: missing bookings are added; a date without a night gets one created 
   })
   const wed = plan.find((p) => p.date === '2027-03-03')!
   assert.deepEqual(wed.createNight, { slug: 'club-crawl', name: 'BKK Club Crawl' })
-  assert.equal(wed.toAdd, 2)
-  assert.deepEqual([wed.open.would, wed.open.reason], [false, '2 of 3 OTA guests'])
+  assert.equal(wed.toAdd, 3)
+  assert.deepEqual([wed.open.would, wed.open.reason], [false, '3 of 4 OTA guests'])
   const fri = plan.find((p) => p.date === '2027-03-05')!
   assert.equal(fri.createNight, null)
-  assert.deepEqual([fri.otaGuestsAfter, fri.open.would], [3, true])
+  assert.deepEqual([fri.otaGuestsAfter, fri.open.would], [4, true])
   assert.equal(fri.issues.filter((i) => i.kind === 'missing').length, 2)
 })
 
@@ -90,7 +90,7 @@ test('plan: matched by platform code even after the team moved the guest; cancel
 
 test('plan: never opens a cancelled, past or already-started night; threshold is a setting', () => {
   const base = { ota: [], defaultStartTime: '21:30:00' }
-  const three = [row(1, '2027-03-05', 3)]
+  const three = [row(1, '2027-03-05', 4)]
   const cancelled = buildSyncPlan({ ...base, bokun: three, nights: [night('2027-03-05', 'tgif', false, { operation_verdict: 'Cancelled / Rescheduled' })], now: NOW })[0]
   assert.deepEqual([cancelled.open.would, cancelled.open.reason], [false, 'Night cancelled'])
   const started = buildSyncPlan({ ...base, bokun: three, nights: [night('2027-03-05', 'tgif', false)], now: new Date('2027-03-05T15:00:00Z') })[0]
@@ -98,7 +98,7 @@ test('plan: never opens a cancelled, past or already-started night; threshold is
   const before = buildSyncPlan({ ...base, bokun: three, nights: [night('2027-03-05', 'tgif', false)], now: new Date('2027-03-05T14:00:00Z') })[0]
   assert.equal(before.open.would, true, '21:00 Bangkok, before the 21:30 start')
   const five = buildSyncPlan({ ...base, bokun: three, nights: [night('2027-03-05', 'tgif', false)], now: NOW, threshold: 5 })[0]
-  assert.deepEqual([five.open.would, five.open.reason], [false, '3 of 5 OTA guests'])
+  assert.deepEqual([five.open.would, five.open.reason], [false, '4 of 5 OTA guests'])
 })
 
 // ── Full run against the in-memory database ─────────────────────────────
@@ -122,7 +122,7 @@ beforeEach(() => {
 
 test('run: reads every page, keeps one row per booking, logs once per night, changes nothing live', async () => {
   const fifty = Array.from({ length: 50 }, (_, i) => bk(1000 + i, { date: '2027-03-10' }))
-  bokunPages = [fifty, [bk(1, { date: '2027-03-05', guests: 2 }), bk(2, { date: '2027-03-05', guests: 1 })]]
+  bokunPages = [fifty, [bk(1, { date: '2027-03-05', guests: 3 }), bk(2, { date: '2027-03-05', guests: 1 })]]
   const before = JSON.stringify([db.tables.event_dates, db.tables.ota_bookings])
 
   const r1 = await runBokunSync(db as any, 'manual', NOW)
@@ -156,6 +156,14 @@ test('run: a Bókun error is recorded and nothing is half-saved; overlapping run
   db.insertRow('bokun_sync_runs', { trigger: 'schedule', started_at: NOW.toISOString(), finished_at: null })
   const again = await runBokunSync(db as any, 'manual', new Date(NOW.getTime() + 60_000))
   assert.match(again.skipped ?? '', /already running/)
+})
+
+test('older database without booking codes: the comparison still loads', async () => {
+  db.failRules.push({ table: 'ota_bookings', op: 'select', when: (b) => b.cols.includes('booking_ref'), message: 'column ota_bookings.booking_ref does not exist' })
+  bokunPages = [[bk(1, { date: '2027-03-05', guests: 2 })]]
+  const r = await runBokunSync(db as any, 'manual', NOW)
+  assert.equal(r.ok, true, r.error)
+  assert.equal(r.fetched, 1)
 })
 
 test('cron endpoint needs the secret', async () => {
