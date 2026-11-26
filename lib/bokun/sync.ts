@@ -2,7 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { bokunRequest } from './client'
 import { BOKUN_PRODUCT_ID, normalizeBooking, type BokunRow } from './normalize'
 import { buildSyncPlan, type DatePlan, type NightRow, type OtaRow } from './plan'
-import { BCC_PRODUCT_SLUG, bangkokNow } from '@/lib/bookingAvailability'
+import { BCC_PRODUCT_SLUG, bangkokNow, isCancelledEvent } from '@/lib/bookingAvailability'
+import { isOtaNight, otaNightName } from '@/lib/ota-import/nights'
 
 // Bókun sync (Nov 2026). Step 2 runs in SHADOW mode only: it keeps a copy of
 // each Bókun booking in bokun_bookings and logs what it would do. It never
@@ -89,6 +90,27 @@ async function loadOta(db: SupabaseClient, from: string, to: string) {
   return { data: (basic.data ?? []).map((r: any) => ({ ...r, booking_ref: null, booking_status: null })), error: basic.error }
 }
 
+// Club Crawl nights with their guest totals (OTA + website), for the date
+// picker: a dot marks dates that already have guests.
+export interface CalendarNight { date: string; name: string; isOpen: boolean; guests: number }
+export async function loadCalendar(db: SupabaseClient, from: string, to: string): Promise<CalendarNight[]> {
+  const { data: product } = await db.from('products').select('id').eq('slug', BCC_PRODUCT_SLUG).maybeSingle()
+  if (!product) return []
+  const { data: nights, error } = await db.from('event_dates').select('event_date, night_slug, night_name, is_open, operation_verdict').eq('product_id', (product as any).id).gte('event_date', from).lte('event_date', to)
+  if (error) throw error
+  const list = ((nights ?? []) as any[]).filter((n) => isOtaNight(n.night_slug) && !isCancelledEvent(n))
+  if (!list.length) return []
+  const dates = Array.from(new Set(list.map((n) => n.event_date)))
+  const [{ data: ota, error: e1 }, { data: dir, error: e2 }] = await Promise.all([
+    db.from('ota_bookings').select('event_date, night_slug, quantity').in('event_date', dates),
+    db.from('bookings').select('event_date, night_slug, quantity').in('event_date', dates).eq('status', 'confirmed'),
+  ])
+  if (e1 || e2) throw e1 ?? e2
+  const guests = new Map<string, number>()
+  for (const r of [...((ota ?? []) as any[]), ...((dir ?? []) as any[])]) guests.set(`${r.event_date}|${r.night_slug}`, (guests.get(`${r.event_date}|${r.night_slug}`) ?? 0) + (r.quantity ?? 0))
+  return list.map((n) => ({ date: n.event_date, name: n.night_name ?? otaNightName(n.night_slug), isOpen: !!n.is_open, guests: guests.get(`${n.event_date}|${n.night_slug}`) ?? 0 }))
+}
+
 // The comparison, from what is saved (no Bókun call).
 export async function loadPlan(db: SupabaseClient, now = new Date()): Promise<DatePlan[]> {
   const win = syncWindow(now)
@@ -141,7 +163,7 @@ export async function runBokunSync(db: SupabaseClient, trigger: 'schedule' | 'ma
     const { added, changed } = await saveBokunRows(db, rows, nowIso)
     const plan = await loadPlan(db, now)
     const log: Record<string, unknown>[] = [
-      ...plan.filter((p) => p.createNight).map((p) => ({ run_id: runId, mode: 'shadow', kind: 'create_night', event_date: p.date, detail: { night: p.createNight, bokunGuests: p.bokun.guests } })),
+      ...plan.filter((p) => p.createNight && p.date >= bangkokNow(now).date).map((p) => ({ run_id: runId, mode: 'shadow', kind: 'create_night', event_date: p.date, detail: { night: p.createNight, bokunGuests: p.bokun.guests } })),
       ...plan.filter((p) => p.open.would).map((p) => ({ run_id: runId, mode: 'shadow', kind: 'open_night', event_date: p.date, detail: { night: p.night?.name ?? p.createNight?.name, reason: p.open.reason, otaGuests: p.otaGuestsAfter } })),
     ]
     // Logged once per night: later runs leave the first entry as it was.
@@ -150,7 +172,7 @@ export async function runBokunSync(db: SupabaseClient, trigger: 'schedule' | 'ma
       if (error && error.code !== '23505') throw error
     }
     await finish({ ok: true, fetched: rows.length, added, changed })
-    return { ok: true, runId, fetched: rows.length, added, changed, wouldCreate: plan.filter((p) => p.createNight).length, wouldOpen: plan.filter((p) => p.open.would).length }
+    return { ok: true, runId, fetched: rows.length, added, changed, wouldCreate: plan.filter((p) => p.createNight && p.date >= bangkokNow(now).date).length, wouldOpen: plan.filter((p) => p.open.would).length }
   } catch (err: any) {
     const message = String(err?.message ?? err).slice(0, 500)
     await finish({ ok: false, error: message })

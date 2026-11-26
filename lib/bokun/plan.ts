@@ -56,7 +56,6 @@ export interface NewBooking { bokunId: string; code: string; source: string; gue
 // A booking already on the dashboard (matched to Bókun by code), and the
 // nights it could be moved to.
 export interface OnDashboard { otaId: string; code: string; guests: number; onDate: string; nightName: string }
-export interface NightChoice { eventId: string; date: string; name: string; isOpen: boolean }
 
 export interface DatePlan {
   date: string
@@ -67,7 +66,6 @@ export interface DatePlan {
   direct: number               // confirmed website guests on the night
   newBookings: NewBooking[]
   onDashboard: OnDashboard[]
-  nearbyNights: NightChoice[]  // Club Crawl nights within a week, for moved guests
   issues: Issue[]
   toAdd: number                // guests the live sync would add to the dashboard
   otaGuestsAfter: number
@@ -75,8 +73,8 @@ export interface DatePlan {
 }
 
 const upper = (s: string | null | undefined) => (s ?? '').trim().toUpperCase()
-// Guests may join a night up to a week from the date they booked (same rule as the OTA report import).
-export const MOVE_DAYS = 7
+// How far from the booked date a guest can be imported or moved (owner picks the date on a calendar).
+export const MOVE_DAYS = 60
 export const dayDiff = (a: string, b: string) => Math.round((Date.parse(a + 'T00:00:00Z') - Date.parse(b + 'T00:00:00Z')) / 864e5)
 const counted = (o: OtaRow) => !NOT_COUNTED.has(o.booking_status ?? '')
 
@@ -148,9 +146,8 @@ export function buildSyncPlan(input: {
 
     const onNight = nightRow ? input.ota.filter((o) => o.event_date === date && o.night_slug === nightRow.night_slug && !NOT_OTA.has(o.source) && counted(o)) : []
     const otaGuestsAfter = onNight.reduce((s, o) => s + (o.quantity ?? 0), 0) + toAdd
-    // Nights are only created for today onwards; a past date without a night is flagged instead.
-    const createNight = !nightRow && newBookings.length > 0 && date >= today ? { slug, name: otaNightName(slug) } : null
-    if (!nightRow && newBookings.length > 0 && date < today) issues.push({ kind: 'no_night', code: null, text: 'No night on this past date: import onto the night they joined, or add the night on the calendar' })
+    // Importing onto a date without a night creates it, OFF (past dates too: the owner records who came).
+    const createNight = !nightRow && newBookings.length > 0 ? { slug, name: otaNightName(slug) } : null
 
     let open = { would: false, reason: '' }
     if (!nightRow && !createNight) open.reason = 'No night'
@@ -169,10 +166,6 @@ export function buildSyncPlan(input: {
       direct: nightRow ? input.direct?.get(`${date}|${nightRow.night_slug}`) ?? 0 : 0,
       newBookings,
       onDashboard,
-      nearbyNights: input.nights
-        .filter((n) => isOtaNight(n.night_slug) && !isCancelledEvent(n) && Math.abs(dayDiff(n.event_date, date)) <= MOVE_DAYS)
-        .sort((a, b) => a.event_date.localeCompare(b.event_date))
-        .map((n) => ({ eventId: n.id, date: n.event_date, name: n.night_name ?? otaNightName(n.night_slug), isOpen: !!n.is_open })),
       issues,
       toAdd,
       otaGuestsAfter,

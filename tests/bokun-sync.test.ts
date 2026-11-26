@@ -88,11 +88,10 @@ test('plan: matched by platform code even after the team moved the guest; cancel
   assert.equal(sat.open.reason, 'Already ON')
 })
 
-test('plan: never creates a night in the past; flags it instead', () => {
-  const p = buildSyncPlan({ bokun: [row(1, '2027-02-23', 2)], nights: [], ota: [], defaultStartTime: '21:30:00', now: NOW })[0]
-  assert.equal(p.createNight, null)
-  assert.deepEqual(p.issues.map((i) => i.kind), ['no_night'])
-  assert.equal(p.newBookings.length, 1)
+test('plan: a past date without a night can still be imported (night created OFF); it is never opened', () => {
+  const p = buildSyncPlan({ bokun: [row(1, '2027-02-23', 4)], nights: [], ota: [], defaultStartTime: '21:30:00', now: NOW })[0]
+  assert.deepEqual(p.createNight, { slug: 'club-crawl', name: 'BKK Club Crawl' })
+  assert.deepEqual([p.issues.length, p.newBookings.length, p.open.would], [0, 1, false])
 })
 
 test('plan: never opens a cancelled, past or already-started night; threshold is a setting', () => {
@@ -233,7 +232,7 @@ test('Import: ticked bookings land on the night (created OFF when missing), with
   assert.deepEqual([plan.newBookings.length, plan.dashboard.guests, plan.bokun.guests], [0, 6, 6], 'now matches Bókun')
 })
 
-test('Import refuses cancelled or moved bookings and past dates without a night', async () => {
+test('Import refuses cancelled or moved bookings; a past date without a night gets one created OFF', async () => {
   await seed([bk(21, { date: FUTURE_FRI, status: 'CANCELLED' }), bk(22, { date: FUTURE_FRI })])
   const r = await press({ action: 'import', date: FUTURE_FRI, bokunIds: ['21'] })
   assert.equal(r.status, 409)
@@ -245,10 +244,10 @@ test('Import refuses cancelled or moved bookings and past dates without a night'
   const ok = await press({ action: 'import', date: FUTURE_FRI, bokunIds: ['21', '22'] })
   assert.deepEqual([ok.status, ok.json.imported, ok.json.night.name], [200, ['TA22'], 'TGIF Bangkok'])
 
+  // A past date without a night: the owner records who came; the night is created OFF.
   db.tables.bokun_bookings.push({ ...db.tables.bokun_bookings[0], bokun_booking_id: '99', event_date: '2020-01-03', status: 'CONFIRMED', platform_code: 'TA99' })
   const past = await press({ action: 'import', date: '2020-01-03', bokunIds: ['99'] })
-  assert.equal(past.status, 409)
-  assert.match(past.json.error, /Add it on the dashboard calendar first/)
+  assert.deepEqual([past.status, past.json.night.created, past.json.night.isOpen], [200, true, false])
 })
 
 test('Use Bókun’s number and Open for website (only on the owner’s tap, never a started or cancelled night)', async () => {
@@ -282,18 +281,14 @@ test('Moved guest: import a past booking onto the next night — saved as resche
   const joinedNight = db.insertRow('event_dates', { product_id: 'p-bcc', event_date: joined, night_slug: 'club-crawl', night_name: 'BKK Club Crawl', is_open: false })
   await seed([bk(41, { date: booked, guests: 1 })])
 
-  let plan = await loadPlan(db as any)
-  const card = plan.find((p) => p.date === booked)!
-  assert.deepEqual(card.nearbyNights.map((n) => n.date), [joined], 'nights within a week are offered')
-  assert.equal((await press({ action: 'import', date: booked, bokunIds: ['41'] })).status, 409, 'no night on the booked date')
-
-  const r = await press({ action: 'import', date: booked, bokunIds: ['41'], eventId: joinedNight.id })
+  assert.ok(joinedNight)
+  const r = await press({ action: 'import', date: booked, bokunIds: ['41'], targetDate: joined })
   assert.equal(r.status, 200, JSON.stringify(r.json))
   assert.equal(r.json.night.date, joined)
   const row = db.tables.ota_bookings[0]
   assert.deepEqual([row.event_date, row.night_slug, row.booking_status, row.booked_for_date, row.booking_ref], [joined, 'club-crawl', 'rescheduled', booked, 'TA41'])
 
-  plan = await loadPlan(db as any)
+  const plan = await loadPlan(db as any)
   const bookedCard = plan.find((p) => p.date === booked)!
   assert.deepEqual([bookedCard.newBookings.length, bookedCard.onDashboard[0].onDate], [0, joined])
   assert.ok(!bookedCard.issues.some((i) => i.kind === 'not_in_bokun' || i.kind === 'no_night'), JSON.stringify(bookedCard.issues))
@@ -302,22 +297,28 @@ test('Moved guest: import a past booking onto the next night — saved as resche
   assert.equal(joinedCard.dashboard.guests, 1)
 })
 
-test('Move: a booking already on the dashboard moves within a week; moving back clears the reschedule; further is refused', async () => {
+test('Move: to any date within 60 days (night created OFF if missing); moving back clears the reschedule; further is refused', async () => {
   await seed([bk(51, { date: FUTURE_FRI, guests: 2 })])
   await press({ action: 'import', date: FUTURE_FRI, bokunIds: ['51'] })
   const fri = db.tables.event_dates.find((e) => e.event_date === FUTURE_FRI)
   const sat = db.insertRow('event_dates', { product_id: 'p-bcc', event_date: FUTURE_SAT, night_slug: 'saturday-signature', night_name: 'Signature Night', is_open: true })
-  const far = db.insertRow('event_dates', { product_id: 'p-bcc', event_date: new Date(Date.parse(FUTURE_FRI) + 10 * 864e5).toISOString().slice(0, 10), night_slug: 'club-crawl', is_open: false })
   const row = db.tables.ota_bookings[0]
+  assert.ok(fri && sat)
 
-  const m = await press({ action: 'move', otaId: row.id, eventId: sat.id })
+  const m = await press({ action: 'move', otaId: row.id, targetDate: FUTURE_SAT })
   assert.equal(m.status, 200, JSON.stringify(m.json))
   assert.deepEqual([row.event_date, row.night_slug, row.booking_status, row.booked_for_date], [FUTURE_SAT, 'saturday-signature', 'rescheduled', FUTURE_FRI])
-  assert.equal((await press({ action: 'move', otaId: row.id, eventId: far.id })).status, 409, 'more than a week from the booked date')
-  const back = await press({ action: 'move', otaId: row.id, eventId: fri.id })
+  const plus = (d: string, n: number) => new Date(Date.parse(d + 'T00:00:00Z') + n * 864e5).toISOString().slice(0, 10)
+  assert.equal((await press({ action: 'move', otaId: row.id, targetDate: plus(FUTURE_FRI, 61) })).status, 409, 'more than 60 days from the booked date')
+  const tue = plus(FUTURE_FRI, 4)
+  const t = await press({ action: 'move', otaId: row.id, targetDate: tue })
+  assert.equal(t.status, 200)
+  const created = db.tables.event_dates.find((e) => e.event_date === tue)
+  assert.deepEqual([created.night_slug, created.is_open, row.event_date, row.booked_for_date], ['club-crawl', false, tue, FUTURE_FRI], 'a date without a night gets one, OFF')
+  const back = await press({ action: 'move', otaId: row.id, targetDate: FUTURE_FRI })
   assert.equal(back.status, 200)
   assert.deepEqual([row.event_date, row.booking_status, row.booked_for_date], [FUTURE_FRI, null, null])
 
   row.booking_status = 'refunded'
-  assert.equal((await press({ action: 'move', otaId: row.id, eventId: sat.id })).status, 409, 'refunded bookings are not moved from here')
+  assert.equal((await press({ action: 'move', otaId: row.id, targetDate: FUTURE_SAT })).status, 409, 'refunded bookings are not moved from here')
 })

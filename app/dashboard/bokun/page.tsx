@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import DatePicker, { type CalNight } from './DatePicker'
 
 // Bókun review screen (owner/admin, Nov 2026 test period). Reads Bókun when
 // opened, then shows each night: Bókun's OTA guests next to the dashboard.
@@ -22,19 +23,18 @@ function bangkokToday() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date())
 }
 
-function NightCard({ p, threshold, onDone }: { p: any; threshold: number; onDone: (msg: string) => void }) {
+function NightCard({ p, threshold, calendar, onDone }: { p: any; threshold: number; calendar: CalNight[]; onDone: (msg: string) => void }) {
   const [ticked, setTicked] = useState<Set<string>>(new Set(p.newBookings.map((b: any) => b.bokunId)))
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
-  const today = bangkokToday()
-  // Default night for Import: the night on the booked date; for a past date
-  // without one, the next night within a week (guests often join the next night).
-  const sameDay = p.nearbyNights.find((n: any) => n.date === p.date)
-  const defaultTarget = sameDay ? sameDay.eventId : p.date >= today ? '' : (p.nearbyNights.find((n: any) => n.date > p.date)?.eventId ?? p.nearbyNights[p.nearbyNights.length - 1]?.eventId ?? '')
-  const [target, setTarget] = useState<string>(defaultTarget)
+  const [target, setTarget] = useState<string>(p.date)
+  const [picking, setPicking] = useState<string>('')   // 'import' or an otaId being moved
   const [moveTo, setMoveTo] = useState<Record<string, string>>({})
-  useEffect(() => { setTicked(new Set(p.newBookings.map((b: any) => b.bokunId))); setTarget(defaultTarget) }, [p]) // eslint-disable-line react-hooks/exhaustive-deps
-  const nightLabel = (n: any) => `${pretty(n.date)} · ${n.name}${n.date === p.date ? ' (booked date)' : ''}`
+  useEffect(() => { setTicked(new Set(p.newBookings.map((b: any) => b.bokunId))); setTarget(p.date) }, [p])
+  const describe = (date: string) => {
+    const n = calendar.find((c) => c.date === date)
+    return n ? `${pretty(date)} · ${n.name} (${n.isOpen ? 'ON' : 'OFF'}, ${n.guests} guest${n.guests === 1 ? '' : 's'})` : `${pretty(date)} · no night yet — created OFF`
+  }
 
   async function act(label: string, body: object, done: (j: any) => string) {
     setBusy(label)
@@ -56,8 +56,8 @@ function NightCard({ p, threshold, onDone }: { p: any; threshold: number; onDone
     <div className={`rounded-xl border p-4 ${ready ? 'border-emerald-400/60 bg-emerald-400/5' : 'border-white/10 bg-white/[0.03]'}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-base font-semibold">
-          {pretty(p.date)} · {p.night ? p.night.name : p.createNight ? p.createNight.name : 'no night'}{' '}
-          {p.night ? <span className={p.night.isOpen ? 'text-emerald-300' : 'text-white/50'}>· {p.night.isOpen ? 'ON' : 'OFF'}</span> : <span className="text-white/50">· not on the calendar yet</span>}
+          {pretty(p.date)} · {p.night ? p.night.name : p.createNight ? p.createNight.name : 'Club Crawl'}{' '}
+          {p.night ? <span className={p.night.isOpen ? 'text-emerald-300' : 'text-white/50'}>· {p.night.isOpen ? 'ON' : 'OFF'}</span> : <span className="text-white/50">· no night on the calendar</span>}
         </h3>
         {matches && <span className="text-xs text-emerald-300">✓ matches Bókun</span>}
       </div>
@@ -79,19 +79,20 @@ function NightCard({ p, threshold, onDone }: { p: any; threshold: number; onDone
               </li>
             ))}
           </ul>
-          <label className="mt-2 block text-sm">
+          <div className="mt-2 text-sm">
             <span className="text-white/60">Import onto </span>
-            <select value={target} onChange={(e) => setTarget(e.target.value)} disabled={!!busy} className="mt-1 w-full rounded bg-white/10 p-2 text-sm sm:w-auto">
-              {!sameDay && p.date >= today && <option value="">{pretty(p.date)} · new {p.createNight?.name ?? 'night'} (created OFF)</option>}
-              {!sameDay && p.date < today && !p.nearbyNights.length && <option value="">No night within a week — add one on the calendar</option>}
-              {p.nearbyNights.map((n: any) => <option key={n.eventId} value={n.eventId}>{nightLabel(n)}</option>)}
-            </select>
-          </label>
-          {target && target !== sameDay?.eventId && (
-            <p className="mt-1 text-xs text-sky-300">Saved as rescheduled: booked for {pretty(p.date)}, joining {pretty(p.nearbyNights.find((n: any) => n.eventId === target)?.date ?? p.date)}.</p>
+            <button type="button" onClick={() => setPicking(picking === 'import' ? '' : 'import')} className="rounded border border-white/20 px-2 py-1 text-sm">
+              📅 {describe(target)}
+            </button>
+            {picking === 'import' && (
+              <div className="mt-2"><DatePicker value={target} booked={p.date} nights={calendar} onPick={(d) => { setTarget(d); setPicking('') }} /></div>
+            )}
+          </div>
+          {target !== p.date && (
+            <p className="mt-1 text-xs text-sky-300">Saved as rescheduled: booked for {pretty(p.date)}, joining {pretty(target)}.</p>
           )}
-          <button disabled={!!busy || toImport.length === 0 || (!target && p.date < today)}
-            onClick={() => act('import', { action: 'import', date: p.date, bokunIds: toImport.map((b: any) => b.bokunId), ...(target ? { eventId: target } : {}) },
+          <button disabled={!!busy || toImport.length === 0}
+            onClick={() => act('import', { action: 'import', date: p.date, bokunIds: toImport.map((b: any) => b.bokunId), targetDate: target },
               (j) => `${pretty(p.date)}: imported ${j.imported.length} onto ${j.night?.name ?? 'the night'}${j.night?.date && j.night.date !== p.date ? ` on ${pretty(j.night.date)} (rescheduled)` : ''}${j.night?.created ? ' · night created (OFF)' : ''}${j.skipped?.length ? ` · skipped: ${j.skipped.join('; ')}` : ''}`)}
             className="mt-2 rounded-lg bg-accent-primary px-4 py-2 text-sm font-semibold disabled:opacity-50">
             {busy === 'import' ? 'Importing…' : `Import ${guestsToImport} guest${guestsToImport === 1 ? '' : 's'}`}
@@ -106,19 +107,17 @@ function NightCard({ p, threshold, onDone }: { p: any; threshold: number; onDone
             {p.onDashboard.map((d: any) => (
               <li key={d.otaId} className="text-sm">
                 <span className="font-mono text-xs text-white/60">{d.code}</span> · {d.guests} guest{d.guests === 1 ? '' : 's'} · on {pretty(d.onDate)} {d.nightName}{d.onDate !== p.date ? ' (rescheduled)' : ''}
-                {p.nearbyNights.length > 1 && (
-                  <span className="ml-2 inline-flex items-center gap-1">
-                    <select value={moveTo[d.otaId] ?? ''} onChange={(e) => setMoveTo((m) => ({ ...m, [d.otaId]: e.target.value }))} disabled={!!busy} className="rounded bg-white/10 px-1 py-0.5 text-xs">
-                      <option value="">Move to…</option>
-                      {p.nearbyNights.filter((n: any) => n.date !== d.onDate).map((n: any) => <option key={n.eventId} value={n.eventId}>{nightLabel(n)}</option>)}
-                    </select>
-                    {moveTo[d.otaId] && (
-                      <button disabled={!!busy} onClick={() => act('move', { action: 'move', otaId: d.otaId, eventId: moveTo[d.otaId] }, (j) => j.unchanged ? `${j.ref} is already on that night` : `${j.ref} moved to ${pretty(j.to)} ${j.name}${j.to !== j.bookedFor ? ` (booked for ${pretty(j.bookedFor)})` : ''}`)}
-                        className="rounded border border-white/20 px-2 py-0.5 text-xs">
-                        {busy === 'move' ? '…' : 'Move'}
+                <button type="button" disabled={!!busy} onClick={() => setPicking(picking === d.otaId ? '' : d.otaId)} className="ml-2 rounded border border-white/20 px-2 py-0.5 text-xs">Move…</button>
+                {picking === d.otaId && (
+                  <div className="mt-2">
+                    <DatePicker value={moveTo[d.otaId] ?? d.onDate} booked={p.date} nights={calendar} onPick={(date) => setMoveTo((m) => ({ ...m, [d.otaId]: date }))} />
+                    {moveTo[d.otaId] && moveTo[d.otaId] !== d.onDate && (
+                      <button disabled={!!busy} onClick={() => act('move', { action: 'move', otaId: d.otaId, targetDate: moveTo[d.otaId] }, (j) => j.unchanged ? `${j.ref} is already on that night` : `${j.ref} moved to ${pretty(j.to)} ${j.name}${j.to !== j.bookedFor ? ` (booked for ${pretty(j.bookedFor)})` : ''}`)}
+                        className="mt-1 rounded-lg bg-accent-primary px-3 py-1.5 text-xs font-semibold">
+                        {busy === 'move' ? 'Moving…' : `Move to ${describe(moveTo[d.otaId])}`}
                       </button>
                     )}
-                  </span>
+                  </div>
                 )}
               </li>
             ))}
@@ -230,7 +229,7 @@ export default function BokunPage() {
               <label className="flex items-center gap-2"><input type="checkbox" checked={showPast} onChange={(e) => setShowPast(e.target.checked)} /> Include past nights</label>
             </div>
             <div className="mt-3 space-y-3">
-              {visible.map((p) => <NightCard key={p.date} p={p} threshold={threshold} onDone={(msg) => { setNote(msg); load() }} />)}
+              {visible.map((p) => <NightCard key={p.date} p={p} threshold={threshold} calendar={data.calendar ?? []} onDone={(msg) => { setNote(msg); load() }} />)}
               {visible.length === 0 && <p className="text-sm text-white/50">{onlyAction ? 'All nights match Bókun. Nothing to do.' : 'No OTA bookings in Bókun.'}</p>}
             </div>
           </>

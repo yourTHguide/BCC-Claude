@@ -15,12 +15,12 @@ export async function POST(req: NextRequest) {
   const who = auth.admin.email ?? auth.admin.userId
   try {
     if (body.action === 'import') {
-      const r = await importBookings(db, String(body.date ?? ''), Array.isArray(body.bokunIds) ? body.bokunIds : [], new Date(), body.eventId ? String(body.eventId) : undefined)
+      const r = await importBookings(db, String(body.date ?? ''), Array.isArray(body.bokunIds) ? body.bokunIds : [], new Date(), body.targetDate ? String(body.targetDate) : undefined)
       console.log(`[bokun] ${who} imported ${r.imported.length} booking(s) onto ${body.date} (${r.night.name}${r.night.created ? ', night created OFF' : ''})`)
       return NextResponse.json(r)
     }
     if (body.action === 'move') {
-      const r = await moveBooking(db, String(body.otaId ?? ''), String(body.eventId ?? ''))
+      const r = await moveBooking(db, String(body.otaId ?? ''), String(body.targetDate ?? ''))
       console.log(`[bokun] ${who} moved ${r.ref} to ${r.to}`)
       return NextResponse.json(r)
     }

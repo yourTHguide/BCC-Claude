@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireRole } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
 import { bokunConfigured } from '@/lib/bokun/client'
-import { loadPlan, runBokunSync } from '@/lib/bokun/sync'
+import { loadCalendar, loadPlan, runBokunSync, syncWindow } from '@/lib/bokun/sync'
 import { autoOpenThreshold } from '@/lib/bokun/plan'
 
 export const dynamic = 'force-dynamic'
@@ -17,13 +17,16 @@ export async function GET() {
   if ('response' in auth) return auth.response
   const db = getServiceSupabase()
   try {
-    const [{ data: runs, error: e1 }, { data: log, error: e2 }, plan] = await Promise.all([
+    const win = syncWindow()
+    const from = new Date(Date.parse(win.from + 'T00:00:00Z') - 60 * 864e5).toISOString().slice(0, 10)
+    const [{ data: runs, error: e1 }, { data: log, error: e2 }, plan, calendar] = await Promise.all([
       db.from('bokun_sync_runs').select('*').order('started_at', { ascending: false }).limit(10),
       db.from('bokun_sync_log').select('*').order('created_at', { ascending: false }).limit(50),
       loadPlan(db),
+      loadCalendar(db, from, win.to),
     ])
     if (e1 || e2) throw e1 ?? e2
-    return NextResponse.json({ mode: 'shadow', threshold: autoOpenThreshold(), configured: bokunConfigured(), runs: runs ?? [], log: log ?? [], plan })
+    return NextResponse.json({ mode: 'shadow', threshold: autoOpenThreshold(), configured: bokunConfigured(), runs: runs ?? [], log: log ?? [], plan, calendar })
   } catch (err: any) {
     return NextResponse.json({ error: `Could not load the Bókun sync: ${err?.message ?? err}` }, { status: 500 })
   }
