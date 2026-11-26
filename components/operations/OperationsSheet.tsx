@@ -146,6 +146,7 @@ export default function OperationsSheet({ palette: P, eventHref }: { palette: Op
   }
 
   const input: React.CSSProperties = { height: '36px', borderRadius: '8px', padding: '0 10px', background: P.inputBg, border: `1px solid ${P.border}`, color: P.text, fontFamily: 'inherit', fontSize: '13px', outline: 'none', minWidth: 0, width: '100%' }
+  const dateInput: React.CSSProperties = { ...input, display: 'block', boxSizing: 'border-box', maxWidth: '100%', WebkitAppearance: 'none', appearance: 'none', textAlign: 'left', lineHeight: '36px' }
   const label: React.CSSProperties = { display: 'block', fontWeight: 600, fontSize: '10px', letterSpacing: '0.14em', textTransform: 'uppercase', color: P.faint, marginBottom: '5px' }
   const card: React.CSSProperties = { background: P.card, border: `1px solid ${P.border}`, borderRadius: '12px' }
   const chip = (color: string): React.CSSProperties => ({ fontSize: '10.5px', fontWeight: 600, padding: '3px 8px', borderRadius: '999px', color, border: `1px solid ${P.border}`, whiteSpace: 'nowrap' })
@@ -161,8 +162,9 @@ export default function OperationsSheet({ palette: P, eventHref }: { palette: Op
           ))}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px' }}>
-          <div><label style={label}>From</label><input type="date" value={start} onChange={(e) => { setPreset('custom'); setRange([e.target.value, end]) }} style={input} /></div>
-          <div><label style={label}>To</label><input type="date" value={end} onChange={(e) => { setPreset('custom'); setRange([start, e.target.value]) }} style={input} /></div>
+          {/* iOS Safari gives date inputs an intrinsic min width; let them shrink to their column. */}
+          <div style={{ minWidth: 0 }}><label style={label}>From</label><input type="date" value={start} onChange={(e) => { setPreset('custom'); setRange([e.target.value, end]) }} style={dateInput} /></div>
+          <div style={{ minWidth: 0 }}><label style={label}>To</label><input type="date" value={end} onChange={(e) => { setPreset('custom'); setRange([start, e.target.value]) }} style={dateInput} /></div>
           <div><label style={label}>Host</label>
             <select value={host} onChange={(e) => setHost(e.target.value)} style={input}>
               <option value="">All hosts</option>

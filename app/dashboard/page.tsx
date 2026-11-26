@@ -1031,6 +1031,11 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<'calendar'|'bookings'|'operations'>('calendar')
   const [menuOpen, setMenuOpen] = useState(false)
+  // Links from the menu on other pages: /dashboard?tab=bookings | operations
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('tab')
+    if (t === 'bookings' || t === 'operations') setActiveTab(t)
+  }, [])
 
   // The /dashboard layout redirects hosts ('staff') on a full page load,
   // but an in-app link (e.g. "Back" on the scanner) navigates client-side

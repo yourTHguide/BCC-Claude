@@ -2,6 +2,7 @@ import type { Viewport } from 'next'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { getAdminUser } from '@/lib/admin-auth'
+import DashboardMenu from '@/components/dashboard/DashboardMenu'
 
 // Staff tools keep the original no-pinch-zoom viewport: their many compact
 // form fields would otherwise make iOS zoom in on every tap (e.g. at
@@ -53,5 +54,11 @@ export default async function DashboardLayout({
     }
   }
 
-  return <>{children}</>
+  // Owner/admin menu on every page except the main dashboard, host view and check-in.
+  return (
+    <>
+      {admin.role !== 'staff' && <DashboardMenu />}
+      {children}
+    </>
+  )
 }

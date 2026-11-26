@@ -122,3 +122,14 @@ body {
   background: #EA003A;
   border-radius: 2px;
 }
+
+/* iOS Safari gives date inputs an intrinsic minimum width, so in narrow
+   grid/flex columns they overflow into the next field. Let them shrink. */
+input[type='date'] {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+input[type='date']::-webkit-date-and-time-value {
+  text-align: left;
+}
