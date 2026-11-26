@@ -57,8 +57,10 @@ export async function POST(req: NextRequest) {
     const appUrl = getAppUrl()
     return await createLegacyCheckout({ nightSlug, eventDate, quantity, appUrl })
   } catch (err: any) {
+    // Full detail to the server logs only: Stripe's messages can include
+    // configuration details (e.g. part of an API key) that guests must not see.
     console.error('Stripe checkout error:', err)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return NextResponse.json({ error: 'Payment is temporarily unavailable. Please try again in a few minutes.' }, { status: 500 })
   }
 }
 
