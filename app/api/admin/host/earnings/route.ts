@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
 import { BCC_PRODUCT_SLUG } from '@/lib/bookingAvailability'
-import { addDaysISO, bangkokToday } from '@/lib/dates'
+import { addDaysISO, bangkokNightDate } from '@/lib/dates'
 import { PAYOUT_LABEL, payoutState } from '@/lib/hostPayout'
 
 export const dynamic = 'force-dynamic'
@@ -18,7 +18,7 @@ export async function GET() {
   const name = auth.admin.displayName
   if (!name) return NextResponse.json({ nights: [], totals: { fee: 0, expenses: 0 } })
   const db = getServiceSupabase()
-  const today = bangkokToday()
+  const today = bangkokNightDate()
   const { data: product } = await db.from('products').select('id').eq('slug', BCC_PRODUCT_SLUG).maybeSingle()
   if (!product) return NextResponse.json({ nights: [], totals: { fee: 0, expenses: 0 } })
   const { data: nights, error } = await db.from('event_dates')
@@ -46,5 +46,5 @@ export async function GET() {
     return { eventId: n.id, date: n.event_date, nightName: n.night_name, reportStatus: rep.get(n.id) ?? 'none', fee, expenses: approved, pendingExpenses: pending, total: (fee ?? 0) + approved, state, stateLabel: PAYOUT_LABEL[state] }
   })
   const sum = (s: string) => out.filter((n) => n.state === s).reduce((t, n) => t + n.total, 0)
-  return NextResponse.json({ nights: out, totals: { readyToPay: sum('ready_to_pay'), paid: sum('paid'), reportsDue: out.filter((n) => n.state === 'report_due').length } })
+  return NextResponse.json({ tonight: today, nights: out, totals: { readyToPay: sum('ready_to_pay'), paid: sum('paid'), reportsDue: out.filter((n) => n.state === 'report_due').length } })
 }

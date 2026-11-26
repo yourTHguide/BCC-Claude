@@ -9,6 +9,14 @@ export function bangkokToday(): string {
   }).format(new Date())
 }
 
+// The date of the night still in progress, Bangkok time: a crawl runs past
+// midnight, so until 6 AM it is still "last night" for hosts (Nov 2026).
+export const NIGHT_ROLLOVER_HOUR = 6
+export function bangkokNightDate(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' })
+    .format(new Date(now.getTime() - NIGHT_ROLLOVER_HOUR * 3600_000))
+}
+
 // Add N days to a YYYY-MM-DD date using UTC math (no timezone drift).
 export function addDaysISO(iso: string, days: number): string {
   const [y, m, d] = iso.split('-').map(Number)

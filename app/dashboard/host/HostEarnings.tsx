@@ -15,7 +15,8 @@ function pretty(date: string | null) {
   return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
 }
 const baht = (n: number) => `฿${(n ?? 0).toLocaleString()}`
-const bangkokToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date())
+// The night still in progress (Bangkok): until 6 AM it is last night's date.
+const bangkokToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date(Date.now() - 6 * 3600_000))
 
 export function useHostMoney() {
   const [earnings, setEarnings] = useState<any>(null)

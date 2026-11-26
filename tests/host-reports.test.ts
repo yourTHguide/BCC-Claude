@@ -174,3 +174,11 @@ test('report lists the route venues even when some stops are skipped (venue1, ve
   ev.venue_route = { venue1: 'DOTF' }
   assert.deepEqual((await call(report.GET, 'GET')).json.report.venues.map((v: any) => v.venue), ['DOTF'])
 })
+
+test('a night stays "tonight" for hosts until 6 AM Bangkok', async () => {
+  const { bangkokNightDate } = await import('../lib/dates.ts')
+  assert.equal(bangkokNightDate(new Date('2026-11-26T19:39:00Z')), '2026-11-26', '02:39 on the 27th in Bangkok is still the 26th night')
+  assert.equal(bangkokNightDate(new Date('2026-11-26T22:59:00Z')), '2026-11-26', '05:59')
+  assert.equal(bangkokNightDate(new Date('2026-11-26T23:00:00Z')), '2026-11-27', '06:00')
+  assert.equal(bangkokNightDate(new Date('2026-11-26T14:00:00Z')), '2026-11-26', '21:00 the same evening')
+})

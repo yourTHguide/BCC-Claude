@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { getServiceSupabase } from '@/lib/supabase'
-import { bangkokToday } from '@/lib/dates'
+import { bangkokNightDate } from '@/lib/dates'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,7 +37,8 @@ export async function GET(req: NextRequest) {
   if ('response' in auth) return auth.response
 
   const supabase = getServiceSupabase()
-  const today = bangkokToday()
+  // Until 6 AM the night that started yesterday is still 'tonight' (crawls run past midnight).
+  const today = bangkokNightDate()
   let query = supabase
     .from('event_dates')
     .select('id, event_date, night_name, night_slug, is_open, host_assigned, operation_verdict')
