@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import OperationsSheet, { type OperationsPalette } from '@/components/operations/OperationsSheet'
 import MeetupSender, { type MeetupPalette, type MeetupGuest } from '@/components/operations/MeetupSender'
 import DoorList, { type DoorListTheme } from '@/components/doorlist/DoorList'
@@ -1050,8 +1051,12 @@ export default function Dashboard() {
   const [openNightId, setOpenNightId] = useState<string|null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   // Links from the menu on other pages: /dashboard?tab=bookings | operations
+  // Re-read on every change of the address, so links from Mission Control
+  // (same page, new ?night= / ?tab=) work without a reload.
+  const searchParams = useSearchParams()
+  const searchKey = searchParams?.toString() ?? ''
   useEffect(() => {
-    const q = new URLSearchParams(window.location.search)
+    const q = new URLSearchParams(searchKey)
     const t = q.get('tab')
     if (t === 'calendar' || t === 'bookings' || t === 'operations') setActiveTab(t)
     const night = q.get('night'), date = q.get('date')
@@ -1060,7 +1065,7 @@ export default function Dashboard() {
       setOpenNightId(night)
       if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) { setCalYear(Number(date.slice(0, 4))); setCalMonth(Number(date.slice(5, 7)) - 1) }
     }
-  }, [])
+  }, [searchKey])
 
   // The /dashboard layout redirects hosts ('staff') on a full page load,
   // but an in-app link (e.g. "Back" on the scanner) navigates client-side
@@ -1125,7 +1130,11 @@ export default function Dashboard() {
   useEffect(() => {
     if (!openNightId) return
     const ev = events.find(e => e.id === openNightId)
-    if (ev) { setSelectedEvent(ev); setOpenNightId(null) }
+    if (ev) {
+      setSelectedEvent(ev); setOpenNightId(null)
+      // Clear ?night= so the same Mission Control link works again next time.
+      window.history.replaceState(null, '', '/dashboard?tab=calendar')
+    }
   }, [events, openNightId])
 
   const loadBookings = useCallback(async () => {
