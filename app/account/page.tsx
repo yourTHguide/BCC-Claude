@@ -171,7 +171,7 @@ export default function AccountPage() {
     <main style={{ minHeight: '100vh', background: '#1A0015', color: '#fff', fontFamily: 'Inter, sans-serif', padding: '28px 18px 48px' }}>
       <div style={{ maxWidth: '460px', margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-          <a href="/" style={{ fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#EA003A', fontWeight: 600, textDecoration: 'none' }}>Bangkok Club Crawl</a>
+          <a href="/" aria-label="Bangkok Club Crawl home"><img src="/images/bcc-logo.png" alt="Bangkok Club Crawl" style={{ height: '50px', width: 'auto', display: 'block' }} /></a>
           {state === 'ready' && <button onClick={signOut} style={{ ...linkBtn, fontSize: '13px', color: 'rgba(255,255,255,0.55)' }}>Sign out</button>}
         </div>
         <h1 style={{ fontSize: '24px', margin: '0 0 16px' }}>{state === 'ready' && first ? `Hi ${first}` : 'My account'}</h1>
