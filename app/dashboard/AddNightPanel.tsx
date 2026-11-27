@@ -58,7 +58,7 @@ function defaultType(date: string): BccNightType {
 
 const label = { display: 'block', fontSize: '11px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.45)', marginBottom: '6px' }
 const input = {
-  width: '100%', height: '42px', borderRadius: '8px', padding: '0 12px', boxSizing: 'border-box' as const,
+  width: '100%', minWidth: 0, maxWidth: '100%', height: '42px', borderRadius: '8px', padding: '0 12px', boxSizing: 'border-box' as const,
   background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)', color: '#fff', fontSize: '15px', fontFamily: 'Inter, sans-serif',
 }
 
@@ -139,7 +139,7 @@ export default function AddNightPanel({
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '10px' }}>
           <div>
             <span style={label}>Price ฿</span>
             <input inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ''))} style={input} disabled={busy} />

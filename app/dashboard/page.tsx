@@ -1584,12 +1584,13 @@ export default function Dashboard() {
                       <p style={{ fontSize:'12px', color:'rgba(255,255,255,0.45)', margin:0 }}>
                         {b.night_name} · {formattedDate}
                       </p>
-                      <p style={{ fontSize:'12px', color:'rgba(255,255,255,0.35)', margin:'2px 0 0' }}>
+                      <p style={{ fontSize:'12px', color:'rgba(255,255,255,0.35)', margin:'2px 0 0', overflowWrap:'anywhere' }}>
                         {b.guest_email} · {b.guest_phone}
                       </p>
                     </div>
                   </div>
-                  <div style={{ display:'flex', gap:'16px', alignItems:'center' }}>
+                  {/* Wraps on phones so the buttons never run off the screen. */}
+                  <div style={{ display:'flex', gap:'10px 16px', alignItems:'center', flexWrap:'wrap', minWidth:0, maxWidth:'100%' }}>
                     <div style={{ textAlign:'right' }}>
                       <p style={{ fontWeight:700, fontSize:'16px', color:'#fff', margin:0 }}>฿{b.total_paid.toLocaleString()}</p>
                       <p style={{ fontSize:'11px', color:'rgba(255,255,255,0.40)', margin:'2px 0 0' }}>

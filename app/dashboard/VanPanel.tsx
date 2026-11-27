@@ -47,7 +47,13 @@ export default function VanPanel({ eventId }: { eventId: string }) {
     load()
   }
 
-  if (!d) return null
+  // Show the box straight away so the panel doesn't jump when the data arrives.
+  if (!d) return (
+    <div style={{ marginBottom: '16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '12px' }}>
+      <div style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.08em', color: 'rgba(255,255,255,0.45)' }}>VANS</div>
+      <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', marginTop: '8px' }}>Loading…</div>
+    </div>
+  )
   const s = d.status
   const list = (ps: any[]) => ps.map((p: any) => `${p.name}${p.quantity > 1 ? ` (${p.quantity})` : ''}`).join(', ') || '—'
   return (
