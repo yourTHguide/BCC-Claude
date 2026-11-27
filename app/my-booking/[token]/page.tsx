@@ -179,6 +179,9 @@ export default function MyBookingPage({ params }: { params: { token: string } })
             )}
           </>
         )}
+        <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', marginTop: '20px', textAlign: 'center' }}>
+          All your bookings and credit: <a href="/account" style={{ color: '#fff' }}>My account</a>
+        </p>
       </div>
     </main>
   )

@@ -6,6 +6,7 @@ const NAV = [
   { label: 'Reviews', href: '#reviews' },
   { label: 'Hosts', href: '#hosts' },
   { label: 'FAQ', href: '#faq' },
+  { label: 'My account', href: '/account' },
 ]
 
 export default function Footer() {

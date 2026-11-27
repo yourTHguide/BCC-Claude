@@ -63,14 +63,19 @@ export default function Navigation() {
               <button onClick={() => scrollTo('how-it-works')} style={linkStyle}>How It Works</button>
               <Link href="/weekends" style={linkStyle}>The Crawl</Link>
               <Link href="/weekends" style={linkStyle}>Book</Link>
+              <Link href="/account" style={{ ...linkStyle, padding: '8px 14px', border: '1px solid rgba(255,255,255,0.25)', borderRadius: '999px' }}>My account</Link>
             </>
           )
         })()}
       </div>
+      <Link href="/account" className="show-mobile" style={{ fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '13px', color: '#fff', textDecoration: 'none', padding: '8px 14px', border: '1px solid rgba(255,255,255,0.25)', borderRadius: '999px' }}>My account</Link>
 
       <style>{`
         @media (max-width: 768px) {
           .hidden-mobile { display: none !important; }
+        }
+        @media (min-width: 769px) {
+          .show-mobile { display: none !important; }
         }
       `}</style>
     </nav>
