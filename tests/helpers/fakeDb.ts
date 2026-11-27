@@ -21,7 +21,7 @@ export class FakeDb {
     bnt_waitlist: [], bnt_waitlist_announcements: [], bnt_waitlist_deliveries: [],
     bnt_experience_inquiries: [], bnt_contact_messages: [],
     bokun_bookings: [], bokun_sync_runs: [], bokun_sync_log: [], host_invites: [], admin_users: [], booking_attendees: [], product_content: [],
-    host_reports: [], host_expenses: [], expenses: [], van_reminders: [],
+    host_reports: [], host_expenses: [], expenses: [], van_reminders: [], guests: [], guest_activity: [], booking_options: [], guest_credits: [],
   }
   failRules: FailRule[] = []
   from(table: string) {
@@ -59,6 +59,8 @@ const DEFAULTS: Record<string, Row> = {
   bnt_waitlist_deliveries: { status: 'pending', attempted_at: null, attempts: 0, error: null },
   host_expenses: { status: 'pending', expense_id: null, review_note: null, reviewed_at: null },
   host_reports: { status: 'draft', submitted_at: null, incident_alert_sent_at: null },
+  booking_options: { status: 'sent', choice: null, reminder_sent_at: null, preferred_event_id: null, preference_note: null, resolution: null },
+  guest_credits: { status: 'active', used_amount: 0 },
 }
 
 export class Builder implements PromiseLike<any> {
@@ -190,6 +192,8 @@ export class Builder implements PromiseLike<any> {
         t.some((r) => r.kind === 'sold_out_reopen' && r.event_date_id === row.event_date_id && ['draft', 'sending'].includes(r.status))) return 'one_open_reopen'
     if (this.table === 'host_invites' && t.some((r) => r.code === row.code)) return 'host_invites_code_key'
     if (this.table === 'host_reports' && t.some((r) => r.event_id === row.event_id)) return 'host_reports_event_id_key'
+    if (this.table === 'guests' && t.some((r) => r.email === row.email)) return 'guests_email_key'
+    if (this.table === 'booking_options' && ['sent', 'chosen'].includes(row.status ?? 'sent') && t.some((r) => r.booking_id === row.booking_id && ['sent', 'chosen'].includes(r.status))) return 'booking_options_one_open'
     if (this.table === 'van_reminders' && t.some((r) => r.event_id === row.event_id && r.kind === row.kind)) return 'van_reminders_pkey'
     if (this.table === 'bookings' && row.host_invite_id && t.some((r) => r.host_invite_id === row.host_invite_id)) return 'bookings_host_invite_once'
     if (this.table === 'bookings' && row.stripe_session_id && t.some((r) => r.stripe_session_id === row.stripe_session_id)) return 'bookings_stripe_session_id_key'

@@ -68,7 +68,9 @@ export function vanMessage(vanCount: number | null, van2State: string, capacity:
   const van2Guests = taken - VAN_SEATS
   if (van2Guests < VAN_MIN[2]) {
     const need = VAN_MIN[2] - van2Guests
-    return `🚐 Van 1 is full! Book your spot in Van 2 — just need ${need} more and it’s on`
+    return van2Guests > 0
+      ? `🚐 Van 2 is filling up — ${van2Guests} already in, just need ${need} more and it’s on!`
+      : `🚐 Van 1 is full! Book your spot in Van 2 — just need ${need} more and it’s on`
   }
   return left != null && left <= 4 ? `Van 2 is rolling! 🎉 Only ${left} spot${left === 1 ? '' : 's'} left` : 'Van 2 is rolling! 🎉'
 }

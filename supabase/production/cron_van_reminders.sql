@@ -6,24 +6,34 @@
 --
 -- Vault secrets (Supabase → Project Settings → Vault):
 --   van_reminder_url     added with this file
---   van_reminder_secret  added by the owner: same value as Vercel Production
---                        VAN_REMINDER_SECRET (24+ characters).
+--   ops_cron_secret  added by the owner: same value as Vercel Production
+--                        OPS_CRON_SECRET (24+ characters).
 -- Stop: select cron.unschedule('van-reminder-7pm'); select cron.unschedule('van-reminder-8pm');
 
 SELECT cron.schedule('van-reminder-7pm', '0 12 * * *', $job$
   SELECT net.http_post(
     url     := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'van_reminder_url') || '?kind=7pm',
-    headers := jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'van_reminder_secret')),
+    headers := jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'ops_cron_secret')),
     body    := '{}'::jsonb, timeout_milliseconds := 30000)
-  WHERE EXISTS (SELECT 1 FROM vault.decrypted_secrets WHERE name = 'van_reminder_secret');
+  WHERE EXISTS (SELECT 1 FROM vault.decrypted_secrets WHERE name = 'ops_cron_secret');
 $job$);
 
 SELECT cron.schedule('van-reminder-8pm', '0 13 * * *', $job$
   SELECT net.http_post(
     url     := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'van_reminder_url') || '?kind=8pm',
-    headers := jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'van_reminder_secret')),
+    headers := jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'ops_cron_secret')),
     body    := '{}'::jsonb, timeout_milliseconds := 30000)
-  WHERE EXISTS (SELECT 1 FROM vault.decrypted_secrets WHERE name = 'van_reminder_secret');
+  WHERE EXISTS (SELECT 1 FROM vault.decrypted_secrets WHERE name = 'ops_cron_secret');
+$job$);
+
+-- Hourly: options reminders (24 h) and credit (48 h), same secret.
+SELECT cron.schedule('booking-options-timers', '17 * * * *', $job$
+  SELECT net.http_post(
+    url     := replace((SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'van_reminder_url'), '/van-reminders', '/booking-options'),
+    headers := jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'ops_cron_secret')),
+    body    := '{}'::jsonb, timeout_milliseconds := 55000)
+  WHERE EXISTS (SELECT 1 FROM vault.decrypted_secrets WHERE name = 'ops_cron_secret')
+    AND EXISTS (SELECT 1 FROM public.booking_options WHERE status = 'sent');
 $job$);
 
 SELECT vault.create_secret('https://www.bestnightlifethailand.com/api/cron/van-reminders', 'van_reminder_url', 'Van reminders endpoint (production)');

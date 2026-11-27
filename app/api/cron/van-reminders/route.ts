@@ -15,10 +15,10 @@ export const dynamic = 'force-dynamic'
 //   ?kind=7pm → go / no-go summary for every night with guests
 //   ?kind=8pm → only nights where van 2 has guests and is still open
 // Each night is reminded once per kind. Nothing is changed automatically.
-// Auth: "Authorization: Bearer <VAN_REMINDER_SECRET>" (24+ characters).
+// Auth: "Authorization: Bearer <OPS_CRON_SECRET>" (24+ characters).
 
 function authorized(req: NextRequest): boolean {
-  const secret = process.env.VAN_REMINDER_SECRET
+  const secret = process.env.OPS_CRON_SECRET
   if (!secret || secret.length < 24) return false
   const given = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '')
   const a = Buffer.from(given)

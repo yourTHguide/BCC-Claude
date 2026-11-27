@@ -4,6 +4,7 @@ import { getServiceSupabase } from '@/lib/supabase'
 import { loadVanNight } from '@/lib/vanData'
 import { capacityFor } from '@/lib/vans'
 import { BCC_PRODUCT_SLUG } from '@/lib/bookingAvailability'
+import { resolveOption, sendOptions } from '@/lib/bookingOptions'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,13 +12,29 @@ export const dynamic = 'force-dynamic'
 // GET: van split and status. POST { action }:
 //   set_vans { count: null | 1 | 2 } → van setting; capacity follows (none = 12)
 //   van2     { state: 'running' | 'closed' | 'open' } → run, close (stop sales) or reopen van 2
+//   send_options { reason: 'night_short' | 'van2_short' } → email website guests their choice link
+//   resolve  { optionId, resolution: 'refunded' | 'moved' | 'credited', targetEventId? } → approve
 export async function GET(_req: NextRequest, { params }: { params: { eventId: string } }) {
   const auth = await requireRole(['owner', 'admin'])
   if ('response' in auth) return auth.response
   try {
     const d = await loadVanNight(getServiceSupabase(), params.eventId)
     if (!d) return NextResponse.json({ error: 'Night not found.' }, { status: 404 })
-    return NextResponse.json({ vanCount: d.event.van_count, van2State: d.event.van2_state, capacity: d.event.capacity, taken: d.taken, split: d.split, status: d.status })
+    const db = getServiceSupabase()
+    const { data: opts } = await db.from('booking_options').select('id, booking_id, reason, sent_at, reminder_sent_at, choice, preferred_event_id, preference_note, chosen_at, status, resolution, resolved_at').eq('event_id', d.event.id).order('sent_at', { ascending: true })
+    const options = (opts ?? []) as any[]
+    const bIds = options.map((o) => o.booking_id)
+    const evIds = options.map((o) => o.preferred_event_id).filter(Boolean)
+    const [{ data: bks }, { data: evs }] = await Promise.all([
+      bIds.length ? db.from('bookings').select('id, guest_name, quantity, total_paid').in('id', bIds) : Promise.resolve({ data: [] }),
+      evIds.length ? db.from('event_dates').select('id, event_date, night_name').in('id', evIds) : Promise.resolve({ data: [] }),
+    ])
+    const bk = new Map(((bks ?? []) as any[]).map((b) => [b.id, b]))
+    const ev = new Map(((evs ?? []) as any[]).map((e) => [e.id, e]))
+    return NextResponse.json({
+      vanCount: d.event.van_count, van2State: d.event.van2_state, capacity: d.event.capacity, taken: d.taken, split: d.split, status: d.status,
+      options: options.map((o) => ({ ...o, guestName: bk.get(o.booking_id)?.guest_name ?? 'Guest', quantity: bk.get(o.booking_id)?.quantity ?? 1, totalPaid: bk.get(o.booking_id)?.total_paid ?? 0, preferred: o.preferred_event_id ? ev.get(o.preferred_event_id) ?? null : null })),
+    })
   } catch (err) {
     console.error('vans GET error', err)
     return NextResponse.json({ error: 'Could not load the vans.' }, { status: 500 })
@@ -44,6 +61,25 @@ export async function POST(req: NextRequest, { params }: { params: { eventId: st
     const state = String(body.state)
     if (!['running', 'closed', 'open'].includes(state)) return NextResponse.json({ error: 'Unknown van 2 state.' }, { status: 400 })
     patch = { van2_state: state, capacity: capacityFor(2, state, d.taken) }
+  } else if (body.action === 'send_options') {
+    const reason = body.reason === 'van2_short' ? 'van2_short' : body.reason === 'night_short' ? 'night_short' : null
+    if (!reason) return NextResponse.json({ error: 'Choose whole night or van 2.' }, { status: 400 })
+    if (reason === 'van2_short' && d.event.van_count !== 2) return NextResponse.json({ error: 'This night isn’t set to 2 vans.' }, { status: 409 })
+    try {
+      const r = await sendOptions(db, d.event.id, reason)
+      // Van 2 not running: stop its sales too.
+      if (reason === 'van2_short' && d.event.van2_state !== 'closed') await db.from('event_dates').update({ van2_state: 'closed', capacity: capacityFor(2, 'closed', d.taken) }).eq('id', d.event.id)
+      console.log(`[vans] ${auth.admin.email ?? auth.admin.userId} sent ${reason} options for ${d.event.event_date} to ${r.sent.length}`)
+      return NextResponse.json({ ok: true, ...r })
+    } catch (err) {
+      console.error('send options error', err)
+      return NextResponse.json({ error: 'Could not send the options. Try again — guests already emailed are skipped.' }, { status: 500 })
+    }
+  } else if (body.action === 'resolve') {
+    const resolution = String(body.resolution)
+    if (!['refunded', 'moved', 'credited'].includes(resolution)) return NextResponse.json({ error: 'Unknown resolution.' }, { status: 400 })
+    const r = await resolveOption(db, String(body.optionId ?? ''), { resolution: resolution as any, targetEventId: body.targetEventId ? String(body.targetEventId) : null, by: auth.admin.email ?? auth.admin.userId })
+    return NextResponse.json(r.status === 200 ? { ok: true } : { error: r.error }, { status: r.status })
   } else {
     return NextResponse.json({ error: 'Unknown action.' }, { status: 400 })
   }

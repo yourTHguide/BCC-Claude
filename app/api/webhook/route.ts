@@ -9,6 +9,7 @@ import { generateConfirmationEmail } from '@/emails/confirmation'
 import type { Storefront } from '@/lib/storefront'
 import { resendFromHeader } from '@/lib/storefrontBrand'
 import { claimInvite } from '@/lib/hostInvites'
+import { ensureGuest, logActivity } from '@/lib/guests'
 
 
 export async function POST(req: NextRequest) {
@@ -180,6 +181,20 @@ export async function POST(req: NextRequest) {
     }
 
     const bookingId = insertedRows?.[0]?.id ?? null
+
+    // Guest record (one per email, across brands) and history. Best effort:
+    // never blocks the confirmation email.
+    if (bookingId) {
+      try {
+        const guestId = await ensureGuest(supabase, { email: guestEmail, name: guestName, phone: guestPhone })
+        if (guestId) {
+          await supabase.from('bookings').update({ guest_id: guestId }).eq('id', bookingId)
+          await logActivity(supabase, guestId, 'booked', bookingId, { night: meta.night_name, date: meta.event_date, quantity })
+        }
+      } catch (e) {
+        console.error('webhook: guest record failed', e)
+      }
+    }
     // Only reference the ticket in the email when the row actually landed —
     // an insert failure must never point the customer at a ticket_token
     // that doesn't exist in `bookings`.
