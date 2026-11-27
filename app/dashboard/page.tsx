@@ -267,16 +267,6 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
     onUpdate()
   }
 
-  async function updateHost2(host: string) {
-    await fetch(`/api/admin/dashboard/events/${localEvent.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ hostAssigned2: host || null }),
-    })
-    setLocalEvent(e => ({ ...e, host_assigned_2: host || null } as any))
-    onUpdate()
-  }
-
   async function updateHost(host: string) {
     await fetch(`/api/admin/dashboard/events/${localEvent.id}`, {
       method: 'PATCH',
@@ -743,14 +733,6 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
           </select>
         </div>
 
-        {/* Second host (Phase 3D: e.g. Van 2). Both see the night and all guests; each writes their own report. */}
-        <div style={{ marginBottom:'16px' }}>
-          <label style={S.label}>SECOND HOST (VAN 2)</label>
-          <select value={(localEvent as any).host_assigned_2||''} onChange={e => updateHost2(e.target.value)} style={S.input}>
-            <option value="">None</option>
-            {Array.from(new Set([...hostNames, ...((localEvent as any).host_assigned_2 ? [(localEvent as any).host_assigned_2] : [])])).filter(h => h !== localEvent.host_assigned).map(h => <option key={h} value={h}>{h}</option>)}
-          </select>
-        </div>
 
         {/* ── Vans (Phase 3D) ── */}
         <VanPanel eventId={localEvent.id} />

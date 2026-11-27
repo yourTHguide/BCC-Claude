@@ -34,3 +34,8 @@ Owner decisions: emails for a night under 5 and for van 2 under 4 (same layout, 
 - Nights paid before per-host fees keep their night-level fee for the single host (`hostPay` in `lib/hostPayout.ts`).
 - Reports list, My earnings and Mission Control work per host.
 - Part 4: second host per night (`host_assigned_2`), both see all guests, one report per host.
+
+## Vans are the standard (28 Nov 2026)
+- Owner decision: no "no vans" option. Every Club Crawl night is **1 van (10 seats)** or **2 vans (20)**.
+- Migration `20261204000001_vans_standard.sql`: database rule gives every new Club Crawl night 1 van / 10 seats (schedules, Add night, Bókun import, moved guests); future nights switched to 1 van / 10 (2 vans / 20 where more than 10 were already booked). Staging: 52 × 1 van, 2 × 2 vans.
+- The **Van 2 host** is chosen inside the Vans box under Van 2 (`set_host2`).

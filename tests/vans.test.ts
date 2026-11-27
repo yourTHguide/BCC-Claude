@@ -32,7 +32,7 @@ test('split: booking order, groups never split, a group that does not fit van 1 
 })
 
 test('capacity follows the van setting; closing van 2 keeps sold seats and stops sales', () => {
-  assert.deepEqual([capacityFor(null, 'open', 3), capacityFor(1, 'open', 3), capacityFor(2, 'open', 3)], [12, 10, 20])
+  assert.deepEqual([capacityFor(null, 'open', 3), capacityFor(1, 'open', 3), capacityFor(2, 'open', 3), capacityFor(1, 'open', 11)], [10, 10, 20, 11])
   assert.deepEqual([capacityFor(2, 'closed', 13), capacityFor(2, 'closed', 6)], [13, 10])
 })
 
@@ -44,8 +44,8 @@ test('booking page message: seats only when 4 or fewer left; van 2 unlock; never
   assert.equal(vanMessage(2, 'open', 20, 13), '🚐 Van 2 is filling up — 3 already in, just need 1 more and it’s on!')
   assert.equal(vanMessage(2, 'running', 20, 14), 'Van 2 is rolling! 🎉')
   assert.equal(vanMessage(2, 'open', 20, 17), 'Van 2 is rolling! 🎉 Only 3 spots left')
-  assert.equal(vanMessage(null, 'open', 12, 10), '🔥 Only 2 spots left')
-  assert.equal(vanMessage(null, 'open', 12, 2), null)
+  assert.equal(vanMessage(null, 'open', 10, 8), '🔥 Only 2 spots left')
+  assert.equal(vanMessage(1, 'open', 10, 2), null)
 })
 
 // ── Routes ──────────────────────────────────────────────────────────────
@@ -83,8 +83,10 @@ test('owner sets 2 vans → 20 seats; guests can buy past 12; Close van 2 stops 
   assert.equal((await call(vans.POST, 'http://x', 'POST', { action: 'van2', state: 'running' }, ctx)).status, 200)
   assert.deepEqual([night.van2_state, night.capacity], ['running', 20])
 
-  assert.equal((await call(vans.POST, 'http://x', 'POST', { action: 'set_vans', count: null }, ctx)).status, 200)
-  assert.deepEqual([night.van_count, night.capacity], [null, 12])
+  assert.equal((await call(vans.POST, 'http://x', 'POST', { action: 'set_vans', count: null }, ctx)).status, 400, 'no "no vans" option')
+  assert.equal((await call(vans.POST, 'http://x', 'POST', { action: 'set_host2', name: 'Boom' }, ctx)).status, 200)
+  assert.equal(night.host_assigned_2, 'Boom')
+  assert.equal((await call(vans.POST, 'http://x', 'POST', { action: 'set_host2', name: 'Ice' }, ctx)).status, 400, 'not the main host')
 })
 
 test('van controls are owner-only and Club Crawl only', async () => {

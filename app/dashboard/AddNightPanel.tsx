@@ -75,7 +75,7 @@ export default function AddNightPanel({
   const [name, setName] = useState('')
   const [price, setPrice] = useState('1200')
   const [time, setTime] = useState('21:30')
-  const [capacity, setCapacity] = useState('12')
+  const [capacity, setCapacity] = useState('10')
   const [onSale, setOnSale] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')

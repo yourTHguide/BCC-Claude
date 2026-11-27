@@ -20,6 +20,13 @@ export default function VanPanel({ eventId }: { eventId: string }) {
   const [error, setError] = useState('')
   const [note, setNote] = useState('')
   const [ota, setOta] = useState<any[]>([])
+  const [hostNames, setHostNames] = useState<string[]>([])
+  useEffect(() => {
+    fetch('/api/admin/hosts').then((r) => (r.ok ? r.json() : null)).then((j) => {
+      const names = (j?.hosts ?? []).map((h: any) => (h.displayName ?? '').trim()).filter(Boolean)
+      setHostNames(Array.from(new Set(['Guide', 'Ice', 'Boom', 'JJ', ...names])))
+    }).catch(() => {})
+  }, [])
   const load = useCallback(async () => {
     const res = await fetch(`/api/admin/vans/${eventId}`, { cache: 'no-store' }).catch(() => null)
     if (res?.ok) setD(await res.json())
@@ -47,7 +54,6 @@ export default function VanPanel({ eventId }: { eventId: string }) {
     <div style={{ marginBottom: '16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '12px' }}>
       <div style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.08em', color: 'rgba(255,255,255,0.45)', marginBottom: '8px' }}>VANS</div>
       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-        <button disabled={busy} style={pill(d.vanCount == null)} onClick={() => post({ action: 'set_vans', count: null }, 'Turn vans off? This night goes back to 12 seats.')}>No vans (12)</button>
         <button disabled={busy} style={pill(d.vanCount === 1)} onClick={() => post({ action: 'set_vans', count: 1 })}>1 van (10)</button>
         <button disabled={busy} style={pill(d.vanCount === 2)} onClick={() => post({ action: 'set_vans', count: 2 })}>2 vans (20)</button>
       </div>
@@ -67,6 +73,14 @@ export default function VanPanel({ eventId }: { eventId: string }) {
                 {s.van2.state === 'running' ? '✓ running' : s.van2.state === 'closed' ? 'closed (no more sales)' : s.van2.ok ? 'enough guests — confirm it runs' : `needs ${s.van2.min} to run`}
               </span>
               <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)' }}>{list(d.split.van2)}</div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', fontSize: '12px', color: 'rgba(255,255,255,0.7)' }}>
+                Van 2 host
+                <select value={d.host2 ?? ''} disabled={busy} onChange={(e) => post({ action: 'set_host2', name: e.target.value || null })}
+                  style={{ height: '32px', borderRadius: '8px', padding: '0 8px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: '13px' }}>
+                  <option value="">Choose…</option>
+                  {Array.from(new Set([...hostNames, ...(d.host2 ? [d.host2] : [])])).filter((h) => h !== d.host).map((h) => <option key={h} value={h}>{h}</option>)}
+                </select>
+              </label>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
                 {s.van2.state !== 'running' && <button disabled={busy} style={pill(false)} onClick={() => post({ action: 'van2', state: 'running' }, 'Run Van 2 tonight?')}>✓ Run van 2</button>}
                 {s.van2.state !== 'closed' && <button disabled={busy} style={pill(false)} onClick={() => post({ action: 'van2', state: 'closed' }, 'Close Van 2? Sales stop; guests already in Van 2 stay booked until you send them options.')}>Close van 2</button>}

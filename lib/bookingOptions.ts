@@ -194,7 +194,7 @@ async function nightOn(db: SupabaseClient, date: string): Promise<string | null>
   const slug = otaNightSlug(date, list.map((r) => r.night_slug))
   const found = list.find((r) => r.night_slug === slug && isOtaNight(r.night_slug))
   if (found) return found.id
-  const { data, error } = await db.from('event_dates').insert({ event_date: date, night_slug: slug, night_name: otaNightName(slug), product_id: (product as any).id, schedule_id: null, is_open: false, capacity: 12 }).select('id').single()
+  const { data, error } = await db.from('event_dates').insert({ event_date: date, night_slug: slug, night_name: otaNightName(slug), product_id: (product as any).id, schedule_id: null, is_open: false, capacity: 10, van_count: 1 }).select('id').single()
   if (error) return null
   return (data as any).id
 }

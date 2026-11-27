@@ -6,6 +6,8 @@
 // - 7 PM: go / no-go for the night. 8 PM: reminder only if van 2 is still open
 //   with guests. The owner decides; nothing is cancelled automatically.
 // The capacity column stays the one seat gate: 2 vans = 20, 1 van = 10.
+// Every Club Crawl night runs vans (owner, 28 Nov 2026); a night without a
+// setting yet counts as 1 van.
 
 export const VAN_SEATS = 10
 export const VAN_MIN = { 1: 5, 2: 4 } as const
@@ -51,9 +53,8 @@ export function vanStatus(split: VanSplit, vanCount: number, van2State: 'open' |
 
 // Capacity that matches the van setting. Closing van 2 keeps the seats already
 // sold (so nobody is pushed out) and stops further sales.
-export function capacityFor(vanCount: number | null, van2State: string, taken: number, legacy = 12): number {
-  if (!vanCount) return legacy
-  if (vanCount === 1) return VAN_SEATS
+export function capacityFor(vanCount: number | null, van2State: string, taken: number): number {
+  if (!vanCount || vanCount === 1) return Math.max(VAN_SEATS, taken)
   return van2State === 'closed' ? Math.max(VAN_SEATS, taken) : VAN_SEATS * 2
 }
 
@@ -61,10 +62,12 @@ export function capacityFor(vanCount: number | null, van2State: string, taken: n
 // van 2 unlock message. Based on the total taken (exact grouping is the host's job).
 export function vanMessage(vanCount: number | null, van2State: string, capacity: number | null, taken: number): string | null {
   const left = capacity != null ? Math.max(0, capacity - taken) : null
-  if (!vanCount) return left != null && left > 0 && left <= 4 ? `🔥 Only ${left} spot${left === 1 ? '' : 's'} left` : null
+  const vans = vanCount ?? 1
   const van1Left = Math.max(0, VAN_SEATS - taken)
+  // One van: just "Only N spots left". Two vans: say which van.
+  if (vans < 2) return left != null && left > 0 && left <= 4 ? `🔥 Only ${left} spot${left === 1 ? '' : 's'} left` : null
   if (van1Left > 0) return van1Left <= 4 ? `🔥 Only ${van1Left} spot${van1Left === 1 ? '' : 's'} left in Van 1` : null
-  if (vanCount < 2 || van2State === 'closed') return null
+  if (van2State === 'closed') return null
   const van2Guests = taken - VAN_SEATS
   if (van2Guests < VAN_MIN[2]) {
     const need = VAN_MIN[2] - van2Guests

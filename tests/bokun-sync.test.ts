@@ -216,7 +216,7 @@ test('Import: ticked bookings land on the night (created OFF when missing), with
   assert.deepEqual(r.json.imported, ['TA11', 'GYGTEST12'])
   assert.deepEqual([r.json.night.name, r.json.night.isOpen, r.json.night.created], ['BKK Club Crawl', false, true])
   const night = db.tables.event_dates.find((e) => e.event_date === FUTURE_WED)
-  assert.deepEqual([night.night_slug, night.is_open, night.capacity, night.product_id], ['club-crawl', false, 12, 'p-bcc'])
+  assert.deepEqual([night.night_slug, night.is_open, night.capacity, night.product_id], ['club-crawl', false, 10, 'p-bcc'])
   const rows = db.tables.ota_bookings
   assert.deepEqual(rows.map((o) => [o.source, o.booking_ref, o.quantity, o.guest_email, o.night_slug]), [
     ['airbnb', 'TA11', 2, 'ann@example.test', 'club-crawl'],
