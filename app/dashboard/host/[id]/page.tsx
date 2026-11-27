@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import DoorList, { type DoorListTheme } from '@/components/doorlist/DoorList'
 import type { DoorGuest } from '@/lib/doorList'
@@ -62,10 +62,34 @@ export default function HostEventDetailPage({ params }: { params: { id: string }
   const [data, setData] = useState<HostEventDetail | null>(null)
   const [state, setState] = useState<'loading' | 'ready' | 'notfound' | 'forbidden' | 'error'>('loading')
   const [tab, setTab] = useState<Tab>('brief')
+  const pushed = useRef(false)
+  // The Brief is the night's main page; Guests / Expenses / Report open from
+  // it with a back button. The phone's back gesture also returns to the Brief.
   useEffect(() => {
-    const t = new URLSearchParams(window.location.search).get('tab')
-    if (t === 'guests' || t === 'expenses' || t === 'report') setTab(t)
+    const read = () => {
+      const t = new URLSearchParams(window.location.search).get('tab')
+      const next = t === 'guests' || t === 'expenses' || t === 'report' ? t : 'brief'
+      if (next === 'brief') pushed.current = false
+      setTab(next)
+    }
+    read()
+    window.addEventListener('popstate', read)
+    return () => window.removeEventListener('popstate', read)
   }, [])
+  function open(t: Tab) {
+    if (t === tab) return
+    window.history.pushState(null, '', t === 'brief' ? window.location.pathname : `?tab=${t}`)
+    pushed.current = t !== 'brief'
+    setTab(t)
+    window.scrollTo(0, 0)
+  }
+  function back() {
+    // Opened from the Brief: step back. Opened by a link (?tab=…): go to the Brief.
+    if (pushed.current) { pushed.current = false; window.history.back(); return }
+    window.history.replaceState(null, '', window.location.pathname)
+    setTab('brief')
+    window.scrollTo(0, 0)
+  }
 
   function load() {
     fetch(`/api/admin/host/events/${params.id}`)
@@ -92,9 +116,15 @@ export default function HostEventDetailPage({ params }: { params: { id: string }
   return (
     <div style={S.page}>
       <div style={{ maxWidth: '480px', margin: '0 auto' }}>
-        <Link href="/dashboard/host" style={{ color: 'rgba(255,255,255,0.50)', fontSize: '13px', textDecoration: 'none', marginBottom: '16px', display: 'inline-block' }}>
-          ← Your Events
-        </Link>
+        {tab === 'brief' ? (
+          <Link href="/dashboard/host" style={{ color: 'rgba(255,255,255,0.50)', fontSize: '13px', textDecoration: 'none', marginBottom: '16px', display: 'inline-block' }}>
+            ← Your Events
+          </Link>
+        ) : (
+          <button onClick={back} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'rgba(255,255,255,0.75)', fontSize: '14px', fontFamily: 'Inter, sans-serif', marginBottom: '16px', display: 'inline-block' }}>
+            ‹ Back to the night
+          </button>
+        )}
 
         {state === 'loading' && <p style={{ color: 'rgba(255,255,255,0.50)', fontSize: '14px' }}>Loading…</p>}
         {state === 'notfound' && <p style={{ color: '#EA003A', fontSize: '14px' }}>Event not found.</p>}
@@ -109,16 +139,7 @@ export default function HostEventDetailPage({ params }: { params: { id: string }
               {!data.event.isOpen && ' · Closed'}
             </p>
 
-            <div role="tablist" style={{ display: 'flex', gap: '6px', overflowX: 'auto', marginBottom: '16px', paddingBottom: '2px' }}>
-              {([['brief', 'Brief'], ['guests', `Guests (${data.headcount.checkedIn}/${data.headcount.total})`], ['expenses', `Expenses${data.expenses.length ? ` (${data.expenses.length})` : ''}`], ['report', data.report.status === 'submitted' ? 'Report ✓' : data.report.canStart ? 'Report •' : 'Report']] as [Tab, string][]).map(([k, label]) => (
-                <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
-                  style={{ ...S.btn, whiteSpace: 'nowrap', borderRadius: '999px', background: tab === k ? '#EA003A' : 'rgba(255,255,255,0.08)', color: tab === k ? '#fff' : 'rgba(255,255,255,0.75)' }}>
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            {tab === 'brief' && <HostBrief event={data.event} headcount={data.headcount} onTab={setTab} />}
+            {tab === 'brief' && <HostBrief event={data.event} headcount={data.headcount} onTab={open} expenseCount={data.expenses.length} reportLabel={data.report.status === 'submitted' ? 'Report ✓' : 'Night report'} />}
 
             {/* Door list: everyone (direct + OTA), one-tap check-in, Scan at the top */}
             {tab === 'guests' && (
