@@ -1496,7 +1496,7 @@ export default function Dashboard() {
               doesn't need to change beyond spacing. Color meaning unchanged. */}
           <div className="flex flex-wrap gap-2 mt-4 p-3 sm:gap-3 sm:mt-6 sm:p-4" style={{ background:'rgba(255,255,255,0.02)', borderRadius:'10px', border:'1px solid rgba(255,255,255,0.05)' }}>
             {/* Current night types only (Nov 2026); older themes keep their colour on past dates. */}
-            {([['tgif','TGIF'],['saturday-signature','Signature Night'],['club-crawl','BKK Club Crawl']] as const).map(([slug,name]) => {
+            {([['tgif','TGIF'],['saturday-signature','Signature Night'],['club-crawl','Bangkok Club Crawl']] as const).map(([slug,name]) => {
               const color = nightColors[slug]
               return (
                 <div key={slug} style={{ display:'flex', alignItems:'center', gap:'6px' }}>

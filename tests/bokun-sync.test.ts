@@ -54,7 +54,7 @@ test('plan: missing bookings are added; a date without a night gets one created 
     now: NOW,
   })
   const wed = plan.find((p) => p.date === '2027-03-03')!
-  assert.deepEqual(wed.createNight, { slug: 'club-crawl', name: 'BKK Club Crawl' })
+  assert.deepEqual(wed.createNight, { slug: 'club-crawl', name: 'Bangkok Club Crawl' })
   assert.equal(wed.toAdd, 3)
   assert.deepEqual([wed.open.would, wed.open.reason], [false, '3 of 4 OTA guests'])
   const fri = plan.find((p) => p.date === '2027-03-05')!
@@ -90,7 +90,7 @@ test('plan: matched by platform code even after the team moved the guest; cancel
 
 test('plan: a past date without a night can still be imported (night created OFF); it is never opened', () => {
   const p = buildSyncPlan({ bokun: [row(1, '2027-02-23', 4)], nights: [], ota: [], defaultStartTime: '21:30:00', now: NOW })[0]
-  assert.deepEqual(p.createNight, { slug: 'club-crawl', name: 'BKK Club Crawl' })
+  assert.deepEqual(p.createNight, { slug: 'club-crawl', name: 'Bangkok Club Crawl' })
   assert.deepEqual([p.issues.length, p.newBookings.length, p.open.would], [0, 1, false])
 })
 
@@ -214,7 +214,7 @@ test('Import: ticked bookings land on the night (created OFF when missing), with
   const r = await press({ action: 'import', date: FUTURE_WED, bokunIds: ['11', '12'] })
   assert.equal(r.status, 200, JSON.stringify(r.json))
   assert.deepEqual(r.json.imported, ['TA11', 'GYGTEST12'])
-  assert.deepEqual([r.json.night.name, r.json.night.isOpen, r.json.night.created], ['BKK Club Crawl', false, true])
+  assert.deepEqual([r.json.night.name, r.json.night.isOpen, r.json.night.created], ['Bangkok Club Crawl', false, true])
   const night = db.tables.event_dates.find((e) => e.event_date === FUTURE_WED)
   assert.deepEqual([night.night_slug, night.is_open, night.capacity, night.product_id], ['club-crawl', false, 10, 'p-bcc'])
   const rows = db.tables.ota_bookings
@@ -278,7 +278,7 @@ test('Moved guest: import a past booking onto the next night — saved as resche
   const add = (d: string, n: number) => new Date(Date.parse(d + 'T00:00:00Z') + n * 864e5).toISOString().slice(0, 10)
   const booked = add(today, -3)
   const joined = add(today, -2)
-  const joinedNight = db.insertRow('event_dates', { product_id: 'p-bcc', event_date: joined, night_slug: 'club-crawl', night_name: 'BKK Club Crawl', is_open: false })
+  const joinedNight = db.insertRow('event_dates', { product_id: 'p-bcc', event_date: joined, night_slug: 'club-crawl', night_name: 'Bangkok Club Crawl', is_open: false })
   await seed([bk(41, { date: booked, guests: 1 })])
 
   assert.ok(joinedNight)

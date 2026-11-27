@@ -411,7 +411,7 @@ async function createDynamicCheckout({
 
     // Label the payment itself so Stripe's Transactions list shows the night.
     payment_intent_data: {
-      description: stripePaymentLabel('BKK Club Crawl', event.night_name, event.event_date),
+      description: stripePaymentLabel('Bangkok Club Crawl', event.night_name, event.event_date),
       metadata: { storefront, night_name: event.night_name, event_date: event.event_date, event_id: event.id },
     },
 
@@ -488,7 +488,7 @@ async function createLegacyCheckout({
     },
 
     payment_intent_data: {
-      description: stripePaymentLabel('BKK Club Crawl', nightName, eventDate),
+      description: stripePaymentLabel('Bangkok Club Crawl', nightName, eventDate),
       metadata: { night_name: nightName, event_date: eventDate },
     },
 

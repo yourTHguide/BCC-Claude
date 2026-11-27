@@ -1,6 +1,6 @@
 // Label shown in the Stripe dashboard's Description column for each payment,
 // so Transactions shows the brand, night and date at a glance, e.g.
-// "BKK Club Crawl · Friday Night Crawl · Fri 14 Nov 2026" or
+// "Bangkok Club Crawl · Friday Night Crawl · Fri 14 Nov 2026" or
 // "Single Meet Club · Sat 22 Nov 2026". Stripe-side only; guests don't see it.
 export function shortEventDate(eventDate: string | null | undefined): string | null {
   if (!eventDate || !/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) return null
