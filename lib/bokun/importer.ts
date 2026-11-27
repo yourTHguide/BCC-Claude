@@ -44,7 +44,7 @@ async function nightFor(db: SupabaseClient, productId: string, date: string) {
   let night = nights.find((n) => n.night_slug === slug && isOtaNight(n.night_slug))
   if (night) return { night, created: false }
   const { data, error } = await db.from('event_dates').insert({
-    event_date: date, night_slug: slug, night_name: otaNightName(slug), product_id: productId, schedule_id: null, is_open: false, capacity: 12,
+    event_date: date, night_slug: slug, night_name: otaNightName(slug), product_id: productId, schedule_id: null, is_open: false, capacity: 10, van_count: 1,
   }).select('id, event_date, night_slug, night_name, is_open, capacity, operation_verdict').single()
   if (error?.code === '23505') {
     // Created at the same moment by another tap: use that one.

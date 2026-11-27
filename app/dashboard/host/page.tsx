@@ -126,6 +126,8 @@ export default function HostEventsPage() {
           Scan Ticket
         </Link>
 
+        <HostInvites commissionPerTicket={money.invites?.commissionPerTicket} onCreated={money.reload} />
+
 
         {error && <p style={{ color: '#EA003A', fontSize: '13px' }}>{error}</p>}
         {events === null && !error && <p style={{ color: 'rgba(255,255,255,0.50)', fontSize: '13px', marginTop: '16px' }}>Loading…</p>}
@@ -142,9 +144,6 @@ export default function HostEventsPage() {
         {later.length > 0 && <p style={S.section}>Coming up</p>}
         {later.map((e) => <EventCard key={e.id} e={e} />)}
 
-        <div style={{ marginTop: '18px' }}>
-          <HostInvites commissionPerTicket={money.invites?.commissionPerTicket} onCreated={money.reload} />
-        </div>
         <MyEarnings earnings={money.earnings} invites={money.invites} reload={money.reload} />
       </div>
     </div>

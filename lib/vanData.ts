@@ -4,7 +4,7 @@ import { splitVans, vanStatus, type Party } from '@/lib/vans'
 // Loads a night's parties (website + OTA) and works out the vans.
 export async function loadVanNight(db: SupabaseClient, eventId: string) {
   const { data: ev, error } = await db.from('event_dates')
-    .select('id, event_date, night_slug, night_name, product_id, capacity, van_count, van2_state, is_open, operation_verdict, host_assigned')
+    .select('id, event_date, night_slug, night_name, product_id, capacity, van_count, van2_state, is_open, operation_verdict, host_assigned, host_assigned_2')
     .eq('id', eventId).maybeSingle()
   if (error) throw error
   if (!ev) return null
@@ -20,14 +20,14 @@ export async function loadVanNight(db: SupabaseClient, eventId: string) {
     ...((ota ?? []) as any[]).filter((o) => !['refunded', 'didnt_happen_refund_owed'].includes(o.booking_status ?? ''))
       .map((o) => { names.set(`ota_bookings:${o.id}`, { name: o.guest_name || 'Guest', source: o.source }); return { id: o.id, table: 'ota_bookings' as const, quantity: o.quantity ?? 0, createdAt: o.created_at ?? '' } }),
   ]
-  const vanCount = e.van_count ?? 0
-  const split = splitVans(parties, Math.max(1, vanCount))
+  const vanCount = e.van_count ?? 1   // every night runs vans; no setting yet = 1 van
+  const split = splitVans(parties, vanCount)
   const taken = parties.reduce((s, p) => s + p.quantity, 0)
   const label = (p: Party) => ({ ...p, ...(names.get(`${p.table}:${p.id}`) ?? { name: 'Guest', source: '' }) })
   return {
     event: e,
     taken,
     split: { van1: split.van1.map(label), van2: split.van2.map(label), over: split.over.map(label) },
-    status: vanCount ? vanStatus(split, vanCount, e.van2_state) : null,
+    status: vanStatus(split, vanCount, e.van2_state),
   }
 }

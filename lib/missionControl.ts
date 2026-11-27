@@ -5,7 +5,7 @@ import { getOperationsReport, type OperationsRow } from '@/lib/operations/report
 import { loadVanNight } from '@/lib/vanData'
 import { loadInviteViews } from '@/lib/hostInviteData'
 import { loadPlan } from '@/lib/bokun/sync'
-import { payoutState } from '@/lib/hostPayout'
+import { hostPay } from '@/lib/hostPayout'
 
 // BCC Mission Control (Nov 2026): the owner's home page. One read of
 // everything that needs attention. To-do items are worked out from the live
@@ -42,7 +42,7 @@ export async function buildMissionControl(db: SupabaseClient, now = new Date()) 
   const from = monthStart(today, -1)
   const to = addDaysISO(today, 200)
   const { data: nightsRaw, error } = await db.from('event_dates')
-    .select('id, event_date, night_slug, night_name, is_open, capacity, van_count, van2_state, operation_verdict, host_assigned, host_fee_final, host_payment_status, meet_up_location, whatsapp_group_link')
+    .select('id, event_date, night_slug, night_name, is_open, capacity, van_count, van2_state, operation_verdict, host_assigned, host_assigned_2, host_fee_final, host_payment_status, meet_up_location, whatsapp_group_link')
     .eq('product_id', pid).gte('event_date', from).lte('event_date', to)
   if (error) throw error
   const nights = ((nightsRaw ?? []) as any[]).filter((n) => !isCancelledEvent(n))
@@ -57,7 +57,7 @@ export async function buildMissionControl(db: SupabaseClient, now = new Date()) 
     const r = opsById.get(n.id)
     tonight.push({
       eventId: n.id, nightName: n.night_name, isOpen: n.is_open, verdict: n.operation_verdict,
-      guests: r?.guestsBooked ?? v?.taken ?? 0, checkedIn: r?.guestsCheckedIn ?? 0, host: n.host_assigned,
+      guests: r?.guestsBooked ?? v?.taken ?? 0, checkedIn: r?.guestsCheckedIn ?? 0, host: [n.host_assigned, n.host_assigned_2].filter(Boolean).join(' & ') || null,
       meetUp: n.meet_up_location, whatsapp: n.whatsapp_group_link, vans: v?.status ?? null,
     })
   }
@@ -104,23 +104,27 @@ export async function buildMissionControl(db: SupabaseClient, now = new Date()) 
   const recentIds = recent.map((n) => n.id)
   const [{ data: hexp }, { data: hrep }] = recentIds.length
     ? await Promise.all([
-        db.from('host_expenses').select('event_id, status, amount').in('event_id', recentIds),
-        db.from('host_reports').select('event_id, status, host_name').in('event_id', recentIds),
+        db.from('host_expenses').select('event_id, host_user_id, status, amount').in('event_id', recentIds),
+        db.from('host_reports').select('event_id, host_user_id, status, host_name, fee_thb, paid_at').in('event_id', recentIds),
       ])
     : [{ data: [] }, { data: [] }]
   let hostReady = 0
   for (const n of recent) {
     const ex = ((hexp ?? []) as any[]).filter((e) => e.event_id === n.id)
     const pending = ex.filter((e) => e.status === 'pending').length
-    const rep = ((hrep ?? []) as any[]).find((r) => r.event_id === n.id)
-    const label = `${n.night_name}, ${dateLabel(n.event_date)}${n.host_assigned ? ` (${n.host_assigned})` : ''}`
-    if (pending) todo.push({ id: `exp-${n.id}`, level: 'yellow', title: `${pending} host expense${pending === 1 ? '' : 's'} to approve`, detail: label, href: `/dashboard/reports/${n.id}`, action: 'Review' })
-    const state = payoutState(rep?.status, n.host_payment_status, pending)
-    if (rep?.status === 'submitted' && n.host_payment_status === 'Not calculated') todo.push({ id: `fee-${n.id}`, level: 'yellow', title: `Report in — set the host fee`, detail: label, href: `/dashboard/reports/${n.id}`, action: 'Set fee' })
-    if (state === 'ready_to_pay') {
-      const amt = (n.host_fee_final ?? 0) + ex.filter((e) => e.status === 'approved').reduce((s, e) => s + e.amount, 0)
-      hostReady += amt
-      todo.push({ id: `pay-${n.id}`, level: 'yellow', title: `Pay ${n.host_assigned ?? 'host'} ${baht(amt)}`, detail: label, href: `/dashboard/reports/${n.id}`, action: 'Mark paid' })
+    const nightLabel = `${n.night_name}, ${dateLabel(n.event_date)}`
+    if (pending) todo.push({ id: `exp-${n.id}`, level: 'yellow', title: `${pending} host expense${pending === 1 ? '' : 's'} to approve`, detail: `${nightLabel}${n.host_assigned ? ` (${[n.host_assigned, n.host_assigned_2].filter(Boolean).join(' & ')})` : ''}`, href: `/dashboard/reports/${n.id}`, action: 'Review' })
+    // Each host's own report, fee and payment (up to two hosts per night).
+    for (const rep of ((hrep ?? []) as any[]).filter((r) => r.event_id === n.id)) {
+      const own = ex.filter((e) => e.host_user_id === rep.host_user_id)
+      const pay = hostPay(rep, n, own.filter((e) => e.status === 'pending').length)
+      const label = `${nightLabel} (${rep.host_name})`
+      if (rep.status === 'submitted' && pay.fee == null) todo.push({ id: `fee-${n.id}-${rep.host_user_id}`, level: 'yellow', title: `Report in — set ${rep.host_name}’s fee`, detail: nightLabel, href: `/dashboard/reports/${n.id}`, action: 'Set fee' })
+      if (pay.state === 'ready_to_pay') {
+        const amt = (pay.fee ?? 0) + own.filter((e) => e.status === 'approved').reduce((s, e) => s + e.amount, 0)
+        hostReady += amt
+        todo.push({ id: `pay-${n.id}-${rep.host_user_id}`, level: 'yellow', title: `Pay ${rep.host_name} ${baht(amt)}`, detail: label, href: `/dashboard/reports/${n.id}`, action: 'Mark paid' })
+      }
     }
   }
   const invites = await loadInviteViews(db, {}, now).catch(() => [])
@@ -165,7 +169,7 @@ export async function buildMissionControl(db: SupabaseClient, now = new Date()) 
     const r = opsById.get(n.id)
     return {
       eventId: n.id, date: n.event_date, nightName: n.night_name, isOpen: n.is_open, guests: r?.guestsBooked ?? 0, capacity: n.capacity,
-      vans: n.van_count ?? null, host: n.host_assigned, meetUp: !!n.meet_up_location, whatsapp: !!n.whatsapp_group_link,
+      vans: n.van_count ?? null, host: [n.host_assigned, n.host_assigned_2].filter(Boolean).join(' & ') || null, meetUp: !!n.meet_up_location, whatsapp: !!n.whatsapp_group_link,
     }
   })
 

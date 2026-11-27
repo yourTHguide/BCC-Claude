@@ -43,18 +43,30 @@ export async function GET(req: NextRequest) {
   const from = hostWindowStart()
   let query = supabase
     .from('event_dates')
-    .select('id, event_date, night_name, night_slug, is_open, host_assigned, operation_verdict')
+    .select('id, event_date, night_name, night_slug, is_open, host_assigned, host_assigned_2, operation_verdict')
     .gte('event_date', from)
     .order('event_date', { ascending: true })
 
   // ?mine=1 lets an owner/admin see exactly what a host sees: only the
   // nights they're assigned to themselves (e.g. Guide hosting tonight).
   const mine = new URL(req.url).searchParams.get('mine') === '1'
+  // A host may be the night's host or its second host (Van 2).
+  let data: any[] | null = null
+  let error: any = null
   if (auth.admin.role === 'staff' || mine) {
-    query = query.eq('host_assigned', auth.admin.displayName ?? '__none__')
+    const name = auth.admin.displayName ?? '__none__'
+    const base = () => supabase.from('event_dates')
+      .select('id, event_date, night_name, night_slug, is_open, host_assigned, host_assigned_2, operation_verdict')
+      .gte('event_date', from).order('event_date', { ascending: true })
+    const [a, b] = await Promise.all([base().eq('host_assigned', name), base().eq('host_assigned_2', name)])
+    error = a.error || b.error
+    const seen = new Set<string>()
+    data = [...(a.data ?? []), ...(b.data ?? [])].filter((e: any) => !seen.has(e.id) && !!seen.add(e.id)).sort((x: any, y: any) => x.event_date.localeCompare(y.event_date))
+  } else {
+    const r = await query
+    data = r.data
+    error = r.error
   }
-
-  const { data, error } = await query
   if (error) {
     console.error('admin/host/events: query error:', error)
     return NextResponse.json({ error: 'Failed to load events' }, { status: 500 })

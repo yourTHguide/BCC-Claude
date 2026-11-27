@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
   if (!Number.isInteger(price) || price < 1 || price > 100000) return NextResponse.json({ error: 'Price must be a whole number of baht.' }, { status: 400 })
   const time = body.startTime ? String(body.startTime) : String(product.default_start_time ?? '21:30').slice(0, 5)
   if (!TIME.test(time)) return NextResponse.json({ error: 'Start time must look like 21:30.' }, { status: 400 })
-  const capacity = body.capacity === undefined || body.capacity === null || body.capacity === '' ? 12 : Number(body.capacity)
+  const capacity = body.capacity === undefined || body.capacity === null || body.capacity === '' ? 10 : Number(body.capacity)
   if (!Number.isInteger(capacity) || capacity < 1 || capacity > 500) return NextResponse.json({ error: 'Capacity must be between 1 and 500.' }, { status: 400 })
 
   const { data: existing, error: existingError } = await supabase
@@ -99,6 +99,8 @@ export async function POST(req: NextRequest) {
       schedule_id: null,
       is_open: body.isOpen === true,
       capacity,
+      // Every Club Crawl night runs vans: 10 seats = 1 van, more = 2 vans.
+      van_count: capacity > 10 ? 2 : 1,
       price_override: price === product.default_price ? null : price,
       start_time_override: time === defaultTime ? null : `${time}:00`,
     })

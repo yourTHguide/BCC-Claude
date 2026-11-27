@@ -27,6 +27,15 @@ Owner decisions: emails for a night under 5 and for van 2 under 4 (same layout, 
 - Owner **Refund credit** (night panel, under the guest) → Stripe refund of what's left to the original card (`/api/admin/credits`). Expired credit (12 months) closed by the hourly timer.
 - Operations revenue = `total_paid + credit_used`.
 
-## Still to build
+## Part 4 (built 27 Nov 2026): second host per night
+- Migration `20261203000001_second_host.sql`: `event_dates.host_assigned_2`; `host_reports` unique per (night, host) instead of per night; `host_reports.fee_thb` / `paid_at` (each host's fee and payment). Applied to staging.
+- Calendar night panel: **Second host (Van 2)**. Both hosts see the night, all guests (both vans), brief, check-in, expenses; each writes their own report.
+- Owner review: one card per host (report, fee, Mark paid); suggested fee = night suggestion ÷ number of hosts. Night totals (`host_fee_final`, `host_payment_status`) follow: sum of fees; Paid when every host is paid — Closeout/Operations unchanged.
+- Nights paid before per-host fees keep their night-level fee for the single host (`hostPay` in `lib/hostPayout.ts`).
+- Reports list, My earnings and Mission Control work per host.
 - Part 4: second host per night (`host_assigned_2`), both see all guests, one report per host.
-- Part 4: second host per night (`host_assigned_2`), both see all guests, one report per host.
+
+## Vans are the standard (28 Nov 2026)
+- Owner decision: no "no vans" option. Every Club Crawl night is **1 van (10 seats)** or **2 vans (20)**.
+- Migration `20261204000001_vans_standard.sql`: database rule gives every new Club Crawl night 1 van / 10 seats (schedules, Add night, Bókun import, moved guests); future nights switched to 1 van / 10 (2 vans / 20 where more than 10 were already booked). Staging: 52 × 1 van, 2 × 2 vans.
+- The **Van 2 host** is chosen inside the Vans box under Van 2 (`set_host2`).

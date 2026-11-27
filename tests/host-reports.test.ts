@@ -119,7 +119,7 @@ test('owner review: approve copies into expenses; reject never counts; pay only 
   ;(globalThis as any).__admin = undefined // owner
 
   let d = await call(review.GET, 'GET')
-  assert.deepEqual([d.json.headcount.checkedIn, d.json.suggestedFee, d.json.payout], [2, 1500, 'report_due'])
+  assert.deepEqual([d.json.headcount.checkedIn, d.json.suggestedFee, d.json.waitingFor], [2, 1500, ['Ice']])
 
   assert.equal((await call(review.POST, 'POST', { action: 'approve_expense', id: drinks.id })).status, 200)
   assert.equal((await call(review.POST, 'POST', { action: 'approve_expense', id: drinks.id })).status, 409, 'approved once')
@@ -128,9 +128,14 @@ test('owner review: approve copies into expenses; reject never counts; pay only 
   assert.equal((await call(review.POST, 'POST', { action: 'reject_expense', id: taxi.id, note: 'No receipt' })).status, 200)
   assert.deepEqual([taxi.status, taxi.review_note, db.tables.expenses.length], ['rejected', 'No receipt', 1])
 
-  assert.equal((await call(review.POST, 'POST', { action: 'set_fee', amount: 1800 })).status, 200)
-  assert.deepEqual([ev.host_fee_final, ev.host_payment_status], [1800, 'Calculated'])
-  const early = await call(review.POST, 'POST', { action: 'mark_paid' })
+  // The host starts the report (draft): the fee can be set on it.
+  ;(globalThis as any).__admin = ICE
+  await call(report.PUT, 'PUT', { vibe: 'Good night' })
+  ;(globalThis as any).__admin = undefined
+  const repId = db.tables.host_reports[0].id
+  assert.equal((await call(review.POST, 'POST', { action: 'set_fee', reportId: repId, amount: 1800 })).status, 200)
+  assert.deepEqual([db.tables.host_reports[0].fee_thb, ev.host_fee_final, ev.host_payment_status], [1800, 1800, 'Calculated'], 'night totals follow the host fee')
+  const early = await call(review.POST, 'POST', { action: 'mark_paid', reportId: repId })
   assert.equal(early.status, 409)
   assert.match(early.json.error, /hasn’t submitted/)
 
@@ -145,9 +150,9 @@ test('owner review: approve copies into expenses; reject never counts; pay only 
   ;(globalThis as any).__admin = undefined
   const all = await call(list.GET, 'GET')
   assert.deepEqual(all.json.nights.map((n: any) => [n.host, n.reportStatus, n.payout, n.approvedExpenses]), [['Ice', 'submitted', 'ready_to_pay', 600]])
-  assert.equal((await call(review.POST, 'POST', { action: 'mark_paid' })).status, 200)
+  assert.equal((await call(review.POST, 'POST', { action: 'mark_paid', reportId: repId })).status, 200)
   assert.equal(ev.host_payment_status, 'Paid')
-  assert.equal((await call(review.POST, 'POST', { action: 'set_fee', amount: 1 })).status, 409, 'fee locked once paid')
+  assert.equal((await call(review.POST, 'POST', { action: 'set_fee', reportId: repId, amount: 1 })).status, 409, 'fee locked once paid')
 })
 
 test('a pending expense blocks Mark paid; the host can remove only their own pending expense', async () => {
@@ -180,4 +185,38 @@ test('a night stays open to its host for 24 hours (crawls run past midnight)', a
   assert.equal(hostWindowStart(new Date('2026-11-26T19:39:00Z')), '2026-11-26', '02:39 on the 27th: the 26th night is still listed')
   assert.equal(hostWindowStart(new Date('2026-11-27T14:30:00Z')), '2026-11-26', '21:30 on the 27th: still listed (24 h)')
   assert.equal(hostWindowStart(new Date('2026-11-27T17:01:00Z')), '2026-11-27', 'after midnight on the 28th: the 26th has left the list')
+})
+
+test('two hosts: both see the night, each writes their own report and is paid separately; the night is Paid only when both are', async () => {
+  const hostEvents = await import('../app/api/admin/host/events/route.ts')
+  ev.host_assigned_2 = 'Boom'
+  ;(globalThis as any).__admin = BOOM
+  const listed = await call(hostEvents.GET, 'GET', undefined, 'http://localhost/api/admin/host/events')
+  assert.ok(listed.json.events.some((e: any) => e.id === ev.id), 'second host sees the night')
+  assert.equal((await call(night.GET, 'GET')).status, 200)
+  await call(report.POST, 'POST', { vibe: 'Van 2 was wild' })
+  ;(globalThis as any).__admin = ICE
+  const iceDraft = await call(report.GET, 'GET')
+  assert.equal(iceDraft.json.status, 'none', 'Ice has her own (empty) report')
+  await call(report.POST, 'POST', { vibe: 'Van 1 smooth' })
+  assert.equal(db.tables.host_reports.length, 2)
+
+  ;(globalThis as any).__admin = undefined
+  const d = await call(review.GET, 'GET')
+  assert.deepEqual(d.json.reports.map((r: any) => r.hostName).sort(), ['Boom', 'Ice'])
+  assert.equal(d.json.suggestedFee, 750, 'night suggestion shared between two hosts')
+  const boom = d.json.reports.find((r: any) => r.hostName === 'Boom')
+  const ice = d.json.reports.find((r: any) => r.hostName === 'Ice')
+  await call(review.POST, 'POST', { action: 'set_fee', reportId: boom.id, amount: 1000 })
+  await call(review.POST, 'POST', { action: 'set_fee', reportId: ice.id, amount: 1200 })
+  assert.deepEqual([ev.host_fee_final, ev.host_payment_status], [2200, 'Calculated'])
+  assert.equal((await call(review.POST, 'POST', { action: 'mark_paid' })).status, 400, 'must say which host')
+  await call(review.POST, 'POST', { action: 'mark_paid', reportId: boom.id })
+  assert.equal(ev.host_payment_status, 'Calculated', 'one of two paid')
+  ;(globalThis as any).__admin = BOOM
+  const boomEarn = await call(earnings.GET, 'GET')
+  assert.deepEqual([boomEarn.json.nights[0].state, boomEarn.json.nights[0].fee], ['paid', 1000])
+  ;(globalThis as any).__admin = undefined
+  await call(review.POST, 'POST', { action: 'mark_paid', reportId: ice.id })
+  assert.equal(ev.host_payment_status, 'Paid')
 })

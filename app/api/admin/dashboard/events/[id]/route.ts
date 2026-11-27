@@ -19,6 +19,7 @@ export const dynamic = 'force-dynamic'
 const ALLOWED: Record<string, string> = {
   isOpen: 'is_open',
   hostAssigned: 'host_assigned',
+  hostAssigned2: 'host_assigned_2',
   operationVerdict: 'operation_verdict',
   meetUpLocation: 'meet_up_location',
   whatsappGroupLink: 'whatsapp_group_link',
