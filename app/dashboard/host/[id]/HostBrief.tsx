@@ -19,7 +19,7 @@ function phoneOf(s: string | null) {
   return digits.replace(/\D/g, '').length >= 8 ? digits : null
 }
 
-export default function HostBrief({ event, headcount, onTab }: { event: any; headcount: { total: number; checkedIn: number }; onTab: (t: 'guests' | 'expenses' | 'report') => void }) {
+export default function HostBrief({ event, headcount, onTab, expenseCount = 0, reportLabel = 'Night report' }: { event: any; headcount: { total: number; checkedIn: number }; onTab: (t: 'guests' | 'expenses' | 'report') => void; expenseCount?: number; reportLabel?: string }) {
   const route = ['venue1', 'venue2', 'venue3', 'venue4'].map((k) => event.venueRoute?.[k]).filter(Boolean) as string[]
   const phone = phoneOf(event.vanOrTaxiContact)
   const start = time12(event.startTime)
@@ -34,7 +34,7 @@ export default function HostBrief({ event, headcount, onTab }: { event: any; hea
         <button onClick={() => onTab('guests')} style={{ ...card, textAlign: 'left', cursor: 'pointer', color: '#fff', font: 'inherit' }}>
           <p style={head}>Guests</p>
           <div style={{ fontSize: '20px', fontWeight: 700 }}>{headcount.total}</div>
-          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)' }}>{headcount.checkedIn} checked in · open list ›</div>
+          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)', whiteSpace: 'nowrap' }}>{headcount.checkedIn} checked in · <span style={{ color: '#fff' }}>Open list ›</span></div>
         </button>
       </div>
 
@@ -52,12 +52,12 @@ export default function HostBrief({ event, headcount, onTab }: { event: any; hea
       <div style={card}>
         <p style={head}>Meeting point</p>
         {event.meetUpLocation ? (
-          <>
-            <p style={{ fontSize: '15px', margin: '0 0 10px' }}>{event.meetUpLocation}</p>
-            <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.meetUpLocation + ', Bangkok')}`} target="_blank" rel="noopener noreferrer" style={{ ...btn, border: '1px solid rgba(255,255,255,0.2)', color: '#fff' }}>
-              Open in Maps
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+            <p style={{ fontSize: '15px', margin: 0, minWidth: 0, overflowWrap: 'anywhere' }}>{event.meetUpLocation}</p>
+            <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.meetUpLocation + ', Bangkok')}`} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0, padding: '6px 12px', borderRadius: '999px', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', fontSize: '12px', fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+              📍 Map
             </a>
-          </>
+          </div>
         ) : <p style={missing}>Not set yet — the owner adds it before the night.</p>}
       </div>
 
@@ -100,8 +100,8 @@ export default function HostBrief({ event, headcount, onTab }: { event: any; hea
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '6px' }}>
-        <button onClick={() => onTab('expenses')} style={{ ...btn, border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#fff', cursor: 'pointer' }}>+ Add expense</button>
-        <button onClick={() => onTab('report')} style={{ ...btn, border: 'none', background: 'linear-gradient(135deg,#EA003A,#820065)', color: '#fff', cursor: 'pointer' }}>📝 Night report</button>
+        <button onClick={() => onTab('expenses')} style={{ ...btn, border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#fff', cursor: 'pointer' }}>{expenseCount ? `Expenses (${expenseCount}) ›` : '+ Add expense'}</button>
+        <button onClick={() => onTab('report')} style={{ ...btn, border: 'none', background: 'linear-gradient(135deg,#EA003A,#820065)', color: '#fff', cursor: 'pointer' }}>📝 {reportLabel}</button>
       </div>
     </div>
   )
