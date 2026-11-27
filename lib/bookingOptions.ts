@@ -8,6 +8,45 @@ import { cancelBooking, rescheduleBooking } from '@/lib/bookingActions'
 import { generateOptionsEmail, optionsEmailSubject, type OptionsEmailKind, type OptionsReason } from '@/emails/booking-options'
 import { creditExpiry, ensureGuest, logActivity } from '@/lib/guests'
 import { loadVanNight } from '@/lib/vanData'
+import { BCC_PRODUCT_SLUG, bangkokNow, isCancelledEvent } from '@/lib/bookingAvailability'
+import { loadBccInstancesByIds } from '@/lib/waitlist/bccInstances'
+import { otaNightName, otaNightSlug, isOtaNight } from '@/lib/ota-import/nights'
+import { addDaysISO } from '@/lib/dates'
+
+export const MOVE_WINDOW_DAYS = 90
+const dow = (d: string) => new Date(d + 'T00:00:00Z').getUTCDay()
+const isWeekend = (d: string) => dow(d) === 5 || dow(d) === 6
+
+// Dates a guest can move to: Club Crawl nights on sale or confirmed with room
+// for the party, plus every Friday and Saturday in the next 90 days (the owner
+// confirms; a missing night is created OFF on approval).
+export async function moveDates(db: SupabaseClient, excludeEventId: string, quantity: number) {
+  const today = bangkokNow().date
+  const until = addDaysISO(today, MOVE_WINDOW_DAYS)
+  const { data: product } = await db.from('products').select('id').eq('slug', BCC_PRODUCT_SLUG).maybeSingle()
+  if (!product) return []
+  const { data: rows } = await db.from('event_dates').select('id, event_date, night_slug, is_open, operation_verdict')
+    .eq('product_id', (product as any).id).gt('event_date', today).lte('event_date', until)
+  const all = ((rows ?? []) as any[]).filter((r) => r.id !== excludeEventId)
+  const inst = all.length ? await loadBccInstancesByIds(db, all.map((r) => r.id)) : []
+  const byId = new Map(inst.map((i) => [i.id, i]))
+  const out = new Map<string, { date: string; eventId: string | null; nightName: string; kind: 'night' | 'weekend' }>()
+  for (const r of all) {
+    const i = byId.get(r.id)
+    if (!i || isCancelledEvent(r) || !isOtaNight(r.night_slug)) continue
+    const room = i.remaining == null || i.remaining >= quantity
+    const onOrConfirmed = r.is_open || r.operation_verdict === 'Operation Confirmed'
+    if (onOrConfirmed && room) out.set(r.event_date, { date: r.event_date, eventId: r.id, nightName: i.nightName, kind: 'night' })
+  }
+  const blocked = new Set(all.filter((r) => isCancelledEvent(r)).map((r) => r.event_date))
+  for (let d = addDaysISO(today, 1); d <= until; d = addDaysISO(d, 1)) {
+    if (isWeekend(d) && !out.has(d) && !blocked.has(d)) {
+      const full = all.some((r) => r.event_date === d && byId.get(r.id)?.remaining != null && (byId.get(r.id)!.remaining as number) < quantity)
+      if (!full) out.set(d, { date: d, eventId: null, nightName: otaNightName(otaNightSlug(d, [])), kind: 'weekend' })
+    }
+  }
+  return Array.from(out.values()).sort((a, b) => a.date.localeCompare(b.date))
+}
 
 // "Not enough guests" options (Phase 3D, owner decisions 27 Nov 2026):
 // - The owner sends them with one click: the whole night (under 5) or van 2
@@ -70,7 +109,7 @@ export async function sendOptions(db: SupabaseClient, eventId: string, reason: O
 }
 
 // The guest's choice from their personal page.
-export async function chooseOption(db: SupabaseClient, token: string, input: { choice?: string; preferredEventId?: string | null; note?: string }) {
+export async function chooseOption(db: SupabaseClient, token: string, input: { choice?: string; preferredDate?: string | null; note?: string }) {
   const { data: opt } = await db.from('booking_options').select('*').eq('token', token).maybeSingle()
   const o = opt as any
   if (!o) return { status: 404, error: 'This link is not valid.' }
@@ -79,18 +118,23 @@ export async function chooseOption(db: SupabaseClient, token: string, input: { c
   if (!['refund', 'move', 'credit'].includes(choice)) return { status: 400, error: 'Choose a refund, a new date or credit.' }
   const note = String(input.note ?? '').trim().slice(0, 500)
   let preferred: string | null = null
+  let preferredDate: string | null = null
   if (choice === 'move') {
-    preferred = input.preferredEventId ? String(input.preferredEventId) : null
-    if (!preferred && note.length < 3) return { status: 400, error: 'Pick a date, or tell us which dates suit you.' }
-    if (preferred) {
-      const { data: ev } = await db.from('event_dates').select('id, is_open, event_date').eq('id', preferred).maybeSingle()
-      if (!ev || !(ev as any).is_open || preferred === o.event_id) return { status: 400, error: 'That date can’t be booked — pick another.' }
+    const want = input.preferredDate ? String(input.preferredDate) : null
+    if (!want && note.length < 3) return { status: 400, error: 'Pick a date, or tell us which dates suit you.' }
+    if (want) {
+      const { data: b } = await db.from('bookings').select('quantity').eq('id', o.booking_id).maybeSingle()
+      const allowed = await moveDates(db, o.event_id, (b as any)?.quantity ?? 1)
+      const hit = allowed.find((x) => x.date === want)
+      if (!hit) return { status: 400, error: 'That date can’t be picked — choose another.' }
+      preferred = hit.eventId
+      preferredDate = hit.date
     }
   }
-  const { error } = await db.from('booking_options').update({ choice, preferred_event_id: preferred, preference_note: note || null, chosen_at: new Date().toISOString(), status: 'chosen' })
+  const { error } = await db.from('booking_options').update({ choice, preferred_event_id: preferred, preferred_date: preferredDate, preference_note: note || null, chosen_at: new Date().toISOString(), status: 'chosen' })
     .eq('id', o.id).in('status', ['sent', 'chosen'])
   if (error) return { status: 500, error: 'Could not save your choice. Try again.' }
-  await logActivity(db, o.guest_id, 'option_chosen', o.booking_id, { choice, preferredEventId: preferred, note: note || undefined })
+  await logActivity(db, o.guest_id, 'option_chosen', o.booking_id, { choice, preferredDate: preferredDate ?? undefined, note: note || undefined })
   return { status: 200, ok: true }
 }
 
@@ -118,7 +162,8 @@ export async function resolveOption(db: SupabaseClient, optionId: string, as: { 
     return { status: 200, ok: true }
   }
   if (as.resolution === 'moved') {
-    const target = as.targetEventId ?? o.preferred_event_id
+    let target = as.targetEventId ?? o.preferred_event_id
+    if (!target && o.preferred_date) target = await nightOn(db, o.preferred_date)
     if (!target) { await undo(); return { status: 400, error: 'Choose the night to move them to.' } }
     const r = await rescheduleBooking(db as any, { bookingId: b.id, newEventId: target, message: 'As the night didn’t reach the minimum number of guests, we’ve moved your booking as you asked.' })
     if (r.status !== 200) { await undo(); return { status: r.status, error: r.body.error } }
@@ -137,6 +182,21 @@ export async function resolveOption(db: SupabaseClient, optionId: string, as: { 
   await logActivity(db, guestId, 'credited', b.id, { amount, expires: expires.toISOString().slice(0, 10) })
   await emailOption(db, 'credited', o, b, formatEventDateLong(expires.toISOString().slice(0, 10)))
   return { status: 200, ok: true }
+}
+
+// The Club Crawl night on a date; created OFF if the date has none (a guest
+// picked a weekend before the night was set up).
+async function nightOn(db: SupabaseClient, date: string): Promise<string | null> {
+  const { data: product } = await db.from('products').select('id').eq('slug', BCC_PRODUCT_SLUG).maybeSingle()
+  if (!product) return null
+  const { data: rows } = await db.from('event_dates').select('id, night_slug').eq('product_id', (product as any).id).eq('event_date', date)
+  const list = (rows ?? []) as any[]
+  const slug = otaNightSlug(date, list.map((r) => r.night_slug))
+  const found = list.find((r) => r.night_slug === slug && isOtaNight(r.night_slug))
+  if (found) return found.id
+  const { data, error } = await db.from('event_dates').insert({ event_date: date, night_slug: slug, night_name: otaNightName(slug), product_id: (product as any).id, schedule_id: null, is_open: false, capacity: 12 }).select('id').single()
+  if (error) return null
+  return (data as any).id
 }
 
 // Hourly: 24 h reminder, 48 h credit. Returns what it did.

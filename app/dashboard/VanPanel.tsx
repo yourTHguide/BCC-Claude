@@ -93,7 +93,7 @@ export default function VanPanel({ eventId }: { eventId: string }) {
                 <div key={o.id} style={{ fontSize: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '8px' }}>
                   <b>{o.guestName}</b> · {o.quantity} · ฿{Math.round(o.totalPaid).toLocaleString()} · <span style={{ color: 'rgba(255,255,255,0.55)' }}>{o.reason === 'van2_short' ? 'van 2' : 'night'}</span>
                   <div style={{ marginTop: '2px', color: o.status === 'resolved' ? '#6EE7B7' : o.choice ? '#93C5FD' : 'rgba(255,255,255,0.55)' }}>
-                    {o.status === 'resolved' ? `✓ ${o.resolution}` : o.choice === 'refund' ? 'Chose: full refund' : o.choice === 'move' ? `Chose: move${o.preferred ? ` → ${o.preferred.event_date} ${o.preferred.night_name}` : ''}${o.preference_note ? ` · “${o.preference_note}”` : ''}` : o.choice === 'credit' ? 'Chose: credit' : `Waiting for their choice${o.reminder_sent_at ? ' (reminded)' : ''} · credit after 48 h`}
+                    {o.status === 'resolved' ? `✓ ${o.resolution}` : o.choice === 'refund' ? 'Chose: full refund' : o.choice === 'move' ? `Chose: move${o.preferred ? ` → ${o.preferred.event_date} ${o.preferred.night_name}` : o.preferred_date ? ` → ${o.preferred_date} (no night yet — created OFF on approval)` : ''}${o.preference_note ? ` · “${o.preference_note}”` : ''}` : o.choice === 'credit' ? 'Chose: credit' : `Waiting for their choice${o.reminder_sent_at ? ' (reminded)' : ''} · credit after 48 h`}
                   </div>
                   {o.status !== 'resolved' && o.status !== 'cancelled' && !o.choice && (
                     <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
@@ -104,9 +104,9 @@ export default function VanPanel({ eventId }: { eventId: string }) {
                   {o.status !== 'resolved' && o.status !== 'cancelled' && (
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
                       {o.choice === 'refund' && <button disabled={busy} style={pill(true)} onClick={() => post({ action: 'resolve', optionId: o.id, resolution: 'refunded' }, `Refund ฿${Math.round(o.totalPaid).toLocaleString()} to ${o.guestName} via Stripe?`)}>Approve refund</button>}
-                      {o.choice === 'move' && o.preferred && <button disabled={busy} style={pill(true)} onClick={() => post({ action: 'resolve', optionId: o.id, resolution: 'moved' }, `Move ${o.guestName} to ${o.preferred.event_date}?`)}>Approve move</button>}
+                      {o.choice === 'move' && (o.preferred || o.preferred_date) && <button disabled={busy} style={pill(true)} onClick={() => post({ action: 'resolve', optionId: o.id, resolution: 'moved' }, `Move ${o.guestName} to ${o.preferred?.event_date ?? o.preferred_date}?`)}>Approve move</button>}
                       {o.choice === 'credit' && <button disabled={busy} style={pill(true)} onClick={() => post({ action: 'resolve', optionId: o.id, resolution: 'credited' }, `Keep ฿${Math.round(o.totalPaid).toLocaleString()} as credit for ${o.guestName}?`)}>Approve credit</button>}
-                      {o.choice === 'move' && !o.preferred && <span style={{ color: 'rgba(255,255,255,0.6)' }}>No date picked — move them with Reschedule, or:</span>}
+                      {o.choice === 'move' && !o.preferred && !o.preferred_date && <span style={{ color: 'rgba(255,255,255,0.6)' }}>No date picked — move them with Reschedule, or:</span>}
                       {o.choice !== 'refund' && <button disabled={busy} style={pill(false)} onClick={() => post({ action: 'resolve', optionId: o.id, resolution: 'refunded' }, `Refund ${o.guestName} instead?`)}>Refund</button>}
                       {o.choice !== 'credit' && <button disabled={busy} style={pill(false)} onClick={() => post({ action: 'resolve', optionId: o.id, resolution: 'credited' }, `Keep as credit for ${o.guestName} instead?`)}>Credit</button>}
                     </div>

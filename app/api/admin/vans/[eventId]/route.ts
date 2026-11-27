@@ -21,7 +21,7 @@ export async function GET(_req: NextRequest, { params }: { params: { eventId: st
     const d = await loadVanNight(getServiceSupabase(), params.eventId)
     if (!d) return NextResponse.json({ error: 'Night not found.' }, { status: 404 })
     const db = getServiceSupabase()
-    const { data: opts } = await db.from('booking_options').select('id, booking_id, token, reason, sent_at, reminder_sent_at, choice, preferred_event_id, preference_note, chosen_at, status, resolution, resolved_at').eq('event_id', d.event.id).order('sent_at', { ascending: true })
+    const { data: opts } = await db.from('booking_options').select('id, booking_id, token, reason, sent_at, reminder_sent_at, choice, preferred_event_id, preferred_date, preference_note, chosen_at, status, resolution, resolved_at').eq('event_id', d.event.id).order('sent_at', { ascending: true })
     const options = (opts ?? []) as any[]
     const bIds = options.map((o) => o.booking_id)
     const evIds = options.map((o) => o.preferred_event_id).filter(Boolean)

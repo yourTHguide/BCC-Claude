@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
-import { chooseOption } from '@/lib/bookingOptions'
-import { BCC_PRODUCT_SLUG, bangkokNow } from '@/lib/bookingAvailability'
-import { loadBccInstancesByIds } from '@/lib/waitlist/bccInstances'
+import { chooseOption, moveDates } from '@/lib/bookingOptions'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,23 +18,15 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
   const { data: b } = await db.from('bookings').select('guest_name, night_name, event_date, quantity, total_paid, status, booking_status').eq('id', o.booking_id).maybeSingle()
   const booking = b as any
   const credits = o.guest_id ? ((await db.from('guest_credits').select('amount, used_amount, status, expires_at').eq('guest_id', o.guest_id)).data ?? []) as any[] : []
-  // Nights to move to: Club Crawl, on sale, future, with seats for this party.
-  const { data: product } = await db.from('products').select('id').eq('slug', BCC_PRODUCT_SLUG).maybeSingle()
-  let nights: any[] = []
-  if (product && o.status !== 'resolved') {
-    const { data: rows } = await db.from('event_dates').select('id').eq('product_id', (product as any).id).eq('is_open', true).gte('event_date', bangkokNow().date).limit(60)
-    const ids = ((rows ?? []) as any[]).map((r) => r.id).filter((id) => id !== o.event_id)
-    const inst = ids.length ? await loadBccInstancesByIds(db, ids) : []
-    nights = inst.filter((i) => i.state === 'bookable' && (i.remaining == null || i.remaining >= (booking?.quantity ?? 1)))
-      .sort((a, b) => a.eventDate.localeCompare(b.eventDate)).slice(0, 30)
-      .map((i) => ({ eventId: i.id, date: i.eventDate, nightName: i.nightName }))
-  }
+  // Dates to move to: nights on sale or confirmed with room, plus every
+  // Friday/Saturday in the next 3 months.
+  const dates = o.status === 'resolved' ? [] : await moveDates(db, o.event_id, booking?.quantity ?? 1)
   return NextResponse.json({
-    reason: o.reason, status: o.status, choice: o.choice, preferredEventId: o.preferred_event_id, note: o.preference_note, resolution: o.resolution,
+    reason: o.reason, status: o.status, choice: o.choice, preferredDate: o.preferred_date, note: o.preference_note, resolution: o.resolution,
     booking: booking ? { guestName: booking.guest_name, nightName: booking.night_name, date: booking.event_date, quantity: booking.quantity, totalPaid: booking.total_paid } : null,
     credit: credits.filter((c) => c.status === 'active').reduce((s, c) => s + c.amount - c.used_amount, 0),
     creditExpires: credits.filter((c) => c.status === 'active').map((c) => c.expires_at).sort()[0] ?? null,
-    nights,
+    dates,
   })
 }
 
