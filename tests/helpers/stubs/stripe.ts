@@ -14,6 +14,8 @@ export const stripe = {
   webhooks: { constructEvent: (body: string) => JSON.parse(body) },
   paymentIntents: { retrieve: async (id: string) => ({ id, latest_charge: `ch_${id}` }) },
   promotionCodes: { retrieve: async (id: string) => ({ id, code: 'PROMO' }) },
+  // Guest credit is applied as a one-off coupon.
+  coupons: { create: async (p: any) => { const s = (globalThis as any).__stripe; (s.coupons ??= []).push(p); return { id: `co_test_${s.coupons.length}` } } },
   checkout: {
     sessions: {
       create: async (params: any) => {

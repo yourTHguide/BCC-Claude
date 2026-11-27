@@ -72,7 +72,7 @@ export async function getOperationsReport(start: string, end: string): Promise<O
       .order('event_date', { ascending: false }),
     supabase
       .from('bookings')
-      .select('event_date, night_slug, guest_name, guest_email, quantity, total_paid, attendance_status, booking_status, booking_attendees(full_name, position)')
+      .select('event_date, night_slug, guest_name, guest_email, quantity, total_paid, credit_used, attendance_status, booking_status, booking_attendees(full_name, position)')
       .gte('event_date', start)
       .lte('event_date', end)
       .eq('status', 'confirmed'),
@@ -108,7 +108,8 @@ export async function getOperationsReport(start: string, end: string): Promise<O
       quantity: b.quantity ?? 1,
       attendance: b.attendance_status ?? 'expected',
       status: bookingStatus(b.booking_status, b.attendance_status, b.event_date, today),
-      paid: b.total_paid ?? 0,
+      // Revenue = money charged + guest credit applied (credit was paid earlier).
+      paid: (b.total_paid ?? 0) + (b.credit_used ?? 0),
     })
   }
   for (const o of (ota.data ?? []) as any[]) {

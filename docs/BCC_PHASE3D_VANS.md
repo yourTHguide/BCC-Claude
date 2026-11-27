@@ -19,6 +19,14 @@ Owner decisions: emails for a night under 5 and for van 2 under 4 (same layout, 
 - Booking page: "Van 2 is filling up — N already in, just need M more and it's on!".
 - Terms (organizer cancellation) and privacy notice (guest profile, credit) updated.
 
+## Part 3b (built 27 Nov 2026): using credit
+- Migration `20261202000001_credit_use.sql`: `bookings.credit_used`, `guest_credits.hold_key / hold_amount / hold_until`.
+- Guest page → **Book with my credit** → `/book?credit=<token>` (banner shows the credit; button shows what's left to pay).
+- Credit covers it → `/api/credit-booking`: booked with no payment step (source `credit`, `total_paid` 0, `credit_used`), usual confirmation email and ticket.
+- Credit covers part → checkout with a one-off Stripe coupon for the credit; credit held 30 min for that checkout; used when the payment arrives (webhook). Minimum ฿20 charged.
+- Owner **Refund credit** (night panel, under the guest) → Stripe refund of what's left to the original card (`/api/admin/credits`). Expired credit (12 months) closed by the hourly timer.
+- Operations revenue = `total_paid + credit_used`.
+
 ## Still to build
-- Part 3b: using credit to book again (checkout pays all or part with credit).
+- Part 4: second host per night (`host_assigned_2`), both see all guests, one report per host.
 - Part 4: second host per night (`host_assigned_2`), both see all guests, one report per host.

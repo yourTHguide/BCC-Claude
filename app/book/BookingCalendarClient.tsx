@@ -123,6 +123,13 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
   // Checkout re-checks it; this only greets the guest and passes it on.
   const inviteCode = (searchParams.get('invite') || '').toLowerCase()
   const [invite, setInvite] = useState<{ valid: boolean; hostName?: string; eventId?: string; message?: string } | null>(null)
+  // Phase 3D: guest credit, from their personal link (/book?credit=<token>).
+  const creditToken = searchParams.get('credit') || ''
+  const [credit, setCredit] = useState<{ available: number; firstName: string | null } | null>(null)
+  useEffect(() => {
+    if (!/^[A-Za-z0-9_-]{20,64}$/.test(creditToken)) return
+    fetch(`/api/credit/${creditToken}`).then((r) => r.json()).then((j) => setCredit(j.available > 0 ? j : null)).catch(() => {})
+  }, [creditToken])
   useEffect(() => {
     if (!/^[a-z0-9]{6,20}$/.test(inviteCode)) return
     fetch(`/api/invite/${inviteCode}`).then((r) => r.json()).then(setInvite).catch(() => setInvite(null))
@@ -384,6 +391,11 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
           <h1 style={{ fontWeight: 600, fontSize: '24px', color: '#fff' }}>
             When are you joining us?
           </h1>
+          {credit && (
+            <p role="status" style={{ marginTop: '12px', padding: '12px 14px', borderRadius: '12px', background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.4)', color: '#fff', fontSize: '14px', lineHeight: 1.5 }}>
+              💳 {credit.firstName ? `${credit.firstName}, you` : 'You'} have <b>฿{credit.available.toLocaleString()}</b> credit — it’s applied when you book.
+            </p>
+          )}
           {invite?.valid && (
             <p role="status" style={{ marginTop: '12px', padding: '12px 14px', borderRadius: '12px', background: 'rgba(234,0,58,0.12)', border: '1px solid rgba(234,0,58,0.35)', color: '#fff', fontSize: '14px', lineHeight: 1.5 }}>
               🎉 <b>{invite.hostName}</b> invited you! Your night is picked below — choose how many of you are coming and book.
@@ -960,6 +972,16 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                     <button
                       onClick={async () => {
                         try {
+                          // Phase 3D: credit that covers the whole booking → booked with no payment step.
+                          if (credit && totalPrice != null && credit.available >= totalPrice) {
+                            const cr = await fetch('/api/credit-booking', {
+                              method: 'POST', headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ token: creditToken, eventId: selectedEvent.eventId, quantity }),
+                            })
+                            const cj = await cr.json().catch(() => ({}))
+                            if (cr.ok) { window.location.href = `/my-booking/${creditToken}?booked=${cj.date}`; return }
+                            if (!cj.needsCheckout) { alert(cj.error || 'Something went wrong. Please try again.'); return }
+                          }
                           const res = await fetch('/api/create-checkout', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -981,6 +1003,8 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                               ...(hasTierPricing && selectedTier ? { priceTier: selectedTier } : {}),
                               // Host invite: only for the night it was made for.
                               ...(invite?.valid && invite.eventId === selectedEvent.eventId ? { inviteCode } : {}),
+                              // Credit that covers part of it: pay the difference.
+                              ...(credit ? { creditToken } : {}),
                             }),
                           })
                           const data = await res.json()
@@ -1017,7 +1041,9 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                       }}
                     >
-                      {totalPrice != null ? `Book Now — ${formatPrice(totalPrice)}` : 'Book Now'}
+                      {totalPrice != null && credit
+                        ? (credit.available >= totalPrice ? 'Book with my credit — ฿0 to pay' : `Pay ${formatPrice(Math.max(20, totalPrice - credit.available))} — rest from your credit`)
+                        : totalPrice != null ? `Book Now — ${formatPrice(totalPrice)}` : 'Book Now'}
                       <span style={{ fontSize: '14px', opacity: 0.8 }}>→</span>
                     </button>
 

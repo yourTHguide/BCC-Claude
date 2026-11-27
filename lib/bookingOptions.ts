@@ -221,5 +221,13 @@ export async function runOptionTimers(db: SupabaseClient, now = new Date()) {
       reminded++
     }
   }
-  return { reminded, credited }
+  // Credit past its 12 months is closed (never one with a checkout in progress).
+  const { data: old } = await db.from('guest_credits').select('id, guest_id, amount, used_amount, hold_until').eq('status', 'active').lt('expires_at', now.toISOString())
+  let expired = 0
+  for (const c of (old ?? []) as any[]) {
+    if (c.hold_until && Date.parse(c.hold_until) > now.getTime()) continue
+    const { data } = await db.from('guest_credits').update({ status: 'expired', resolved_at: now.toISOString() }).eq('id', c.id).eq('status', 'active').select('id')
+    if (data?.length) { expired++; await logActivity(db, c.guest_id, 'credit_expired', null, { amount: c.amount - c.used_amount }) }
+  }
+  return { reminded, credited, expired }
 }

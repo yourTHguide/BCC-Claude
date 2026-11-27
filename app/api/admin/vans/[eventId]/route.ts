@@ -30,11 +30,14 @@ export async function GET(_req: NextRequest, { params }: { params: { eventId: st
       evIds.length ? db.from('event_dates').select('id, event_date, night_name').in('id', evIds) : Promise.resolve({ data: [] }),
     ])
     const bk = new Map(((bks ?? []) as any[]).map((b) => [b.id, b]))
+    const optIds = options.map((o) => o.id)
+    const { data: crs } = optIds.length ? await db.from('guest_credits').select('id, option_id, amount, used_amount, status').in('option_id', optIds) : { data: [] }
+    const creditByOpt = new Map(((crs ?? []) as any[]).map((c) => [c.option_id, c]))
     const ev = new Map(((evs ?? []) as any[]).map((e) => [e.id, e]))
     return NextResponse.json({
       vanCount: d.event.van_count, van2State: d.event.van2_state, capacity: d.event.capacity, taken: d.taken, split: d.split, status: d.status,
       // The guest's personal link (owner only), to send on WhatsApp or copy.
-      options: options.map(({ token, ...o }) => ({ ...o, link: optionLink(token), phone: bk.get(o.booking_id)?.guest_whatsapp || bk.get(o.booking_id)?.guest_phone || null, guestName: bk.get(o.booking_id)?.guest_name ?? 'Guest', quantity: bk.get(o.booking_id)?.quantity ?? 1, totalPaid: bk.get(o.booking_id)?.total_paid ?? 0, preferred: o.preferred_event_id ? ev.get(o.preferred_event_id) ?? null : null })),
+      options: options.map(({ token, ...o }) => ({ ...o, credit: creditByOpt.get(o.id) ?? null, link: optionLink(token), phone: bk.get(o.booking_id)?.guest_whatsapp || bk.get(o.booking_id)?.guest_phone || null, guestName: bk.get(o.booking_id)?.guest_name ?? 'Guest', quantity: bk.get(o.booking_id)?.quantity ?? 1, totalPaid: bk.get(o.booking_id)?.total_paid ?? 0, preferred: o.preferred_event_id ? ev.get(o.preferred_event_id) ?? null : null })),
     })
   } catch (err) {
     console.error('vans GET error', err)

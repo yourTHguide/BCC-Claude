@@ -73,6 +73,8 @@ export default function MyBookingPage({ params }: { params: { token: string } })
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(false)
+  const [booked, setBooked] = useState<string | null>(null)
+  useEffect(() => { setBooked(new URLSearchParams(window.location.search).get('booked')) }, [])
 
   useEffect(() => {
     fetch(`/api/my-booking/${params.token}`, { cache: 'no-store' }).then(async (r) => {
@@ -106,6 +108,12 @@ export default function MyBookingPage({ params }: { params: { token: string } })
       <div style={{ maxWidth: '460px', margin: '0 auto' }}>
         <p style={{ fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#EA003A', fontWeight: 600, margin: '0 0 6px' }}>Bangkok Club Crawl</p>
         <h1 style={{ fontSize: '22px', margin: '0 0 16px' }}>Your booking</h1>
+        {booked && (
+          <div style={{ ...card, borderColor: 'rgba(110,231,183,0.5)' }}>
+            <b>🎉 You’re booked for {pretty(booked)}!</b>
+            <p style={{ fontSize: '14px', margin: '6px 0 0' }}>Paid with your credit. Your ticket is on its way by email — see you on the night.</p>
+          </div>
+        )}
         {error && !d && <p style={card}>{error}</p>}
         {d && d.booking && (
           <>
@@ -121,7 +129,14 @@ export default function MyBookingPage({ params }: { params: { token: string } })
                 <p style={{ fontSize: '14px', margin: '6px 0 0' }}>
                   {d.resolution === 'refunded' ? 'Your full refund is on its way (it can take a few days to show).' : d.resolution === 'moved' ? 'Your booking has been moved — check your email for the new date.' : `Your ${baht(d.booking.totalPaid)} is kept as credit for your next night.`}
                 </p>
-                {d.credit > 0 && <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.65)', margin: '8px 0 0' }}>Credit available: <b>{baht(d.credit)}</b>{d.creditExpires ? ` · valid until ${pretty(d.creditExpires.slice(0, 10))}` : ''}. Want it refunded instead? Just reply to our email.</p>}
+                {d.credit > 0 && (
+                  <>
+                    <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.65)', margin: '8px 0 0' }}>Credit available: <b>{baht(d.credit)}</b>{d.creditExpires ? ` · valid until ${pretty(d.creditExpires.slice(0, 10))}` : ''}. Want it refunded instead? Just reply to our email.</p>
+                    <a href={`/book?credit=${params.token}`} style={{ display: 'block', textAlign: 'center', marginTop: '12px', padding: '13px', borderRadius: '12px', background: 'linear-gradient(135deg,#EA003A,#820065)', color: '#fff', fontWeight: 700, textDecoration: 'none' }}>
+                      Book with my credit →
+                    </a>
+                  </>
+                )}
               </div>
             ) : done ? (
               <div style={card}>
