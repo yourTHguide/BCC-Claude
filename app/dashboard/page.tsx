@@ -9,6 +9,7 @@ import DoorList, { type DoorListTheme } from '@/components/doorlist/DoorList'
 import OtaImport from '@/components/operations/OtaImport'
 import AddNightPanel, { OnSaleToggle } from './AddNightPanel'
 import VanPanel from './VanPanel'
+import MissionControl from './MissionControl'
 import type { DoorGuest } from '@/lib/doorList'
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
@@ -1043,12 +1044,22 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
 
 // ── Main Dashboard ──────────────────────────────────────────
 export default function Dashboard() {
-  const [activeTab, setActiveTab] = useState<'calendar'|'bookings'|'operations'>('calendar')
+  const [activeTab, setActiveTab] = useState<'mission'|'calendar'|'bookings'|'operations'>('mission')
+  const [myName, setMyName] = useState<string|null>(null)
+  // Deep link from Mission Control: /dashboard?night=<id>&date=YYYY-MM-DD opens that night's panel.
+  const [openNightId, setOpenNightId] = useState<string|null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   // Links from the menu on other pages: /dashboard?tab=bookings | operations
   useEffect(() => {
-    const t = new URLSearchParams(window.location.search).get('tab')
-    if (t === 'bookings' || t === 'operations') setActiveTab(t)
+    const q = new URLSearchParams(window.location.search)
+    const t = q.get('tab')
+    if (t === 'calendar' || t === 'bookings' || t === 'operations') setActiveTab(t)
+    const night = q.get('night'), date = q.get('date')
+    if (night) {
+      setActiveTab('calendar')
+      setOpenNightId(night)
+      if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) { setCalYear(Number(date.slice(0, 4))); setCalMonth(Number(date.slice(5, 7)) - 1) }
+    }
   }, [])
 
   // The /dashboard layout redirects hosts ('staff') on a full page load,
@@ -1058,7 +1069,7 @@ export default function Dashboard() {
   useEffect(() => {
     fetch('/api/admin/session', { cache: 'no-store' })
       .then(r => r.ok ? r.json() : null)
-      .then(s => { if (s?.role === 'staff') window.location.replace('/dashboard/host') })
+      .then(s => { if (s?.role === 'staff') window.location.replace('/dashboard/host'); else setMyName(s?.displayName ?? null) })
       .catch(() => {})
   }, [])
   const [calYear, setCalYear] = useState(new Date().getFullYear())
@@ -1111,6 +1122,11 @@ export default function Dashboard() {
     setEvents(data.events||[])
     setLoading(false)
   }, [calYear, calMonth])
+  useEffect(() => {
+    if (!openNightId) return
+    const ev = events.find(e => e.id === openNightId)
+    if (ev) { setSelectedEvent(ev); setOpenNightId(null) }
+  }, [events, openNightId])
 
   const loadBookings = useCallback(async () => {
     const res = await fetch('/api/admin/dashboard/bookings')
@@ -1259,11 +1275,11 @@ export default function Dashboard() {
         </div>
         {menuOpen && (
           <div className="sm:hidden" style={{ display:'grid', gap:'4px', padding:'8px', borderRadius:'10px', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)' }}>
-            {(['calendar','bookings','operations'] as const).map(tab => (
+            {(['mission','calendar','bookings','operations'] as const).map(tab => (
               <button key={tab} onClick={() => { setActiveTab(tab); setMenuOpen(false) }} style={{
                 ...S.btn, ...(activeTab===tab ? S.btnRed : S.btnGhost), justifyContent:'flex-start', width:'100%', textAlign:'left',
               }}>
-                {tab === 'calendar' ? '📅 Calendar' : tab === 'bookings' ? '📋 Bookings' : '📊 Operations'}
+                {tab === 'mission' ? '🛰️ Mission Control' : tab === 'calendar' ? '📅 Calendar' : tab === 'bookings' ? '📋 Bookings' : '📊 Operations'}
               </button>
             ))}
             {([['/dashboard/bokun','🔄 Bókun'],['/dashboard/leads','📨 Leads'],['/dashboard/products','🧩 Products'],['/dashboard/reports','📝 Reports'],['/dashboard/commissions','💸 Commission'],['/dashboard/host','🎤 Host view'],['/dashboard/team','👥 Team']] as const).map(([href,label]) => (
@@ -1272,13 +1288,13 @@ export default function Dashboard() {
           </div>
         )}
         <div className="hidden sm:flex flex-wrap items-center gap-2">
-          {(['calendar','bookings','operations'] as const).map(tab => (
+          {(['mission','calendar','bookings','operations'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)} style={{
               ...S.btn,
               ...(activeTab===tab ? S.btnRed : S.btnGhost),
               textTransform:'capitalize',
             }}>
-              {tab === 'calendar' ? '📅 Calendar' : tab === 'bookings' ? '📋 Bookings' : '📊 Operations'}
+              {tab === 'mission' ? '🛰️ Mission Control' : tab === 'calendar' ? '📅 Calendar' : tab === 'bookings' ? '📋 Bookings' : '📊 Operations'}
             </button>
           ))}
           <Link href="/dashboard/products" style={{ ...S.btn, ...S.btnGhost, display:'inline-flex', alignItems:'center', textDecoration:'none' }}>
@@ -1303,7 +1319,7 @@ export default function Dashboard() {
             💸 Commission
           </Link>
         </div>
-        <div className="flex items-center justify-center gap-3">
+        <div className={`${activeTab === 'mission' ? 'hidden' : 'flex'} items-center justify-center gap-3`}>
           <button onClick={prevMonth} style={{ ...S.btn, ...S.btnGhost, padding:'0 12px' }}>‹</button>
           <span style={{ fontWeight:600, fontSize:'15px', minWidth:'140px', textAlign:'center' }}>{MONTH_NAMES[calMonth]} {calYear}</span>
           <button onClick={nextMonth} style={{ ...S.btn, ...S.btnGhost, padding:'0 12px' }}>›</button>
@@ -1311,6 +1327,8 @@ export default function Dashboard() {
       </div>
 
       {/* Calendar Tab */}
+      {activeTab === 'mission' && <MissionControl name={myName} />}
+
       {activeTab === 'calendar' && (
         <div
           className="px-2 py-3 sm:px-6 sm:py-6"

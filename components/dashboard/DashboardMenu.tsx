@@ -10,7 +10,8 @@ import { usePathname } from 'next/navigation'
 // use and which must not lead into the owner dashboard.
 
 const LINKS: [string, string][] = [
-  ['/dashboard', '📅 Calendar'],
+  ['/dashboard', '🛰️ Mission Control'],
+  ['/dashboard?tab=calendar', '📅 Calendar'],
   ['/dashboard?tab=bookings', '📋 Bookings'],
   ['/dashboard?tab=operations', '📊 Operations'],
   ['/dashboard/bokun', '🔄 Bókun'],

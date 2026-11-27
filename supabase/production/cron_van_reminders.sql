@@ -36,4 +36,13 @@ SELECT cron.schedule('booking-options-timers', '17 * * * *', $job$
     AND EXISTS (SELECT 1 FROM public.booking_options WHERE status = 'sent');
 $job$);
 
+-- 9 AM Bangkok (02:00 UTC): Mission Control to-do email, only when something is waiting.
+SELECT cron.schedule('mission-control-digest', '0 2 * * *', $job$
+  SELECT net.http_post(
+    url     := replace((SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'van_reminder_url'), '/van-reminders', '/daily-digest'),
+    headers := jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'ops_cron_secret')),
+    body    := '{}'::jsonb, timeout_milliseconds := 30000)
+  WHERE EXISTS (SELECT 1 FROM vault.decrypted_secrets WHERE name = 'ops_cron_secret');
+$job$);
+
 SELECT vault.create_secret('https://www.bestnightlifethailand.com/api/cron/van-reminders', 'van_reminder_url', 'Van reminders endpoint (production)');
