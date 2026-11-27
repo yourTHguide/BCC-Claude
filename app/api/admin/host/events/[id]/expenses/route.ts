@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic'
 
 async function loadNight(id: string) {
   const db = getServiceSupabase()
-  const { data, error } = await db.from('event_dates').select('id, event_date, host_assigned').eq('id', id).maybeSingle()
+  const { data, error } = await db.from('event_dates').select('id, event_date, host_assigned, host_assigned_2').eq('id', id).maybeSingle()
   return { db, event: data as any, error }
 }
 
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const { db, event, error } = await loadNight(params.id)
   if (error) return NextResponse.json({ error: 'Failed to load event' }, { status: 500 })
   if (!event) return NextResponse.json({ error: 'Event not found' }, { status: 404 })
-  if (!canWorkNight(auth.admin, event.host_assigned)) return NextResponse.json({ error: 'Not your assigned event' }, { status: 403 })
+  if (!canWorkNight(auth.admin, event.host_assigned, event.host_assigned_2)) return NextResponse.json({ error: 'Not your assigned event' }, { status: 403 })
 
   const form = await req.formData().catch(() => null)
   if (!form) return NextResponse.json({ error: 'Send the expense as a form.' }, { status: 400 })
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const expenseId = new URL(req.url).searchParams.get('receipt') ?? ''
   const { db, event, error } = await loadNight(params.id)
   if (error || !event) return NextResponse.json({ error: 'Event not found' }, { status: 404 })
-  if (!canWorkNight(auth.admin, event.host_assigned)) return NextResponse.json({ error: 'Not your assigned event' }, { status: 403 })
+  if (!canWorkNight(auth.admin, event.host_assigned, event.host_assigned_2)) return NextResponse.json({ error: 'Not your assigned event' }, { status: 403 })
   const { data: exp } = await db.from('host_expenses').select('receipt_path, host_user_id').eq('id', expenseId).eq('event_id', event.id).maybeSingle()
   const row = exp as any
   if (!row?.receipt_path) return NextResponse.json({ error: 'No receipt.' }, { status: 404 })

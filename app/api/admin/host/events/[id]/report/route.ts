@@ -15,14 +15,15 @@ export const dynamic = 'force-dynamic'
 
 async function context(id: string, admin: any) {
   const db = getServiceSupabase()
-  const { data: event, error } = await db.from('event_dates').select('id, event_date, night_name, night_slug, host_assigned, venue_route').eq('id', id).maybeSingle()
+  const { data: event, error } = await db.from('event_dates').select('id, event_date, night_name, night_slug, host_assigned, host_assigned_2, venue_route').eq('id', id).maybeSingle()
   if (error) return { res: NextResponse.json({ error: 'Failed to load event' }, { status: 500 }) }
   if (!event) return { res: NextResponse.json({ error: 'Event not found' }, { status: 404 }) }
   const ev = event as any
-  if (!canWorkNight(admin, ev.host_assigned)) return { res: NextResponse.json({ error: 'Not your assigned event' }, { status: 403 }) }
+  if (!canWorkNight(admin, ev.host_assigned, ev.host_assigned_2)) return { res: NextResponse.json({ error: 'Not your assigned event' }, { status: 403 }) }
   const [{ guests, error: gErr }, { data: report, error: rErr }] = await Promise.all([
     loadDoorGuests(db, ev.event_date, ev.night_slug),
-    db.from('host_reports').select('*').eq('event_id', ev.id).maybeSingle(),
+    // Each host has their own report for the night.
+    db.from('host_reports').select('*').eq('event_id', ev.id).eq('host_user_id', admin.userId).maybeSingle(),
   ])
   if (gErr || rErr) return { res: NextResponse.json({ error: 'Failed to load the report' }, { status: 500 }) }
   return { db, ev, guests, report: report as any, venues: routeVenues(ev.venue_route) }

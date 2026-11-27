@@ -40,7 +40,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const { data: event, error: eventError }: { data: any; error: any } = await supabase
     .from('event_dates')
     .select(
-      'id, event_date, night_name, night_slug, is_open, host_assigned, ' +
+      'id, event_date, night_name, night_slug, is_open, host_assigned, host_assigned_2, ' +
         'meet_up_location, whatsapp_group_link, venue_route, van_or_taxi_contact, ' +
         'special_notes, operation_verdict, start_time_override, products ( default_start_time )'
     )
@@ -57,7 +57,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   // Assignment check — staff may only open an event assigned to them.
   // Owner/admin bypass this entirely (also how they preview the Host view).
-  if (auth.admin.role === 'staff' && event.host_assigned !== auth.admin.displayName) {
+  if (auth.admin.role === 'staff' && event.host_assigned !== auth.admin.displayName && event.host_assigned_2 !== auth.admin.displayName) {
     return NextResponse.json({ error: 'Not your assigned event' }, { status: 403 })
   }
 
@@ -71,7 +71,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       .select('id, host_name, category, note, amount, receipt_path, status, review_note, created_at')
       .eq('event_id', event.id)
       .order('created_at', { ascending: true }),
-    supabase.from('host_reports').select('status, submitted_at').eq('event_id', event.id).maybeSingle(),
+    supabase.from('host_reports').select('status, submitted_at').eq('event_id', event.id).eq('host_user_id', auth.admin.userId).maybeSingle(),
   ])
 
   if (guestsError || expensesError || reportError) {

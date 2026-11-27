@@ -191,7 +191,7 @@ export class Builder implements PromiseLike<any> {
     if (this.table === 'bnt_waitlist_announcements' && row.kind === 'sold_out_reopen' && ['draft', 'sending'].includes(row.status) &&
         t.some((r) => r.kind === 'sold_out_reopen' && r.event_date_id === row.event_date_id && ['draft', 'sending'].includes(r.status))) return 'one_open_reopen'
     if (this.table === 'host_invites' && t.some((r) => r.code === row.code)) return 'host_invites_code_key'
-    if (this.table === 'host_reports' && t.some((r) => r.event_id === row.event_id)) return 'host_reports_event_id_key'
+    if (this.table === 'host_reports' && t.some((r) => r.event_id === row.event_id && r.host_user_id === row.host_user_id)) return 'host_reports_event_host_key'
     if (this.table === 'guests' && t.some((r) => r.email === row.email)) return 'guests_email_key'
     if (this.table === 'booking_options' && ['sent', 'chosen'].includes(row.status ?? 'sent') && t.some((r) => r.booking_id === row.booking_id && ['sent', 'chosen'].includes(r.status))) return 'booking_options_one_open'
     if (this.table === 'van_reminders' && t.some((r) => r.event_id === row.event_id && r.kind === row.kind)) return 'van_reminders_pkey'

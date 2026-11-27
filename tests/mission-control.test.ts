@@ -36,12 +36,12 @@ beforeEach(() => {
 
 test('to do: tonight short (after 6 PM), host expense, report in, guest choice — each clears once done', async () => {
   db.insertRow('host_expenses', { event_id: 'p1', host_user_id: 'jj', host_name: 'JJ', category: 'taxi', amount: 300, status: 'pending' })
-  db.insertRow('host_reports', { event_id: 'p1', host_user_id: 'jj', host_name: 'JJ', status: 'submitted', incidents: [{ type: 'medical', what: 'x' }] })
+  db.insertRow('host_reports', { event_id: 'p1', host_user_id: 'jj', host_name: 'JJ', status: 'submitted', fee_thb: null, paid_at: null, incidents: [{ type: 'medical', what: 'x' }] })
   db.insertRow('booking_options', { booking_id: 'b1', event_id: 't1', reason: 'night_short', token: 'tk', status: 'chosen', choice: 'refund', sent_at: NOW.toISOString() })
 
   let d = await buildMissionControl(db as any, NOW)
   const ids = d.todo.map((t) => t.id)
-  for (const id of ['go-t1', 'inc-p1', 'opt-t1', 'exp-p1', 'fee-p1']) assert.ok(ids.includes(id), `${id} in ${ids}`)
+  for (const id of ['go-t1', 'inc-p1', 'opt-t1', 'exp-p1', 'fee-p1-jj']) assert.ok(ids.includes(id), `${id} in ${ids}`)
   assert.deepEqual(d.todo.slice(0, 2).map((t) => t.level), ['red', 'red'], 'urgent first')
   assert.equal(d.todo.find((t) => t.id === 'go-t1')!.href, `/dashboard?night=t1&date=${today}`)
 
@@ -52,12 +52,12 @@ test('to do: tonight short (after 6 PM), host expense, report in, guest choice �
   db.insertRow('bookings', { id: 'b3', event_date: today, night_slug: 'tgif', status: 'confirmed', quantity: 2, total_paid: 2400, created_at: '2026-11-02T00:00:00Z' })
   d = await buildMissionControl(db as any, NOW)
   const after = d.todo.map((t) => t.id)
-  for (const id of ['go-t1', 'opt-t1', 'exp-p1', 'fee-p1']) assert.ok(!after.includes(id), `${id} cleared`)
-  assert.ok(after.includes('pay-p1'), 'now ready to pay')
-  assert.match(d.todo.find((t) => t.id === 'pay-p1')!.title, /Pay JJ ฿1,800/)
+  for (const id of ['go-t1', 'opt-t1', 'exp-p1', 'fee-p1-jj']) assert.ok(!after.includes(id), `${id} cleared`)
+  assert.ok(after.includes('pay-p1-jj'), 'now ready to pay')
+  assert.match(d.todo.find((t) => t.id === 'pay-p1-jj')!.title, /Pay JJ ฿1,800/)
   past.host_payment_status = 'Paid'
   d = await buildMissionControl(db as any, NOW)
-  assert.ok(!d.todo.some((t) => ['pay-p1', 'inc-p1'].includes(t.id)), 'paid night: payment and incident cleared')
+  assert.ok(!d.todo.some((t) => ['pay-p1-jj', 'inc-p1'].includes(t.id)), 'paid night: payment and incident cleared')
 })
 
 test('tonight card, next 7 nights readiness, numbers', async () => {

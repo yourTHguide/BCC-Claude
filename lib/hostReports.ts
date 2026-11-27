@@ -94,8 +94,8 @@ export function escapeHtml(s: string): string {
 }
 
 // Assigned host, or the owner/admin (who can also use the host view).
-export function canWorkNight(admin: { role: string; displayName: string | null }, hostAssigned: string | null): boolean {
-  return admin.role !== 'staff' || (!!admin.displayName && hostAssigned === admin.displayName)
+export function canWorkNight(admin: { role: string; displayName: string | null }, hostAssigned: string | null, hostAssigned2: string | null = null): boolean {
+  return admin.role !== 'staff' || (!!admin.displayName && (hostAssigned === admin.displayName || hostAssigned2 === admin.displayName))
 }
 
 export const RECEIPT_TYPES: Record<string, string> = {
