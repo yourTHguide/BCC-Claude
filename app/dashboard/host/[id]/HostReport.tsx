@@ -68,12 +68,12 @@ export default function HostReport({ eventId, canStart, onSubmitted }: { eventId
       )}
 
       <div style={card}>
-        <p style={head}>Overall vibe</p>
-        <textarea rows={4} value={r.vibe} disabled={ro} onChange={(e) => update({ ...r, vibe: e.target.value })} placeholder="How did the night go? Energy, group mix, timing…" style={box} />
+        <p style={head}>Overall vibe <span style={{ color: '#FF4D6D' }} aria-hidden="true">*</span><span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}> (required)</span></p>
+        <textarea rows={4} value={r.vibe} disabled={ro} onChange={(e) => update({ ...r, vibe: e.target.value })} placeholder="How did the night go? Energy, group mix, timing…" aria-required="true" style={box} />
       </div>
 
       <div style={card}>
-        <p style={head}>Guests ({r.guests.length})</p>
+        <p style={head}>Guests ({r.guests.length}) · optional</p>
         <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', margin: '-4px 0 10px' }}>Tip: ask your guests during the night — are they still travelling, where next, coming back, interested in VIP tables or other events?</p>
         {r.guests.length === 0 && <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>No guests on this night.</p>}
         {r.guests.map((g: any, i: number) => (
@@ -104,7 +104,7 @@ export default function HostReport({ eventId, canStart, onSubmitted }: { eventId
       </div>
 
       <div style={card}>
-        <p style={head}>Venues</p>
+        <p style={head}>Venues · optional</p>
         {r.venues.length === 0 && <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>No route was set for this night.</p>}
         {r.venues.map((v: any, i: number) => (
           <div key={v.venue} style={{ marginBottom: '10px' }}>
@@ -115,7 +115,7 @@ export default function HostReport({ eventId, canStart, onSubmitted }: { eventId
       </div>
 
       <div style={card}>
-        <p style={head}>Incidents</p>
+        <p style={head}>Incidents · optional</p>
         {r.incidents.length === 0 && <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', margin: '0 0 8px' }}>No incidents. Add one only if something happened — the owner is notified.</p>}
         {r.incidents.map((inc: any, i: number) => {
           const set = (patch: any) => update({ ...r, incidents: r.incidents.map((x: any, n: number) => (n === i ? { ...x, ...patch } : x)) })
@@ -135,8 +135,13 @@ export default function HostReport({ eventId, canStart, onSubmitted }: { eventId
 
       {error && <p role="alert" style={{ color: '#FCA5A5', fontSize: '13px' }}>{error}</p>}
       {!ro && (
-        <button onClick={submit} disabled={busy} style={{ width: '100%', height: '48px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#EA003A,#820065)', color: '#fff', fontWeight: 600, fontSize: '15px', cursor: 'pointer', opacity: busy ? 0.6 : 1 }}>
-          {busy ? 'Submitting…' : 'Submit report'}
+        <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)', margin: '0 0 8px' }}>
+          <span style={{ color: '#FF4D6D' }}>*</span> Required: overall vibe. Everything else is optional.
+        </p>
+      )}
+      {!ro && (
+        <button onClick={submit} disabled={busy || r.vibe.trim().length < 3} style={{ width: '100%', height: '48px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#EA003A,#820065)', color: '#fff', fontWeight: 600, fontSize: '15px', cursor: busy || r.vibe.trim().length < 3 ? 'default' : 'pointer', opacity: busy || r.vibe.trim().length < 3 ? 0.5 : 1 }}>
+          {busy ? 'Submitting…' : r.vibe.trim().length < 3 ? 'Write the overall vibe to submit' : 'Submit report'}
         </button>
       )}
     </div>
