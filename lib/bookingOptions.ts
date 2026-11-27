@@ -48,6 +48,7 @@ export async function sendOptions(db: SupabaseClient, eventId: string, reason: O
   const webIds = parties.filter((p) => p.table === 'bookings').map((p) => p.id)
   const ota = parties.filter((p) => p.table === 'ota_bookings').map((p) => ({ id: p.id, name: p.name, source: p.source, quantity: p.quantity }))
   const sent: string[] = []
+  const failed: string[] = []
   const skipped: string[] = []
   if (webIds.length) {
     const { data: bookings, error } = await db.from('bookings').select('*').in('id', webIds)
@@ -61,10 +62,11 @@ export async function sendOptions(db: SupabaseClient, eventId: string, reason: O
       if (insErr) throw insErr
       const mail = await emailOption(db, 'options', row, b)
       await logActivity(db, guestId, 'option_sent', b.id, { reason, email: mail })
-      sent.push(`${b.guest_name ?? 'Guest'}${mail === 'sent' ? '' : ` (email ${mail})`}`)
+      if (mail === 'sent') sent.push(b.guest_name ?? 'Guest')
+      else failed.push(`${b.guest_name ?? 'Guest'} (${mail === 'no_email' ? 'no email' : 'email not sent'})`)
     }
   }
-  return { sent, skipped, ota }
+  return { sent, failed, skipped, ota }
 }
 
 // The guest's choice from their personal page.

@@ -4,7 +4,7 @@ import { getServiceSupabase } from '@/lib/supabase'
 import { loadVanNight } from '@/lib/vanData'
 import { capacityFor } from '@/lib/vans'
 import { BCC_PRODUCT_SLUG } from '@/lib/bookingAvailability'
-import { resolveOption, sendOptions } from '@/lib/bookingOptions'
+import { optionLink, resolveOption, sendOptions } from '@/lib/bookingOptions'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,19 +21,20 @@ export async function GET(_req: NextRequest, { params }: { params: { eventId: st
     const d = await loadVanNight(getServiceSupabase(), params.eventId)
     if (!d) return NextResponse.json({ error: 'Night not found.' }, { status: 404 })
     const db = getServiceSupabase()
-    const { data: opts } = await db.from('booking_options').select('id, booking_id, reason, sent_at, reminder_sent_at, choice, preferred_event_id, preference_note, chosen_at, status, resolution, resolved_at').eq('event_id', d.event.id).order('sent_at', { ascending: true })
+    const { data: opts } = await db.from('booking_options').select('id, booking_id, token, reason, sent_at, reminder_sent_at, choice, preferred_event_id, preference_note, chosen_at, status, resolution, resolved_at').eq('event_id', d.event.id).order('sent_at', { ascending: true })
     const options = (opts ?? []) as any[]
     const bIds = options.map((o) => o.booking_id)
     const evIds = options.map((o) => o.preferred_event_id).filter(Boolean)
     const [{ data: bks }, { data: evs }] = await Promise.all([
-      bIds.length ? db.from('bookings').select('id, guest_name, quantity, total_paid').in('id', bIds) : Promise.resolve({ data: [] }),
+      bIds.length ? db.from('bookings').select('id, guest_name, guest_phone, guest_whatsapp, quantity, total_paid').in('id', bIds) : Promise.resolve({ data: [] }),
       evIds.length ? db.from('event_dates').select('id, event_date, night_name').in('id', evIds) : Promise.resolve({ data: [] }),
     ])
     const bk = new Map(((bks ?? []) as any[]).map((b) => [b.id, b]))
     const ev = new Map(((evs ?? []) as any[]).map((e) => [e.id, e]))
     return NextResponse.json({
       vanCount: d.event.van_count, van2State: d.event.van2_state, capacity: d.event.capacity, taken: d.taken, split: d.split, status: d.status,
-      options: options.map((o) => ({ ...o, guestName: bk.get(o.booking_id)?.guest_name ?? 'Guest', quantity: bk.get(o.booking_id)?.quantity ?? 1, totalPaid: bk.get(o.booking_id)?.total_paid ?? 0, preferred: o.preferred_event_id ? ev.get(o.preferred_event_id) ?? null : null })),
+      // The guest's personal link (owner only), to send on WhatsApp or copy.
+      options: options.map(({ token, ...o }) => ({ ...o, link: optionLink(token), phone: bk.get(o.booking_id)?.guest_whatsapp || bk.get(o.booking_id)?.guest_phone || null, guestName: bk.get(o.booking_id)?.guest_name ?? 'Guest', quantity: bk.get(o.booking_id)?.quantity ?? 1, totalPaid: bk.get(o.booking_id)?.total_paid ?? 0, preferred: o.preferred_event_id ? ev.get(o.preferred_event_id) ?? null : null })),
     })
   } catch (err) {
     console.error('vans GET error', err)

@@ -34,7 +34,7 @@ export default function VanPanel({ eventId }: { eventId: string }) {
     setBusy(false)
     if (!res?.ok) setError(json.error || 'Could not save.')
     else if (json.sent) {
-      setNote(`Options emailed to ${json.sent.length} guest(s)${json.skipped?.length ? `; ${json.skipped.length} already had them` : ''}.`)
+      setNote(`Options emailed to ${json.sent.length} guest(s)${json.failed?.length ? `. Not emailed: ${json.failed.join(', ')} — use Copy link / WhatsApp below` : ''}${json.skipped?.length ? `. ${json.skipped.length} already had them` : ''}.`)
       setOta(json.ota ?? [])
     }
     load()
@@ -95,6 +95,12 @@ export default function VanPanel({ eventId }: { eventId: string }) {
                   <div style={{ marginTop: '2px', color: o.status === 'resolved' ? '#6EE7B7' : o.choice ? '#93C5FD' : 'rgba(255,255,255,0.55)' }}>
                     {o.status === 'resolved' ? `✓ ${o.resolution}` : o.choice === 'refund' ? 'Chose: full refund' : o.choice === 'move' ? `Chose: move${o.preferred ? ` → ${o.preferred.event_date} ${o.preferred.night_name}` : ''}${o.preference_note ? ` · “${o.preference_note}”` : ''}` : o.choice === 'credit' ? 'Chose: credit' : `Waiting for their choice${o.reminder_sent_at ? ' (reminded)' : ''} · credit after 48 h`}
                   </div>
+                  {o.status !== 'resolved' && o.status !== 'cancelled' && !o.choice && (
+                    <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                      <button type="button" onClick={() => { navigator.clipboard?.writeText(o.link); setNote(`Link for ${o.guestName} copied.`) }} style={{ background: 'none', border: 'none', color: '#fff', textDecoration: 'underline', cursor: 'pointer', padding: 0, fontSize: '12px' }}>Copy link</button>
+                      {o.phone && <a href={`https://wa.me/${String(o.phone).replace(/\D/g, '')}?text=${encodeURIComponent(`Hi ${String(o.guestName).split(' ')[0]}, sorry — your Bangkok Club Crawl night can’t run as booked. Please choose a full refund, a new date or credit here: ${o.link}`)}`} target="_blank" rel="noopener noreferrer" style={{ color: '#25D366', fontSize: '12px' }}>WhatsApp</a>}
+                    </div>
+                  )}
                   {o.status !== 'resolved' && o.status !== 'cancelled' && (
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
                       {o.choice === 'refund' && <button disabled={busy} style={pill(true)} onClick={() => post({ action: 'resolve', optionId: o.id, resolution: 'refunded' }, `Refund ฿${Math.round(o.totalPaid).toLocaleString()} to ${o.guestName} via Stripe?`)}>Approve refund</button>}
