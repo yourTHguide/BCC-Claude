@@ -1,7 +1,7 @@
 // Which night an OTA guest belongs to, from the date alone.
 // OTA listings run Tue–Sun on the same route, so there are no themed nights:
 //   Friday → TGIF Bangkok, Saturday → Signature Night,
-//   other days → BKK Club Crawl (hidden unless the owner switches that night ON
+//   other days → Bangkok Club Crawl (hidden unless the owner switches that night ON
 //   from the dashboard calendar, Nov 2026),
 //   and a special night (e.g. Halloween) wins when it's on the calendar that date.
 
@@ -11,7 +11,7 @@ export const OTA_START_DATE = '2026-07-01'
 export const OTA_NIGHT_NAMES: Record<string, string> = {
   tgif: 'TGIF Bangkok',
   'saturday-signature': 'Signature Night',
-  'club-crawl': 'BKK Club Crawl',
+  'club-crawl': 'Bangkok Club Crawl',
 }
 
 /** Nights OTA guests can sit on (the rest — SMC, New in Bangkok, old themes — never). */

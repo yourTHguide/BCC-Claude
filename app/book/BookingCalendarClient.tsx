@@ -127,7 +127,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
   const creditToken = searchParams.get('credit') || ''
   const [credit, setCredit] = useState<{ available: number; firstName: string | null } | null>(null)
   useEffect(() => {
-    if (!/^[A-Za-z0-9_-]{20,64}$/.test(creditToken)) return
+    if (creditToken !== 'account' && !/^[A-Za-z0-9_-]{20,64}$/.test(creditToken)) return
     fetch(`/api/credit/${creditToken}`).then((r) => r.json()).then((j) => setCredit(j.available > 0 ? j : null)).catch(() => {})
   }, [creditToken])
   useEffect(() => {
@@ -979,7 +979,7 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                               body: JSON.stringify({ token: creditToken, eventId: selectedEvent.eventId, quantity }),
                             })
                             const cj = await cr.json().catch(() => ({}))
-                            if (cr.ok) { window.location.href = `/my-booking/${creditToken}?booked=${cj.date}`; return }
+                            if (cr.ok) { window.location.href = creditToken === 'account' ? `/account?booked=${cj.date}` : `/my-booking/${creditToken}?booked=${cj.date}`; return }
                             if (!cj.needsCheckout) { alert(cj.error || 'Something went wrong. Please try again.'); return }
                           }
                           const res = await fetch('/api/create-checkout', {

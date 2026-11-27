@@ -106,7 +106,7 @@ export default function MyBookingPage({ params }: { params: { token: string } })
   return (
     <main style={{ minHeight: '100vh', background: '#1A0015', color: '#fff', fontFamily: 'Inter, sans-serif', padding: '28px 18px' }}>
       <div style={{ maxWidth: '460px', margin: '0 auto' }}>
-        <p style={{ fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#EA003A', fontWeight: 600, margin: '0 0 6px' }}>Bangkok Club Crawl</p>
+        <a href="/" aria-label="Bangkok Club Crawl home" style={{ display: 'inline-block', marginBottom: '12px' }}><img src="/images/bcc-logo.png" alt="Bangkok Club Crawl" style={{ height: '50px', width: 'auto', display: 'block' }} /></a>
         <h1 style={{ fontSize: '22px', margin: '0 0 16px' }}>Your booking</h1>
         {booked && (
           <div style={{ ...card, borderColor: 'rgba(110,231,183,0.5)' }}>
@@ -179,6 +179,9 @@ export default function MyBookingPage({ params }: { params: { token: string } })
             )}
           </>
         )}
+        <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', marginTop: '20px', textAlign: 'center' }}>
+          All your bookings and credit: <a href="/account" style={{ color: '#fff' }}>My account</a>
+        </p>
       </div>
     </main>
   )

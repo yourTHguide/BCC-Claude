@@ -85,9 +85,7 @@ export default function HostEventsPage() {
   return (
     <div style={S.page}>
       <div style={{ maxWidth: '480px', margin: '0 auto' }}>
-        <p style={{ fontWeight: 600, fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#EA003A', marginBottom: '8px' }}>
-          Host Operations
-        </p>
+        <img src="/images/bcc-logo.png" alt="Bangkok Club Crawl" style={{ height: '48px', width: 'auto', display: 'block', marginBottom: '12px' }} />
         <h1 style={{ fontSize: '20px', margin: '0 0 6px' }}>
           {viewer?.displayName ? `Hi ${viewer.displayName} — your nights` : 'Your Events'}
         </h1>

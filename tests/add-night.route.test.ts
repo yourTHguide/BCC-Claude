@@ -42,10 +42,10 @@ test('add a plain weekday night ON: defaults, stored like a scheduled night, and
   const e = r.json.event
   assert.deepEqual(
     [e.night_slug, e.night_name, e.product_id, e.is_open, e.capacity, e.price_override, e.start_time_override],
-    ['club-crawl', 'BKK Club Crawl', P, true, 10, null, null]
+    ['club-crawl', 'Bangkok Club Crawl', P, true, 10, null, null]
   )
   const l = await listed()
-  assert.deepEqual(l.events.map((x: any) => [x.eventDate, x.nightName, x.effectivePrice, x.remaining]), [['2027-03-03', 'BKK Club Crawl', 1200, 10]])
+  assert.deepEqual(l.events.map((x: any) => [x.eventDate, x.nightName, x.effectivePrice, x.remaining]), [['2027-03-03', 'Bangkok Club Crawl', 1200, 10]])
 
   const buy = await call(checkout.POST, 'http://localhost/api/create-checkout', 'POST', { eventId: e.id, quantity: 2 })
   assert.equal(buy.status, 200)

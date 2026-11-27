@@ -7,7 +7,7 @@ import { ACTIVE_STATUSES, type BokunRow } from './normalize'
 //
 // Owner rules (Nov 2026):
 // - A date with OTA bookings but no Club Crawl night gets one, created OFF
-//   (Fri → TGIF, Sat → Signature Night, other days → BKK Club Crawl).
+//   (Fri → TGIF, Sat → Signature Night, other days → Bangkok Club Crawl).
 // - A night opens for website booking once its OTA guests reach the
 //   threshold (BOKUN_AUTO_OPEN_MIN_GUESTS, default 4), only for future nights
 //   before their start time, never a cancelled night, and (once live) never

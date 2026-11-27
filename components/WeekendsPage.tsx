@@ -102,6 +102,10 @@ const styles = `
       display: flex; align-items: center; gap: 10px;
       text-decoration: none;
     }
+    .weekends-page .nav-account {
+      font-size: 13px; font-weight: 600; color: #fff; text-decoration: none;
+      padding: 8px 14px; border: 1px solid rgba(255,255,255,0.2); border-radius: 999px;
+    }
     .weekends-page .nav-logo img {
       height: 44px; width: auto;
       border-radius: 6px;
@@ -805,6 +809,7 @@ export default function WeekendsPage() {
           <a className="nav-logo" href="/">
             <img src="/images/bcc-logo.png" alt="Bangkok Club Crawl" />
           </a>
+          <a className="nav-account" href="/account">My account</a>
         </div>
       </nav>
 

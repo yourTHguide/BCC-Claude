@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
-import { available, consumeHold, creditRows, guestForToken, holdCredit, releaseHold } from '@/lib/credit'
+import { available, consumeHold, creditRows, holdCredit, releaseHold } from '@/lib/credit'
+import { guestForCredit, SESSION_COOKIE } from '@/lib/guestAuth'
 import { loadBccInstance } from '@/lib/waitlist/bccInstances'
 import { generateTicketToken } from '@/lib/tickets'
 import { formatBookingReference } from '@/lib/bookingReference'
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
   const qty = Number(body.quantity)
   if (!Number.isInteger(qty) || qty < 1 || qty > 24) return NextResponse.json({ error: 'Choose how many tickets.' }, { status: 400 })
-  const guest = await guestForToken(db, String(body.token ?? ''))
+  const guest = await guestForCredit(db, String(body.token ?? ''), req.cookies?.get(SESSION_COOKIE)?.value)
   if (!guest) return NextResponse.json({ error: 'This credit link is not valid.' }, { status: 404 })
   const inst = /^[0-9a-f-]{36}$/i.test(String(body.eventId ?? '')) ? await loadBccInstance(db, String(body.eventId)) : null
   if (!inst || inst.state !== 'bookable' || !inst.priceThb) return NextResponse.json({ error: 'This night can’t be booked — pick another.' }, { status: 409 })

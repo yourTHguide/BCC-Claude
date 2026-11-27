@@ -1276,7 +1276,7 @@ export default function Dashboard() {
           inline would silently defeat the sm: breakpoint overrides. */}
       <div className="flex flex-col gap-3 py-3 px-4 sm:h-14 sm:flex-row sm:items-center sm:justify-between sm:gap-0 sm:py-0 sm:px-6" style={{ background:'rgba(26,0,21,0.98)', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
         <div className="flex items-center justify-between sm:block">
-          <p style={S.eyebrow}>BCC DASHBOARD</p>
+          <a href="/dashboard" aria-label="Dashboard home" style={{ display:'flex', alignItems:'center' }}><img src="/images/bcc-logo.png" alt="Bangkok Club Crawl" style={{ height: '40px', width: 'auto', display: 'block' }} /></a>
           {/* Mobile: one ☰ menu instead of a long row of buttons (Nov 2026). */}
           <button type="button" className="sm:hidden" aria-label="Menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(o => !o)}
             style={{ ...S.btn, ...S.btnGhost, padding:'0 12px', fontSize:'18px', lineHeight:1 }}>
@@ -1496,7 +1496,7 @@ export default function Dashboard() {
               doesn't need to change beyond spacing. Color meaning unchanged. */}
           <div className="flex flex-wrap gap-2 mt-4 p-3 sm:gap-3 sm:mt-6 sm:p-4" style={{ background:'rgba(255,255,255,0.02)', borderRadius:'10px', border:'1px solid rgba(255,255,255,0.05)' }}>
             {/* Current night types only (Nov 2026); older themes keep their colour on past dates. */}
-            {([['tgif','TGIF'],['saturday-signature','Signature Night'],['club-crawl','BKK Club Crawl']] as const).map(([slug,name]) => {
+            {([['tgif','TGIF'],['saturday-signature','Signature Night'],['club-crawl','Bangkok Club Crawl']] as const).map(([slug,name]) => {
               const color = nightColors[slug]
               return (
                 <div key={slug} style={{ display:'flex', alignItems:'center', gap:'6px' }}>

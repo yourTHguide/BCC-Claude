@@ -6,7 +6,7 @@
 export type BccNightType = 'club-crawl' | 'tgif' | 'saturday-signature' | 'special'
 
 export const BCC_NIGHT_TYPES: { value: BccNightType; label: string; slug?: string; name?: string }[] = [
-  { value: 'club-crawl', label: 'BKK Club Crawl (no theme)', slug: 'club-crawl', name: 'BKK Club Crawl' },
+  { value: 'club-crawl', label: 'Bangkok Club Crawl (no theme)', slug: 'club-crawl', name: 'Bangkok Club Crawl' },
   { value: 'tgif', label: 'TGIF Bangkok', slug: 'tgif', name: 'TGIF Bangkok' },
   { value: 'saturday-signature', label: 'Signature Night', slug: 'saturday-signature', name: 'Signature Night' },
   { value: 'special', label: 'Special theme (type a name)' },

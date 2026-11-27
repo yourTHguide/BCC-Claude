@@ -42,7 +42,7 @@ export default function DashboardMenu() {
   return (
     <nav className="sticky top-0 z-[150] border-b border-white/5 px-4 py-2 font-inter text-white sm:px-6" style={{ background: 'rgba(26,0,21,0.98)' }}>
       <div className="flex items-center justify-between gap-3">
-        <Link href="/dashboard" className="text-[11px] font-semibold uppercase tracking-[0.2em] text-accent-primary">BCC Dashboard</Link>
+        <Link href="/dashboard" aria-label="Dashboard home" className="flex items-center"><img src="/images/bcc-logo.png" alt="Bangkok Club Crawl" style={{ height: '40px', width: 'auto', display: 'block' }} /></Link>
         <div className="hidden flex-wrap items-center gap-2 sm:flex">{LINKS.map(([h, l]) => link(h, l))}</div>
         <button type="button" className="h-9 rounded-lg border border-white/15 px-3 text-lg leading-none sm:hidden" aria-label="Menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
           {open ? '✕' : '☰'}

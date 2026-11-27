@@ -31,6 +31,16 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     ...base,
     metadataBase: new URL(CANONICAL_ORIGIN[storefront]),
+    // Brand logo as the browser tab icon and home-screen app icon.
+    icons: {
+      icon: [
+        { url: `/icons/${storefront}-32.png?v=2`, sizes: '32x32', type: 'image/png' },
+        { url: `/icons/${storefront}-192.png?v=2`, sizes: '192x192', type: 'image/png' },
+      ],
+      apple: [{ url: `/icons/${storefront}-apple.png?v=2`, sizes: '180x180' }],
+    },
+    manifest: '/manifest.webmanifest',
+    appleWebApp: { capable: true, title: storefront === 'bnt' ? 'BEST Nightlife' : 'Bangkok Club Crawl', statusBarStyle: 'black' },
     // Non-production deployments and non-preferred hosts (e.g.
     // bcc-claude.vercel.app) are never indexed.
     ...(isIndexableHost(host) ? {} : { robots: { index: false, follow: false } }),

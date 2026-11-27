@@ -157,7 +157,8 @@ export function generateConfirmationEmail({
       <p style="margin:0 0 3px;font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.35)">Booking Reference</p>
       <p style="margin:0 0 18px;font-size:17px;font-weight:700;color:#EA003A;letter-spacing:0.04em">${esc(ticket.reference)}</p>
       <a href="${appUrl}/ticket/${ticket.token}" style="display:inline-block;background:linear-gradient(135deg,#EA003A,#820065);color:#fff;font-weight:600;font-size:14px;padding:14px 32px;border-radius:8px;text-decoration:none">View Ticket &amp; QR →</a>
-      <p style="margin:14px 0 0;font-size:12px;color:rgba(255,255,255,0.40);line-height:1.6">Your full ticket — directions and Add to Calendar included — is always available at that link.</p>
+      <p style="margin:14px 0 0;font-size:12px;color:rgba(255,255,255,0.40);line-height:1.6">Your full ticket — directions and Add to Calendar included — is always available at that link.</p>${storefront === 'bnt' ? '' : `
+      <p style="margin:10px 0 0;font-size:12px;color:rgba(255,255,255,0.40);line-height:1.6">See all your bookings any time in <a href="${appUrl}/account" style="color:#fff;text-decoration:underline">My account</a> — sign in with this email.</p>`}
     </div>` : ''
 
   return `<!DOCTYPE html>

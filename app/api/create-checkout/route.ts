@@ -8,7 +8,8 @@ import { resolveStorefront, VISIBILITY_COLUMN } from '@/lib/storefront'
 import { resolveEventPricing } from '@/lib/pricing'
 import { stripePaymentLabel } from '@/lib/stripePaymentLabel'
 import { INVITE_PROBLEM_TEXT, inviteProblem, loadInvite, type InviteRow } from '@/lib/hostInvites'
-import { available, creditRows, guestForToken, holdCredit, releaseHold } from '@/lib/credit'
+import { available, creditRows, holdCredit, releaseHold } from '@/lib/credit'
+import { guestForCredit, SESSION_COOKIE } from '@/lib/guestAuth'
 
 // Format the YYYY-MM-DD string into a friendly label.
 // Parse into LOCAL date components (not new Date(eventDate), which parses as
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
       // — a forged/absent storefront in the body can't buy BNT-only pricing
       // or bypass BCC visibility, because the body never carries one at all.
       const storefront = resolveStorefront(req.headers.get('host'))
-      return await createDynamicCheckout({ eventId, nightSlug, eventDate, quantity, storefront, priceTier, inviteCode, creditToken })
+      return await createDynamicCheckout({ eventId, nightSlug, eventDate, quantity, storefront, priceTier, inviteCode, creditToken, accountToken: req.cookies?.get(SESSION_COOKIE)?.value ?? null })
     }
     // Same resolver every other URL-building call site uses (ticket page, QR
     // route, confirmation email, dynamic checkout above) — Preview deployments
@@ -77,9 +78,11 @@ async function createDynamicCheckout({
   priceTier,
   inviteCode,
   creditToken,
+  accountToken,
 }: {
   inviteCode?: string | null
   creditToken?: string | null
+  accountToken?: string | null
   eventId?: string | null
   nightSlug?: string | null
   eventDate?: string | null
@@ -324,7 +327,7 @@ async function createDynamicCheckout({
   let creditEmail: string | null = null
   if (creditToken) {
     const db = getServiceSupabase()
-    const g = await guestForToken(db, String(creditToken)).catch(() => null)
+    const g = await guestForCredit(db, String(creditToken), accountToken).catch(() => null)
     if (g) {
       const total = effectivePrice * qty
       const avail = available(await creditRows(db, g.id))
@@ -408,7 +411,7 @@ async function createDynamicCheckout({
 
     // Label the payment itself so Stripe's Transactions list shows the night.
     payment_intent_data: {
-      description: stripePaymentLabel('BKK Club Crawl', event.night_name, event.event_date),
+      description: stripePaymentLabel('Bangkok Club Crawl', event.night_name, event.event_date),
       metadata: { storefront, night_name: event.night_name, event_date: event.event_date, event_id: event.id },
     },
 
@@ -485,7 +488,7 @@ async function createLegacyCheckout({
     },
 
     payment_intent_data: {
-      description: stripePaymentLabel('BKK Club Crawl', nightName, eventDate),
+      description: stripePaymentLabel('Bangkok Club Crawl', nightName, eventDate),
       metadata: { night_name: nightName, event_date: eventDate },
     },
 
