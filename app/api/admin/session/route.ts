@@ -13,5 +13,6 @@ export async function GET() {
     authenticated: true,
     role: result.admin.role,
     email: result.admin.email,
+    displayName: result.admin.displayName ?? null,
   })
 }
