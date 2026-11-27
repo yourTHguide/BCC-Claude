@@ -118,14 +118,14 @@ test('no reply: reminder after 24 h, credit after 48 h (booking cancelled withou
   const now = Date.now()
   assert.equal((await call(timers.POST, 'POST', {}, undefined, { authorization: 'Bearer wrong' })).status, 401)
   let r = await runOptionTimers(db as any, new Date(now + 25 * 3600_000))
-  assert.deepEqual(r, { reminded: 3, credited: 0 })
+  assert.deepEqual(r, { reminded: 3, credited: 0, expired: 0 })
   r = await runOptionTimers(db as any, new Date(now + 26 * 3600_000))
-  assert.deepEqual(r, { reminded: 0, credited: 0 }, 'reminded once')
+  assert.deepEqual(r, { reminded: 0, credited: 0, expired: 0 }, 'reminded once')
   const mail = (globalThis as any).__mail.sent
   assert.ok(mail.some((m: any) => /Reminder: choose a refund or a new date/.test(m.subject)))
 
   r = await runOptionTimers(db as any, new Date(now + 49 * 3600_000))
-  assert.deepEqual(r, { reminded: 0, credited: 3 })
+  assert.deepEqual(r, { reminded: 0, credited: 3, expired: 0 })
   const c = db.tables.guest_credits.find((x) => x.source_booking_id === 'b2')
   assert.deepEqual([c.amount, c.status], [2400, 'active'])
   const months = (Date.parse(c.expires_at) - now) / (30.4 * 864e5)

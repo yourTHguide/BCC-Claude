@@ -93,8 +93,20 @@ export default function VanPanel({ eventId }: { eventId: string }) {
                 <div key={o.id} style={{ fontSize: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', padding: '8px' }}>
                   <b>{o.guestName}</b> · {o.quantity} · ฿{Math.round(o.totalPaid).toLocaleString()} · <span style={{ color: 'rgba(255,255,255,0.55)' }}>{o.reason === 'van2_short' ? 'van 2' : 'night'}</span>
                   <div style={{ marginTop: '2px', color: o.status === 'resolved' ? '#6EE7B7' : o.choice ? '#93C5FD' : 'rgba(255,255,255,0.55)' }}>
-                    {o.status === 'resolved' ? `✓ ${o.resolution}` : o.choice === 'refund' ? 'Chose: full refund' : o.choice === 'move' ? `Chose: move${o.preferred ? ` → ${o.preferred.event_date} ${o.preferred.night_name}` : o.preferred_date ? ` → ${o.preferred_date} (no night yet — created OFF on approval)` : ''}${o.preference_note ? ` · “${o.preference_note}”` : ''}` : o.choice === 'credit' ? 'Chose: credit' : `Waiting for their choice${o.reminder_sent_at ? ' (reminded)' : ''} · credit after 48 h`}
+                    {o.status === 'resolved' ? `✓ ${o.resolution}${o.credit ? ` · credit ${o.credit.status === 'active' ? `฿${(o.credit.amount - o.credit.used_amount).toLocaleString()} left` : o.credit.status}` : ''}` : o.choice === 'refund' ? 'Chose: full refund' : o.choice === 'move' ? `Chose: move${o.preferred ? ` → ${o.preferred.event_date} ${o.preferred.night_name}` : o.preferred_date ? ` → ${o.preferred_date} (no night yet — created OFF on approval)` : ''}${o.preference_note ? ` · “${o.preference_note}”` : ''}` : o.choice === 'credit' ? 'Chose: credit' : `Waiting for their choice${o.reminder_sent_at ? ' (reminded)' : ''} · credit after 48 h`}
                   </div>
+                  {o.credit?.status === 'active' && o.credit.amount - o.credit.used_amount > 0 && (
+                    <button disabled={busy} style={{ ...pill(false), marginTop: '6px' }} onClick={async () => {
+                      if (!confirm(`Refund ฿${(o.credit.amount - o.credit.used_amount).toLocaleString()} credit to ${o.guestName}'s card?`)) return
+                      setBusy(true)
+                      const res = await fetch('/api/admin/credits', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ creditId: o.credit.id }) }).catch(() => null)
+                      const j = res ? await res.json().catch(() => ({})) : { error: 'Connection problem' }
+                      setBusy(false)
+                      if (!res?.ok) setError(j.error || 'Refund failed.')
+                      else setNote(`Refunded ฿${j.amount.toLocaleString()} to ${o.guestName}.`)
+                      load()
+                    }}>Refund credit</button>
+                  )}
                   {o.status !== 'resolved' && o.status !== 'cancelled' && (
                     <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
                       <button type="button" onClick={() => { navigator.clipboard?.writeText(o.link); setNote(`Link for ${o.guestName} copied.`) }} style={{ background: 'none', border: 'none', color: '#fff', textDecoration: 'underline', cursor: 'pointer', padding: 0, fontSize: '12px' }}>Copy link</button>

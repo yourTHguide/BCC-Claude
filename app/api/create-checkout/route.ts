@@ -8,6 +8,7 @@ import { resolveStorefront, VISIBILITY_COLUMN } from '@/lib/storefront'
 import { resolveEventPricing } from '@/lib/pricing'
 import { stripePaymentLabel } from '@/lib/stripePaymentLabel'
 import { INVITE_PROBLEM_TEXT, inviteProblem, loadInvite, type InviteRow } from '@/lib/hostInvites'
+import { available, creditRows, guestForToken, holdCredit, releaseHold } from '@/lib/credit'
 
 // Format the YYYY-MM-DD string into a friendly label.
 // Parse into LOCAL date components (not new Date(eventDate), which parses as
@@ -25,7 +26,7 @@ function formatEventDate(eventDate: string): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const { eventId, nightSlug, eventDate, quantity, priceTier, inviteCode } = await req.json()
+    const { eventId, nightSlug, eventDate, quantity, priceTier, inviteCode, creditToken } = await req.json()
 
     // Identity: prefer the canonical event-instance id (event_id) when the
     // caller supplies it; otherwise fall back to the legacy (night_slug,
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
       // — a forged/absent storefront in the body can't buy BNT-only pricing
       // or bypass BCC visibility, because the body never carries one at all.
       const storefront = resolveStorefront(req.headers.get('host'))
-      return await createDynamicCheckout({ eventId, nightSlug, eventDate, quantity, storefront, priceTier, inviteCode })
+      return await createDynamicCheckout({ eventId, nightSlug, eventDate, quantity, storefront, priceTier, inviteCode, creditToken })
     }
     // Same resolver every other URL-building call site uses (ticket page, QR
     // route, confirmation email, dynamic checkout above) — Preview deployments
@@ -75,8 +76,10 @@ async function createDynamicCheckout({
   storefront,
   priceTier,
   inviteCode,
+  creditToken,
 }: {
   inviteCode?: string | null
+  creditToken?: string | null
   eventId?: string | null
   nightSlug?: string | null
   eventDate?: string | null
@@ -313,6 +316,26 @@ async function createDynamicCheckout({
     }
   }
 
+  // 10. Phase 3D credit (optional): the guest's credit pays part of the
+  //     booking and they pay the difference here. The credit is held for this
+  //     checkout (30 min) and only marked used when the payment arrives. A
+  //     booking the credit fully covers is made without checkout (/api/credit-booking).
+  let credit: { key: string; alloc: string; total: number } | null = null
+  let creditEmail: string | null = null
+  if (creditToken) {
+    const db = getServiceSupabase()
+    const g = await guestForToken(db, String(creditToken)).catch(() => null)
+    if (g) {
+      const total = effectivePrice * qty
+      const avail = available(await creditRows(db, g.id))
+      if (avail >= total) return NextResponse.json({ error: 'Your credit covers this booking — no payment needed.', useCredit: true }, { status: 409 })
+      // Keep at least ฿20 to charge (card minimum).
+      const apply = Math.min(avail, total - 20)
+      if (apply > 0) credit = await holdCredit(db, g.id, apply)
+      creditEmail = g.email
+    }
+  }
+
   // ── Build the Stripe session from canonical data ──
   // unit_amount is in the smallest currency unit (satang); THB is 2-decimal, so
   // ฿1,200 → 120000. This preserves the webhook's amount_total / 100 math and
@@ -320,7 +343,20 @@ async function createDynamicCheckout({
   const formattedDate = formatEventDate(event.event_date)
   const appUrl = getAppUrl(storefront)
 
-  const session = await stripe.checkout.sessions.create({
+  let coupon: { id: string } | null = null
+  if (credit) {
+    try {
+      coupon = await stripe.coupons.create({ amount_off: credit.total * 100, currency: 'thb', duration: 'once', max_redemptions: 1, name: 'Your Bangkok Club Crawl credit' })
+    } catch (err) {
+      await releaseHold(getServiceSupabase(), credit.key)
+      console.error('create-checkout: credit coupon failed', err)
+      return NextResponse.json({ error: 'Payment is temporarily unavailable. Please try again in a few minutes.' }, { status: 500 })
+    }
+  }
+
+  let session: any
+  try {
+  session = await stripe.checkout.sessions.create({
     mode: 'payment',
 
     line_items: [
@@ -340,10 +376,10 @@ async function createDynamicCheckout({
     billing_address_collection: 'auto',
     phone_number_collection: { enabled: true },
     // Invited guests get the email their host entered pre-filled.
-    ...(invite ? { customer_email: invite.guest_email } : {}),
+    ...(invite ? { customer_email: invite.guest_email } : creditEmail ? { customer_email: creditEmail } : {}),
 
-    // Allow promo codes (managed in Stripe dashboard)
-    allow_promotion_codes: true,
+    // Credit shows as a discount; Stripe allows either a discount or promo codes.
+    ...(coupon ? { discounts: [{ coupon: coupon.id }], expires_at: Math.floor(Date.now() / 1000) + 30 * 60 } : { allow_promotion_codes: true }),
 
     // Preserve all legacy metadata (the webhook still depends on these) and add
     // the canonical identifiers. Legacy keys are sourced from the DB row so the
@@ -367,6 +403,7 @@ async function createDynamicCheckout({
       quantity: String(qty),
       formatted_date: formattedDate,
       ...(invite ? { host_invite_code: invite.code } : {}),
+      ...(credit ? { credit_hold: credit.key, credit_alloc: credit.alloc, credit_amount: String(credit.total) } : {}),
     },
 
     // Label the payment itself so Stripe's Transactions list shows the night.
@@ -384,8 +421,12 @@ async function createDynamicCheckout({
     success_url: `${appUrl}/booking-success?session_id={CHECKOUT_SESSION_ID}&night=${event.night_slug}&qty=${qty}`,
     cancel_url: `${appUrl}/book?night=${event.night_slug}`,
   })
+  } catch (err) {
+    if (credit) await releaseHold(getServiceSupabase(), credit.key)
+    throw err
+  }
 
-  return NextResponse.json({ url: session.url })
+  return NextResponse.json({ url: session.url, ...(credit ? { creditApplied: credit.total } : {}) })
 }
 
 // ─────────────────────────────────────────────────────────────────────────

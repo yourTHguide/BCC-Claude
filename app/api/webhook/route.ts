@@ -10,6 +10,7 @@ import type { Storefront } from '@/lib/storefront'
 import { resendFromHeader } from '@/lib/storefrontBrand'
 import { claimInvite } from '@/lib/hostInvites'
 import { ensureGuest, logActivity } from '@/lib/guests'
+import { consumeHold } from '@/lib/credit'
 
 
 export async function POST(req: NextRequest) {
@@ -148,7 +149,9 @@ export async function POST(req: NextRequest) {
         price_per_person: Math.round((totalPaid + discountAmount) / quantity),
         total_paid: totalPaid,
         promo_code: promoCode,
-        discount_amount: discountAmount,
+        // Guest credit is applied as a Stripe discount; record it as credit, not a promo discount.
+        discount_amount: Math.max(0, discountAmount - Number(meta.credit_amount || 0)),
+        credit_used: Number(meta.credit_amount || 0),
         source: 'website',
         status: 'confirmed',
         stripe_session_id: session.id,
@@ -181,6 +184,19 @@ export async function POST(req: NextRequest) {
     }
 
     const bookingId = insertedRows?.[0]?.id ?? null
+
+    // Phase 3D: credit held for this checkout is now used on the booking.
+    if (bookingId && meta.credit_hold) {
+      try {
+        const used = await consumeHold(supabase, String(meta.credit_hold), String(meta.credit_alloc || ''), bookingId)
+        if (used !== Number(meta.credit_amount || 0)) {
+          console.warn(`webhook: credit hold ${meta.credit_hold} used ฿${used} of ฿${meta.credit_amount}`)
+          await supabase.from('bookings').update({ credit_used: used }).eq('id', bookingId)
+        }
+      } catch (e) {
+        console.error('webhook: credit consume failed', e)
+      }
+    }
 
     // Guest record (one per email, across brands) and history. Best effort:
     // never blocks the confirmation email.
