@@ -8,6 +8,7 @@ import MeetupSender, { type MeetupPalette, type MeetupGuest } from '@/components
 import DoorList, { type DoorListTheme } from '@/components/doorlist/DoorList'
 import OtaImport from '@/components/operations/OtaImport'
 import AddNightPanel, { OnSaleToggle } from './AddNightPanel'
+import VanPanel from './VanPanel'
 import type { DoorGuest } from '@/lib/doorList'
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
@@ -729,6 +730,9 @@ function DayPanel({ event, onClose, onUpdate }: { event: EventDate, onClose: () 
             {Array.from(new Set([...hostNames, ...(localEvent.host_assigned ? [localEvent.host_assigned] : [])])).map(h => <option key={h} value={h}>{h}</option>)}
           </select>
         </div>
+
+        {/* ── Vans (Phase 3D) ── */}
+        <VanPanel eventId={localEvent.id} />
 
         {/* ── Operations ── */}
         <div style={{ ...S.card, marginBottom:'16px' }}>

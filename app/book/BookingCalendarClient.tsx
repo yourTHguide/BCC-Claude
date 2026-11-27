@@ -35,6 +35,8 @@ interface EventInstance {
   capacity: number | null
   // Seats left when the date has a capacity set (null = no limit).
   remaining?: number | null
+  // Phase 3D: "Only 3 spots left in Van 1" / "Unlock Van 2…" (null = say nothing).
+  seatsMessage?: string | null
 }
 
 // ─── Marketing presentation ONLY (not operational data) ─────────────────────
@@ -856,6 +858,12 @@ function BookingCalendar({ storefront }: { storefront: Storefront }) {
                           </p>
                         </div>
                       </div>
+                    )}
+
+                    {selectedEvent.seatsMessage && (
+                      <p role="status" style={{ margin: '0 0 14px', padding: '10px 12px', borderRadius: '10px', background: 'rgba(234,0,58,0.12)', border: '1px solid rgba(234,0,58,0.35)', color: '#fff', fontSize: '14px', fontWeight: 600 }}>
+                        {selectedEvent.seatsMessage}
+                      </p>
                     )}
 
                     <div

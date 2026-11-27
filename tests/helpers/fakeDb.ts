@@ -21,7 +21,7 @@ export class FakeDb {
     bnt_waitlist: [], bnt_waitlist_announcements: [], bnt_waitlist_deliveries: [],
     bnt_experience_inquiries: [], bnt_contact_messages: [],
     bokun_bookings: [], bokun_sync_runs: [], bokun_sync_log: [], host_invites: [], admin_users: [], booking_attendees: [], product_content: [],
-    host_reports: [], host_expenses: [], expenses: [],
+    host_reports: [], host_expenses: [], expenses: [], van_reminders: [],
   }
   failRules: FailRule[] = []
   from(table: string) {
@@ -190,6 +190,7 @@ export class Builder implements PromiseLike<any> {
         t.some((r) => r.kind === 'sold_out_reopen' && r.event_date_id === row.event_date_id && ['draft', 'sending'].includes(r.status))) return 'one_open_reopen'
     if (this.table === 'host_invites' && t.some((r) => r.code === row.code)) return 'host_invites_code_key'
     if (this.table === 'host_reports' && t.some((r) => r.event_id === row.event_id)) return 'host_reports_event_id_key'
+    if (this.table === 'van_reminders' && t.some((r) => r.event_id === row.event_id && r.kind === row.kind)) return 'van_reminders_pkey'
     if (this.table === 'bookings' && row.host_invite_id && t.some((r) => r.host_invite_id === row.host_invite_id)) return 'bookings_host_invite_once'
     if (this.table === 'bookings' && row.stripe_session_id && t.some((r) => r.stripe_session_id === row.stripe_session_id)) return 'bookings_stripe_session_id_key'
     if (this.table === 'ota_bookings' && row.booking_ref && t.some((r) => r.source === row.source && r.booking_ref === row.booking_ref)) return 'ota_bookings_source_booking_ref_key'

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
 import { bccUpdatesOptInEnabled, soldOutWaitlistEnabled } from '@/lib/waitlist/bccInstances'
 import { VISIBILITY_COLUMN } from '@/lib/storefront'
+import { vanMessage } from '@/lib/vans'
 import { resolveEventPricing } from '@/lib/pricing'
 import { isDedicatedFlowProduct } from '@/lib/smc/config'
 import { BCC_PRODUCT_SLUG, isCancelledEvent, isPastBookingCutoff, seatKey, seatsTaken } from '@/lib/bookingAvailability'
@@ -59,7 +60,7 @@ export async function GET(req: NextRequest) {
     const { data, error } = await supabase
       .from('event_dates')
       .select(
-        'id, event_date, night_slug, night_name, price_override, start_time_override, capacity, product_id, operation_verdict, ' +
+        'id, event_date, night_slug, night_name, price_override, start_time_override, capacity, van_count, van2_state, product_id, operation_verdict, ' +
           'products!inner ( id, slug, name, status, default_price, default_start_time, visible_bcc, visible_bnt, ' +
           'early_bird_price, early_bird_cutoff_hours )'
       )
@@ -167,6 +168,9 @@ export async function GET(req: NextRequest) {
       // Seats left when a capacity is set (null = no limit). The calendar
       // caps the ticket quantity at this; checkout re-checks it.
       remaining,
+      // Phase 3D: shown to guests only when seats run low (4 or fewer) or
+      // when van 2 is waiting to unlock. Never "x/10 booked".
+      seatsMessage: product?.slug === BCC_PRODUCT_SLUG ? vanMessage(row.van_count ?? null, row.van2_state ?? 'open', row.capacity ?? null, taken.get(seatKey(row)) ?? 0) : null,
     }]
   })
 
