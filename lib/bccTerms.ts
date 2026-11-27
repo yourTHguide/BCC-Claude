@@ -42,7 +42,7 @@ export const BCC_TERMS = {
     'Running late? Message your host in the event WhatsApp group. After 10:20 PM you must contact your host there directly — late joining can’t be guaranteed once the group has moved on.',
 
   minimumGroup:
-    'Each night needs a minimum of 5 guests. If fewer than 5 are booked, we decide at 7:00 PM on the night whether it goes ahead.',
+    'Each night needs a minimum of 5 guests. If fewer than 5 are booked, we decide at 7:00 PM on the night whether it goes ahead. When a night runs two vans, the second van needs at least 4 guests; we confirm it by 8:00 PM, and if it doesn’t run you choose a full refund or a move to another available date.',
   organizerCancellation:
     'If we cancel a night, you’ll be offered a full refund or a move to another available date.',
   guestCancellation:

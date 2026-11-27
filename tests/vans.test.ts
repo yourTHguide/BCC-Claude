@@ -39,8 +39,8 @@ test('capacity follows the van setting; closing van 2 keeps sold seats and stops
 test('booking page message: seats only when 4 or fewer left; van 2 unlock; never x/10', () => {
   assert.equal(vanMessage(2, 'open', 20, 3), null)
   assert.equal(vanMessage(2, 'open', 20, 7), '🔥 Only 3 spots left in Van 1')
-  assert.equal(vanMessage(2, 'open', 20, 11), '🔓 Van 1 is full! Unlock Van 2 — 3 more guests and it’s on')
-  assert.equal(vanMessage(2, 'open', 20, 13), '🔓 Van 1 is full! Unlock Van 2 — 1 more guest and it’s on')
+  assert.equal(vanMessage(2, 'open', 20, 11), '🚐 Van 1 is full! Book your spot in Van 2 — just need 3 more and it’s on')
+  assert.equal(vanMessage(2, 'open', 20, 13), '🚐 Van 1 is full! Book your spot in Van 2 — just need 1 more and it’s on')
   assert.equal(vanMessage(2, 'running', 20, 14), 'Van 2 is rolling! 🎉')
   assert.equal(vanMessage(2, 'open', 20, 17), 'Van 2 is rolling! 🎉 Only 3 spots left')
   assert.equal(vanMessage(null, 'open', 12, 10), '🔥 Only 2 spots left')
@@ -73,7 +73,7 @@ test('owner sets 2 vans → 20 seats; guests can buy past 12; Close van 2 stops 
   assert.deepEqual([g.json.status.van1.guests, g.json.status.van2.guests, g.json.status.van2.ok, g.json.split.van2[0].name], [10, 2, false, 'Bob'])
 
   const ev = await call(events.GET, 'http://localhost/api/events?storefront=bcc')
-  assert.deepEqual([ev.json.events[0].remaining, ev.json.events[0].seatsMessage], [8, '🔓 Van 1 is full! Unlock Van 2 — 2 more guests and it’s on'])
+  assert.deepEqual([ev.json.events[0].remaining, ev.json.events[0].seatsMessage], [8, '🚐 Van 1 is full! Book your spot in Van 2 — just need 2 more and it’s on'])
   assert.equal((await call(checkout.POST, 'http://localhost/api/create-checkout', 'POST', { eventId: night.id, quantity: 3 })).status, 200, 'seat 13–15 can be bought')
 
   assert.equal((await call(vans.POST, 'http://x', 'POST', { action: 'van2', state: 'closed' }, ctx)).status, 200)
