@@ -12,7 +12,7 @@ const STATUS: Record<string, [string, string]> = {
   approved: ['Approved', '#6EE7B7'],
   rejected: ['Rejected', '#FCA5A5'],
 }
-const field = { width: '100%', height: '42px', borderRadius: '8px', padding: '0 12px', boxSizing: 'border-box' as const, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)', color: '#fff', fontSize: '15px', fontFamily: 'Inter, sans-serif' }
+const field = { width: '100%', minWidth: 0, maxWidth: '100%', display: 'block', height: '42px', borderRadius: '8px', padding: '0 12px', boxSizing: 'border-box' as const, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)', color: '#fff', fontSize: '15px', fontFamily: 'Inter, sans-serif' }
 
 export default function HostExpenses({ eventId, expenses, onChange }: { eventId: string; expenses: any[]; onChange: () => void }) {
   const [adding, setAdding] = useState(false)
@@ -55,7 +55,7 @@ export default function HostExpenses({ eventId, expenses, onChange }: { eventId:
       {!adding ? (
         <button onClick={() => setAdding(true)} style={{ width: '100%', height: '44px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg,#EA003A,#820065)', color: '#fff', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}>+ Add expense</button>
       ) : (
-        <div style={{ display: 'grid', gap: '8px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '8px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '12px' }}>
           <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} style={field} disabled={busy}>
             {HOST_EXPENSE_CATEGORIES.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
           </select>
@@ -63,7 +63,7 @@ export default function HostExpenses({ eventId, expenses, onChange }: { eventId:
           <input placeholder="Note (e.g. Grab from venue 2 to 3)" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} style={field} disabled={busy} maxLength={300} />
           <label style={{ fontSize: '13px', color: 'rgba(255,255,255,0.75)' }}>
             Receipt (photo or PDF, optional)
-            <input type="file" accept="image/*,application/pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} disabled={busy} style={{ display: 'block', marginTop: '6px', fontSize: '13px' }} />
+            <input type="file" accept="image/*,application/pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} disabled={busy} style={{ display: 'block', marginTop: '6px', fontSize: '13px', maxWidth: '100%' }} />
           </label>
           {file && file.size > 4 * 1024 * 1024 && <p style={{ color: '#FCA5A5', fontSize: '12px', margin: 0 }}>That file is over 4 MB — take a smaller photo.</p>}
           {error && <p role="alert" style={{ color: '#FCA5A5', fontSize: '13px', margin: 0 }}>{error}</p>}

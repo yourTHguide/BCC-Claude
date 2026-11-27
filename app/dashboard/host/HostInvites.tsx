@@ -51,7 +51,7 @@ export default function HostInvites({ commissionPerTicket, onCreated }: { commis
   const message = link ? `Hi ${form.guestName.split(' ')[0]}! Here's your link to join me at ${night?.nightName ?? 'Bangkok Club Crawl'} on ${pretty(night?.eventDate ?? null)} 🎉 ${link}` : ''
 
   return (
-    <div style={{ margin: '16px 0 8px' }}>
+    <div style={{ margin: '10px 0 8px' }}>
       {!open ? (
         <button onClick={() => { setOpen(true); setLink(''); setError('') }} style={{ width: '100%', height: '46px', borderRadius: '8px', border: '1px solid #EA003A', background: 'rgba(234,0,58,0.12)', color: '#fff', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}>
           + Create booking
