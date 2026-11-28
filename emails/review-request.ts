@@ -26,7 +26,7 @@ export function generateReviewEmail(i: { firstName: string | null; feedbackUrl: 
       <p>If you had a great night, a 5-star review would mean the world to us and the hosts:</p>
       <div style="text-align:center;margin:18px 0 8px">
         ${btn(GOOGLE_REVIEW_URL, '⭐ Review us on Google', true)}
-        ${btn(TRIPADVISOR_REVIEW_URL, '⭐ Review us on TripAdvisor', true)}
+        <span style="display:inline-block;margin:6px 4px;padding:2px;border-radius:12px;${BCC_BUTTON_BG}"><a href="${TRIPADVISOR_REVIEW_URL}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#1A0015;color:#fff;font-weight:700;font-size:15px;text-decoration:none">⭐ Review us on TripAdvisor</a></span>
       </div>
       <p style="margin-top:22px">Something we could do better? We’d genuinely love to hear it — it comes straight to us:</p>
       <div style="text-align:center;margin:8px 0 18px">${btn(i.feedbackUrl, 'Tell us privately', false)}</div>
