@@ -23,7 +23,7 @@ function HostReport({ r, suggested, busy, act }: { r: any; suggested: number; bu
     <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-sm">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-lg font-semibold">{r.hostName}</h2>
-        <span className="text-xs text-white/60">{submitted ? `Report submitted · ${PAYOUT[r.payout]}` : 'Draft — not submitted yet'}</span>
+        <span className="text-xs text-white/60">{r.waived ? `Report waived · ${PAYOUT[r.payout]}` : submitted ? `Report submitted · ${PAYOUT[r.payout]}` : 'Draft — not submitted yet'}</span>
       </div>
 
       {r.incidents?.length > 0 && (
@@ -39,7 +39,7 @@ function HostReport({ r, suggested, busy, act }: { r: any; suggested: number; bu
         </div>
       )}
 
-      {r.confirmed_only ? <p className="mt-3 text-sm text-white/70">✓ Confirmed they hosted — this night was before reports started, so no report.</p> : <>
+      {r.waived || r.confirmedOnly ? <p className="mt-3 text-sm text-white/70">{r.waived ? '✓ Report waived by you — no report needed for this night.' : '✓ Confirmed they hosted — this night was before reports started, so no report.'}</p> : <>
       <h3 className="mt-4 font-semibold">Vibe</h3>
       <p className="mt-1 whitespace-pre-wrap text-white/85">{r.vibe || '—'}</p></>}
       {(r.venues ?? []).some((v: any) => v.comment) && (
@@ -120,6 +120,15 @@ export default function ReportDetailPage({ params }: { params: { eventId: string
         </div>
         {note && <p className="rounded border border-white/20 bg-white/5 p-2 text-sm">{note}</p>}
         {d.waitingFor.length > 0 && <p className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3 text-sm">Waiting for {d.waitingFor.join(' & ')} to start the report.</p>}
+        {d.canWaive?.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-white/60">Don’t need a report?</span>
+            {d.canWaive.map((h: string) => (
+              <button key={h} disabled={!!busy} onClick={() => confirm(`Waive ${h}’s report for this night? They won’t be asked for it any more, and you can set their fee straight away.`) && act(`waive${h}`, { action: 'waive_report', hostName: h }, `${h}’s report waived.`)}
+                className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold">Waive {h}’s report</button>
+            ))}
+          </div>
+        )}
 
         {d.reports.map((r: any) => <HostReport key={r.id} r={r} suggested={d.suggestedFee} busy={busy} act={act} />)}
 

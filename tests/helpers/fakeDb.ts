@@ -58,7 +58,7 @@ const DEFAULTS: Record<string, Row> = {
   bnt_waitlist_announcements: { kind: 'product_dates', status: 'draft', event_date_id: null },
   bnt_waitlist_deliveries: { status: 'pending', attempted_at: null, attempts: 0, error: null },
   host_expenses: { status: 'pending', expense_id: null, review_note: null, reviewed_at: null },
-  host_reports: { status: 'draft', submitted_at: null, incident_alert_sent_at: null, confirmed_only: false },
+  host_reports: { status: 'draft', submitted_at: null, incident_alert_sent_at: null, confirmed_only: false, waived_at: null },
   booking_options: { status: 'sent', choice: null, reminder_sent_at: null, preferred_event_id: null, preference_note: null, resolution: null },
   guest_credits: { status: 'active', used_amount: 0 },
   guest_login_codes: { attempts: 0, used_at: null },

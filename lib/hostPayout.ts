@@ -3,9 +3,10 @@
 // host has submitted the report.
 export type PayoutState = 'confirm_hosted' | 'report_due' | 'in_review' | 'ready_to_pay' | 'paid'
 
-// Reports started with the night of 26 Nov 2026 (owner, 28 Nov 2026). Earlier
-// nights need no report: the host just confirms they hosted it.
-export const REPORTS_FROM = '2026-11-26'
+// Reports start with the night of 27 Nov 2026 (owner, 28 Nov 2026). Earlier
+// nights need no report: the host just confirms they hosted it. The owner can
+// also waive any host's report (e.g. they hosted the night together).
+export const REPORTS_FROM = '2026-11-27'
 export const needsReport = (eventDate: string | null | undefined) => !eventDate || eventDate >= REPORTS_FROM
 
 export function payoutState(reportStatus: string | null | undefined, hostPaymentStatus: string | null | undefined, pendingExpenses: number): PayoutState {

@@ -105,7 +105,7 @@ export async function buildMissionControl(db: SupabaseClient, now = new Date()) 
   const [{ data: hexp }, { data: hrep }] = recentIds.length
     ? await Promise.all([
         db.from('host_expenses').select('event_id, host_user_id, status, amount').in('event_id', recentIds),
-        db.from('host_reports').select('event_id, host_user_id, status, host_name, fee_thb, paid_at').in('event_id', recentIds),
+        db.from('host_reports').select('event_id, host_user_id, status, host_name, fee_thb, paid_at, waived_at, confirmed_only').in('event_id', recentIds),
       ])
     : [{ data: [] }, { data: [] }]
   let hostReady = 0
@@ -119,7 +119,7 @@ export async function buildMissionControl(db: SupabaseClient, now = new Date()) 
       const own = ex.filter((e) => e.host_user_id === rep.host_user_id)
       const pay = hostPay(rep, n, own.filter((e) => e.status === 'pending').length)
       const label = `${nightLabel} (${rep.host_name})`
-      if (rep.status === 'submitted' && pay.fee == null) todo.push({ id: `fee-${n.id}-${rep.host_user_id}`, level: 'yellow', title: `Report in — set ${rep.host_name}’s fee`, detail: nightLabel, href: `/dashboard/reports/${n.id}`, action: 'Set fee' })
+      if (rep.status === 'submitted' && pay.fee == null) todo.push({ id: `fee-${n.id}-${rep.host_user_id}`, level: 'yellow', title: rep.waived_at || rep.confirmed_only ? `Set ${rep.host_name}’s fee` : `Report in — set ${rep.host_name}’s fee`, detail: nightLabel, href: `/dashboard/reports/${n.id}`, action: 'Set fee' })
       if (pay.state === 'ready_to_pay') {
         const amt = (pay.fee ?? 0) + own.filter((e) => e.status === 'approved').reduce((s, e) => s + e.amount, 0)
         hostReady += amt

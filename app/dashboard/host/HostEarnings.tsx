@@ -103,7 +103,7 @@ export function MyEarnings({ earnings, invites, reload }: { earnings: any; invit
       <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', margin: '6px 0 0' }}>Hosting pay (fee + approved expenses) and ฿{invites?.commissionPerTicket ?? 150} per ticket for guests who booked through your links.</p>
 
       <p style={sub}>Nights you hosted</p>
-      {nights.some((n) => n.state === 'confirm_hosted') && <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', margin: '0 0 4px' }}>Nights before 26 Nov need no report — just tap ✓ if you hosted it.</p>}
+      {nights.some((n) => n.state === 'confirm_hosted') && <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', margin: '0 0 4px' }}>Nights up to 26 Nov need no report — just tap ✓ if you hosted it.</p>}
       {nights.length === 0 && <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>None in the last 90 days.</p>}
       {nights.map((n) => n.state === 'confirm_hosted' ? (
         <div key={n.eventId} style={{ ...row, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
