@@ -51,6 +51,7 @@ export function ReportsDue({ earnings }: { earnings: any }) {
 }
 
 const HOST_STATE: Record<string, [string, string]> = {
+  confirm_hosted: ['Before reports started — no report needed', 'rgba(255,255,255,0.55)'],
   report_due: ['Report due', '#FCD34D'], in_review: ['Owner reviewing', '#93C5FD'], ready_to_pay: ['Ready to pay', '#6EE7B7'], paid: ['Paid', 'rgba(255,255,255,0.5)'],
 }
 const INVITE_STATE: Record<string, [string, string]> = {
@@ -62,6 +63,7 @@ const sub = { fontWeight: 600, fontSize: '11px', color: 'rgba(255,255,255,0.55)'
 const row = { display: 'block', textDecoration: 'none', color: '#fff', borderTop: '1px solid rgba(255,255,255,0.06)', padding: '9px 0', fontSize: '13px' }
 
 export function MyEarnings({ earnings, invites, reload }: { earnings: any; invites: any; reload: () => void }) {
+  const [confirming, setConfirming] = useState<string | null>(null)
   if (!earnings && !invites) return null
   const today = bangkokToday()
   const nights: any[] = earnings?.nights ?? []
@@ -72,6 +74,13 @@ export function MyEarnings({ earnings, invites, reload }: { earnings: any; invit
     ready: (earnings?.totals?.readyToPay ?? 0) + (it.earned ?? 0),
     upcoming: hostingUpcoming + (it.upcoming ?? 0),
     paid: (earnings?.totals?.paid ?? 0) + (it.paid ?? 0),
+  }
+
+  async function confirmHosted(eventId: string) {
+    setConfirming(eventId)
+    await fetch(`/api/admin/host/events/${eventId}/report`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'confirm_hosted' }) }).catch(() => null)
+    setConfirming(null)
+    reload()
   }
 
   async function cancel(id: string) {
@@ -94,8 +103,17 @@ export function MyEarnings({ earnings, invites, reload }: { earnings: any; invit
       <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', margin: '6px 0 0' }}>Hosting pay (fee + approved expenses) and ฿{invites?.commissionPerTicket ?? 150} per ticket for guests who booked through your links.</p>
 
       <p style={sub}>Nights you hosted</p>
+      {nights.some((n) => n.state === 'confirm_hosted') && <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', margin: '0 0 4px' }}>Nights before 26 Nov need no report — just tap ✓ if you hosted it.</p>}
       {nights.length === 0 && <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>None in the last 90 days.</p>}
-      {nights.map((n) => (
+      {nights.map((n) => n.state === 'confirm_hosted' ? (
+        <div key={n.eventId} style={{ ...row, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+          <span><b>{pretty(n.date)}</b> · {n.nightName}</span>
+          <button onClick={() => confirmHosted(n.eventId)} disabled={confirming === n.eventId}
+            style={{ whiteSpace: 'nowrap', border: '1px solid rgba(110,231,183,0.5)', background: 'transparent', color: '#6EE7B7', borderRadius: '999px', padding: '6px 12px', fontWeight: 600, fontSize: '12px', cursor: 'pointer', fontFamily: 'inherit' }}>
+            {confirming === n.eventId ? 'Saving…' : '✓ I hosted'}
+          </button>
+        </div>
+      ) : (
         <Link key={n.eventId} href={`/dashboard/host/${n.eventId}${n.state === 'report_due' && n.date < today ? '?tab=report' : ''}`} style={row}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
             <span><b>{pretty(n.date)}</b> · {n.nightName}</span>

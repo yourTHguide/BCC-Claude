@@ -220,3 +220,19 @@ test('two hosts: both see the night, each writes their own report and is paid se
   await call(review.POST, 'POST', { action: 'mark_paid', reportId: ice.id })
   assert.equal(ev.host_payment_status, 'Paid')
 })
+
+test('nights before reports started: no report due, host taps "I hosted", owner can then set the fee', async () => {
+  ev.event_date = '2026-10-23'
+  const e1 = await call(earnings.GET, 'GET')
+  assert.deepEqual(e1.json.nights.map((n: any) => n.state), ['confirm_hosted'])
+  assert.equal(e1.json.totals.reportsDue, 0)
+  const r = await call(report.PATCH, 'PATCH', { action: 'confirm_hosted' })
+  assert.equal(r.status, 200, JSON.stringify(r.json))
+  const rep = db.tables.host_reports[0]
+  assert.deepEqual([rep.status, rep.confirmed_only, rep.host_name], ['submitted', true, 'Ice'])
+  assert.deepEqual((await call(earnings.GET, 'GET')).json.nights.map((n: any) => n.state), ['in_review'])
+  // A night from 26 Nov on still needs the real report.
+  ev.event_date = '2026-11-26'
+  db.tables.host_reports.length = 0
+  assert.equal((await call(report.PATCH, 'PATCH', { action: 'confirm_hosted' })).status, 409)
+})

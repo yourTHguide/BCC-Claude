@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
   ])
   const reps = (reports ?? []) as any[]
   const exps = (expenses ?? []) as any[]
-  const ORDER: PayoutState[] = ['report_due', 'in_review', 'ready_to_pay', 'paid']
+  const ORDER: PayoutState[] = ['confirm_hosted', 'report_due', 'in_review', 'ready_to_pay', 'paid']
   const list = ((nights ?? []) as any[])
     .filter((n) => n.host_assigned || n.host_assigned_2 || reps.some((r) => r.event_id === n.id) || exps.some((e) => e.event_id === n.id))
     .map((n) => {

@@ -7,7 +7,7 @@ import { GUEST_TAGS, HOST_EXPENSE_CATEGORIES, INCIDENT_TYPES } from '@/lib/hostR
 // Owner review of one hosted night. Up to two hosts: each has their own
 // report, expenses, fee and payment. Uses the same night totals as Closeout.
 
-const PAYOUT: Record<string, string> = { report_due: 'Report due', in_review: 'To review', ready_to_pay: 'Ready to pay', paid: 'Paid' }
+const PAYOUT: Record<string, string> = { confirm_hosted: 'Host to confirm', report_due: 'Report due', in_review: 'To review', ready_to_pay: 'Ready to pay', paid: 'Paid' }
 const tagLabel = (k: string) => GUEST_TAGS.find((t) => t.key === k)?.label ?? k
 const baht = (n: number) => `฿${Math.round(n ?? 0).toLocaleString()}`
 function pretty(date: string) {
@@ -39,8 +39,9 @@ function HostReport({ r, suggested, busy, act }: { r: any; suggested: number; bu
         </div>
       )}
 
+      {r.confirmed_only ? <p className="mt-3 text-sm text-white/70">✓ Confirmed they hosted — this night was before reports started, so no report.</p> : <>
       <h3 className="mt-4 font-semibold">Vibe</h3>
-      <p className="mt-1 whitespace-pre-wrap text-white/85">{r.vibe || '—'}</p>
+      <p className="mt-1 whitespace-pre-wrap text-white/85">{r.vibe || '—'}</p></>}
       {(r.venues ?? []).some((v: any) => v.comment) && (
         <>
           <h3 className="mt-4 font-semibold">Venues</h3>
