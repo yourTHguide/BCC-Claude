@@ -189,6 +189,27 @@ export async function buildMissionControl(db: SupabaseClient, now = new Date()) 
   const { data: credits } = await db.from('guest_credits').select('amount, used_amount').eq('status', 'active')
   const creditHeld = ((credits ?? []) as any[]).reduce((s, c) => s + c.amount - c.used_amount, 0)
 
+  // Guests asking to move / take credit inside 7 days (they wait on you).
+  try {
+    const { data: reqs } = await db.from('booking_change_requests').select('id, booking_id, kind').eq('status', 'pending')
+    const rq = (reqs ?? []) as any[]
+    if (rq.length) {
+      const { data: bks } = await db.from('bookings').select('id, guest_name, night_name, event_date').in('id', rq.map((r) => r.booking_id))
+      const bm = new Map(((bks ?? []) as any[]).map((b) => [b.id, b]))
+      for (const r of rq) {
+        const b = bm.get(r.booking_id)
+        todo.push({ id: `req-${r.id}`, level: 'orange', title: `${b?.guest_name ?? 'A guest'} asks to ${r.kind === 'move' ? 'move their booking' : 'keep it as credit'}`, detail: b ? `${b.night_name}, ${dateLabel(b.event_date)}` : undefined, href: '/dashboard/requests', action: 'Review' })
+      }
+    }
+  } catch { /* table not on this database yet */ }
+
+  // Review emails (last 30 days) and private feedback received.
+  let reviews = { sent: 0, feedback: 0 }
+  try {
+    const { data: rr } = await db.from('review_requests').select('status, feedback_at').gte('created_at', new Date(now.getTime() - 30 * 86400_000).toISOString())
+    reviews = { sent: ((rr ?? []) as any[]).filter((r) => r.status === 'sent').length, feedback: ((rr ?? []) as any[]).filter((r) => r.feedback_at).length }
+  } catch { /* table not on this database yet */ }
+
   const order: Level[] = ['red', 'orange', 'yellow', 'blue']
   todo.sort((a, b) => order.indexOf(a.level) - order.indexOf(b.level))
   return {
@@ -198,6 +219,7 @@ export async function buildMissionControl(db: SupabaseClient, now = new Date()) 
       month: { revenue: sum(thisMonth, (r) => r.revenueTotal), lastRevenue: sum(lastMonthSoFar, (r) => r.revenueTotal) },
       next30: { sold: sold30, capacity: cap30 },
       owed: { hostPay: hostReady, commission: commissionOwed, credit: creditHeld },
+      reviews,
     },
   }
 }

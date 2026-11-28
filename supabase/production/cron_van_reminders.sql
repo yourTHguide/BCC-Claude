@@ -46,3 +46,12 @@ SELECT cron.schedule('mission-control-digest', '0 2 * * *', $job$
 $job$);
 
 SELECT vault.create_secret('https://www.bestnightlifethailand.com/api/cron/van-reminders', 'van_reminder_url', 'Van reminders endpoint (production)');
+
+-- 2 PM Bangkok (07:00 UTC): review request emails for last night's checked-in website guests.
+SELECT cron.schedule('review-requests', '0 7 * * *', $job$
+  SELECT net.http_post(
+    url     := replace((SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'van_reminder_url'), '/van-reminders', '/review-requests'),
+    headers := jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'ops_cron_secret')),
+    body    := '{}'::jsonb, timeout_milliseconds := 55000)
+  WHERE EXISTS (SELECT 1 FROM vault.decrypted_secrets WHERE name = 'ops_cron_secret');
+$job$);

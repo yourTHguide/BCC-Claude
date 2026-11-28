@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import MoveCalendar from '@/components/MoveCalendar'
 
 // My account (Nov 2026): a guest signs in with a code sent to their email
 // and sees their bookings, tickets and credit, and can update their details.
@@ -17,7 +18,7 @@ const field = { display: 'block', width: '100%', minWidth: 0, boxSizing: 'border
 const primary = { display: 'block', width: '100%', height: '50px', borderRadius: '12px', border: 'none', background: 'linear-gradient(135deg,#EA003A,#820065)', color: '#fff', fontWeight: 700, fontSize: '15px', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'center' as const, textDecoration: 'none', lineHeight: '50px' }
 const linkBtn = { background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', textDecoration: 'underline', cursor: 'pointer', padding: 0, fontSize: '14px', fontFamily: 'inherit' }
 
-type Booking = { id: string; source: string; reference: string | null; nightName: string; date: string; quantity: number; state: string; statusLabel: string; ticketUrl: string | null; choiceUrl: string | null }
+type Booking = { id: string; source: string; reference: string | null; nightName: string; date: string; quantity: number; state: string; statusLabel: string; ticketUrl: string | null; choiceUrl: string | null; change: 'instant' | 'request' | null; pendingRequest: 'move' | 'credit' | null }
 type Account = { guest: { name: string | null; email: string; phone: string | null }; upcoming: Booking[]; past: Booking[]; actionNeeded: number; credit: { available: number; expires: string | null } }
 
 function SignIn({ onDone }: { onDone: () => void }) {
@@ -75,7 +76,71 @@ function SignIn({ onDone }: { onDone: () => void }) {
   )
 }
 
-function BookingCard({ b }: { b: Booking }) {
+// Move to another night or turn into credit. 7+ days before: done at once.
+// Inside 7 days: a request our team confirms.
+function ChangePanel({ b, onDone, onClose }: { b: Booking; onDone: (msg: string) => void; onClose: () => void }) {
+  const [opts, setOpts] = useState<any>(null)
+  const [kind, setKind] = useState<'move' | 'credit' | ''>('')
+  const [date, setDate] = useState('')
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    fetch(`/api/account/bookings/${b.id}`).then(async (r) => { const j = await r.json(); if (r.ok) setOpts(j); else setError(j.error || 'Couldn’t load.') }).catch(() => setError('Couldn’t load.'))
+  }, [b.id])
+  const instant = opts?.mode === 'instant'
+  const target = opts?.dates?.find((x: any) => x.date === date)
+  async function submit() {
+    setBusy(true); setError('')
+    const r = await fetch(`/api/account/bookings/${b.id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind, targetEventId: target?.eventId ?? null, note }) }).catch(() => null)
+    const j = await r?.json().catch(() => ({}))
+    setBusy(false)
+    if (!r?.ok) { setError(j?.error || 'Something went wrong.'); return }
+    onDone(j.done
+      ? (kind === 'move' ? `Done — you’re now booked for ${pretty(j.date)}. Your new ticket is on its way by email.` : 'Done — your booking is now credit. You can use it any time with “Book with my credit”.')
+      : 'Request sent — our team will confirm by email shortly. Your booking stays as it is until then.')
+  }
+  const choice = (k: 'move' | 'credit', title: string, sub: string) => (
+    <button type="button" onClick={() => setKind(k)} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '12px', borderRadius: '10px', marginBottom: '8px', cursor: 'pointer', color: '#fff', fontFamily: 'inherit', background: kind === k ? 'rgba(234,0,58,0.16)' : 'transparent', border: `1px solid ${kind === k ? '#EA003A' : 'rgba(255,255,255,0.18)'}` }}>
+      <b style={{ fontSize: '14px' }}>{title}</b><div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', marginTop: '2px' }}>{sub}</div>
+    </button>
+  )
+  return (
+    <div style={{ marginTop: '12px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '12px' }}>
+      {!opts && !error && <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>Loading…</p>}
+      {opts && (
+        <>
+          <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.65)', margin: '0 0 10px' }}>
+            {instant ? 'More than 7 days to go, so you can change it yourself right away.' : 'Less than 7 days to go, so this will be a request — our team confirms it by email.'} Tickets aren’t refundable, but you can move them or keep the value as credit.
+          </p>
+          {choice('move', 'Move to another night', 'Pick a night that’s on sale with room for your group.')}
+          {choice('credit', `Keep it as credit — ฿${Math.round(opts.creditValue).toLocaleString()}`, 'For any future night within 12 months.')}
+          {kind === 'move' && (opts.dates.length ? (
+            <>
+              <MoveCalendar dates={opts.dates} value={date} onPick={setDate} />
+              {target && <p style={{ fontSize: '14px', margin: '10px 0 0' }}><b>{pretty(date)}</b> · {target.nightName}</p>}
+            </>
+          ) : <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)' }}>No other nights with room right now — message us on WhatsApp.</p>)}
+          {kind && !instant && (
+            <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} placeholder="Anything we should know? (optional)"
+              style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: '10px', borderRadius: '10px', padding: '10px', background: 'rgba(255,255,255,0.07)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)', fontSize: '14px', fontFamily: 'inherit' }} />
+          )}
+        </>
+      )}
+      {error && <p role="alert" style={{ color: '#FCA5A5', fontSize: '14px', margin: '10px 0 0' }}>{error}</p>}
+      <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+        <button onClick={submit} disabled={busy || !kind || (kind === 'move' && !target)}
+          style={{ flex: 1, height: '44px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#EA003A,#820065)', color: '#fff', fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', opacity: busy || !kind || (kind === 'move' && !target) ? 0.5 : 1 }}>
+          {busy ? 'Saving…' : instant ? (kind === 'credit' ? 'Turn into credit' : 'Move my booking') : 'Send request'}
+        </button>
+        <button onClick={onClose} style={{ height: '44px', padding: '0 16px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#fff', fontFamily: 'inherit', cursor: 'pointer' }}>Close</button>
+      </div>
+    </div>
+  )
+}
+
+function BookingCard({ b, onChanged }: { b: Booking; onChanged?: (msg: string) => void }) {
+  const [changing, setChanging] = useState(false)
   const action = b.statusLabel.startsWith('Action')
   const color = action ? '#FBBF24' : b.state === 'cancelled' ? 'rgba(255,255,255,0.45)' : b.state === 'upcoming' ? '#6EE7B7' : 'rgba(255,255,255,0.6)'
   return (
@@ -92,6 +157,11 @@ function BookingCard({ b }: { b: Booking }) {
           {b.ticketUrl && <a href={b.ticketUrl} style={{ flex: 1, textAlign: 'center', padding: '11px 14px', borderRadius: '10px', background: 'linear-gradient(135deg,#EA003A,#820065)', color: '#fff', fontWeight: 600, fontSize: '14px', textDecoration: 'none' }}>View ticket & QR</a>}
         </div>
       )}
+      {b.pendingRequest && <p style={{ fontSize: '13px', color: '#93C5FD', margin: '10px 0 0' }}>⏳ Your request to {b.pendingRequest === 'move' ? 'move this booking' : 'turn this into credit'} is with our team.</p>}
+      {b.change && !changing && (
+        <button onClick={() => setChanging(true)} style={{ ...linkBtn, marginTop: '12px', fontSize: '13px' }}>Change date or keep as credit</button>
+      )}
+      {changing && <ChangePanel b={b} onClose={() => setChanging(false)} onDone={(m) => { setChanging(false); onChanged?.(m) }} />}
       {b.source === 'ota' && b.state === 'upcoming' && <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', margin: '8px 0 0' }}>Your ticket is in the app you booked with.</p>}
     </div>
   )
@@ -147,6 +217,7 @@ export default function AccountPage() {
   const [state, setState] = useState<'loading' | 'signin' | 'ready' | 'error'>('loading')
   const [booked, setBooked] = useState<string | null>(null)
   const [showPast, setShowPast] = useState(false)
+  const [flash, setFlash] = useState('')
 
   const load = useCallback(() => {
     fetch('/api/account').then(async (r) => {
@@ -189,6 +260,12 @@ export default function AccountPage() {
               </div>
             )}
 
+            {flash && (
+              <div style={{ ...card, borderColor: 'rgba(110,231,183,0.5)' }}>
+                <p style={{ fontSize: '14px', margin: 0 }}>{flash}</p>
+              </div>
+            )}
+
             {a.credit.available > 0 && (
               <div style={{ ...card, background: 'linear-gradient(135deg, rgba(234,0,58,0.16), rgba(130,0,101,0.16))', borderColor: 'rgba(234,0,58,0.4)' }}>
                 <div style={{ fontSize: '12px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>Your credit</div>
@@ -199,7 +276,7 @@ export default function AccountPage() {
             )}
 
             <p style={head}>Upcoming</p>
-            {a.upcoming.length ? a.upcoming.map((b) => <BookingCard key={b.id} b={b} />) : (
+            {a.upcoming.length ? a.upcoming.map((b) => <BookingCard key={b.id} b={b} onChanged={(m) => { setFlash(m); load(); window.scrollTo(0, 0) }} />) : (
               <div style={card}>
                 <p style={{ fontSize: '14px', margin: '0 0 12px', color: 'rgba(255,255,255,0.7)' }}>No upcoming nights booked.</p>
                 <a href="/weekends" style={primary}>Book a night</a>

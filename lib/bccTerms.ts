@@ -46,9 +46,9 @@ export const BCC_TERMS = {
   organizerCancellation:
     'If we cancel a night (or a van), you choose a full refund, a move to another available date, or credit for a future night. Credit is valid for 12 months and can be refunded on request any time before you use it. If we don’t hear from you within 48 hours, we keep your payment as credit for you.',
   guestCancellation:
-    'Direct bookings are non-refundable once the night goes ahead, subject to applicable consumer protection law.',
+    'Tickets are non-refundable, subject to applicable consumer protection law. If we cancel the night, you can choose a full refund. Up to 7 days before your night you can turn your booking into credit for a future night (valid 12 months) in My account; inside 7 days, credit is on request.',
   rescheduling:
-    'You can ask to reschedule to another date. Rescheduling depends on availability on the new date and isn’t guaranteed.',
+    'Up to 7 days before your night you can move your booking yourself in My account to any night on sale with room for your group. Inside 7 days, moving is on request and depends on availability.',
   thirdParty:
     'Booked through a third-party platform? That platform’s cancellation and amendment terms apply.',
 

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { available, creditRows } from '@/lib/credit'
 import { formatBookingReference } from '@/lib/bookingReference'
+import { changeMode } from '@/lib/selfService'
 
 // What a signed-in guest sees on My account: their bookings (website and
 // OTA), tickets, credit and any open "choose a refund or new date" links.
@@ -17,6 +18,8 @@ export interface AccountBooking {
   statusLabel: string
   ticketUrl: string | null
   choiceUrl: string | null
+  change: 'instant' | 'request' | null   // self-service move / credit
+  pendingRequest: 'move' | 'credit' | null
 }
 
 const likeEscape = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`)
@@ -27,13 +30,15 @@ export function bangkokToday(now = new Date()) {
 
 export async function accountData(db: SupabaseClient, guest: { id: string; email: string; name: string | null; phone: string | null }, now = new Date()) {
   const cols = 'id, night_name, event_date, quantity, status, booking_status, ticket_token, product_id, is_test, created_at'
-  const [byId, byEmail, ota, opts, prods] = await Promise.all([
+  const [byId, byEmail, ota, opts, prods, reqs] = await Promise.all([
     db.from('bookings').select(cols).eq('guest_id', guest.id),
     db.from('bookings').select(cols).ilike('guest_email', likeEscape(guest.email)),
     db.from('ota_bookings').select('id, night_slug, event_date, quantity, source, booking_status').eq('guest_id', guest.id),
     db.from('booking_options').select('booking_id, token, status').eq('guest_id', guest.id),
     db.from('products').select('id, slug'),
+    db.from('booking_change_requests').select('booking_id, kind').eq('guest_id', guest.id).eq('status', 'pending'),
   ])
+  const pending = new Map(((reqs.data ?? []) as any[]).map((r) => [r.booking_id, r.kind]))
   const slug = new Map(((prods.data ?? []) as any[]).map((p) => [p.id, p.slug]))
   const openChoice = new Map(((opts.data ?? []) as any[]).filter((o) => o.status === 'sent' || o.status === 'chosen').map((o) => [o.booking_id, o.token]))
   const anyChoice = new Map(((opts.data ?? []) as any[]).map((o) => [o.booking_id, o.token]))
@@ -58,6 +63,8 @@ export async function accountData(db: SupabaseClient, guest: { id: string; email
       nightName: b.night_name, date: b.event_date, quantity: b.quantity, state, statusLabel,
       ticketUrl: !cancelled && b.ticket_token && state === 'upcoming' && !choice ? `/ticket/${b.ticket_token}` : null,
       choiceUrl: choice ? `/my-booking/${choice}` : (anyChoice.get(b.id) && cancelled ? `/my-booking/${anyChoice.get(b.id)}` : null),
+      change: !cancelled && !choice && state === 'upcoming' && !pending.has(b.id) ? (changeMode(b.event_date, today) === 'closed' ? null : changeMode(b.event_date, today) as 'instant' | 'request') : null,
+      pendingRequest: pending.get(b.id) ?? null,
     })
   }
   for (const o of (ota.data ?? []) as any[]) {
@@ -68,7 +75,7 @@ export async function accountData(db: SupabaseClient, guest: { id: string; email
       nightName: `Bangkok Club Crawl (booked on ${o.source || 'a partner site'})`,
       date: o.event_date, quantity: o.quantity, state,
       statusLabel: cancelled ? 'Cancelled' : state === 'upcoming' ? 'Confirmed' : 'Done',
-      ticketUrl: null, choiceUrl: null,
+      ticketUrl: null, choiceUrl: null, change: null, pendingRequest: null,
     })
   }
   const upcoming = out.filter((b) => b.state === 'upcoming').sort((a, b) => Number(!!b.choiceUrl) - Number(!!a.choiceUrl) || a.date.localeCompare(b.date))
