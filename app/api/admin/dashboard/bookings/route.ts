@@ -26,5 +26,16 @@ export async function GET() {
     console.error('admin/dashboard/bookings: query error:', error)
     return NextResponse.json({ error: 'Failed to load bookings' }, { status: 500 })
   }
-  return NextResponse.json({ bookings: data ?? [] })
+  // WhatsApp for the Bookings tab: the booking's own number, else the one the
+  // guest left on /night (matched to this booking).
+  const rows = (data ?? []) as any[]
+  try {
+    const ids = rows.filter((b) => !b.guest_whatsapp && !b.guest_phone).map((b) => b.id)
+    if (ids.length) {
+      const { data: joins } = await supabase.from('night_joins').select('booking_id, phone').eq('match_kind', 'bookings').in('booking_id', ids)
+      const byId = new Map(((joins ?? []) as any[]).map((j) => [j.booking_id, j.phone]))
+      for (const b of rows) if (byId.has(b.id)) b.night_phone = byId.get(b.id)
+    }
+  } catch { /* table not on this database yet */ }
+  return NextResponse.json({ bookings: rows })
 }

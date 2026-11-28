@@ -72,6 +72,8 @@ interface Booking {
   guest_name: string
   guest_email: string
   guest_phone: string
+  guest_whatsapp?: string | null
+  night_phone?: string | null
   quantity: number
   total_paid: number
   promo_code: string
@@ -82,6 +84,18 @@ interface Booking {
   notes?: string | null
   // Named guests (Single Meet Club); empty for bookings without them.
   booking_attendees?: { full_name: string; position: number }[]
+}
+
+// A wa.me link to message the guest, with a greeting ready. Thai local
+// numbers (0XXXXXXXXX) get +66; anything else is used as given.
+function whatsappUrl(b: Booking): string | null {
+  const raw = b.guest_whatsapp || b.guest_phone || b.night_phone || ''
+  let digits = raw.replace(/\D/g, '')
+  if (!raw.trim().startsWith('+') && /^0\d{9}$/.test(digits)) digits = '66' + digits.slice(1)
+  if (digits.length < 8) return null
+  const first = (b.guest_name || '').trim().split(/\s+/)[0] || 'there'
+  const day = new Date(b.event_date + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
+  return `https://wa.me/${digits}?text=${encodeURIComponent(`Hi ${first}, this is Bangkok Club Crawl about your booking for ${b.night_name} on ${day}. `)}`
 }
 
 // "Cancelled & refunded" when /api/cancel-booking recorded a Stripe refund.
@@ -1628,6 +1642,12 @@ export default function Dashboard() {
               >
                 {resendState[b.id]==='sending' ? 'Sending…' : resendState[b.id]==='sent' ? '✓ Sent' : resendState[b.id]==='error' ? 'Failed — Retry' : 'Resend Email'}
               </button>
+              {whatsappUrl(b) && (
+                <a href={whatsappUrl(b)!} target="_blank" rel="noopener noreferrer"
+                  style={{ ...S.btn, height:'30px', padding:'0 12px', fontSize:'12px', display:'inline-flex', alignItems:'center', textDecoration:'none', background:'#25D366', color:'#062b14', fontWeight:600 }}>
+                  WhatsApp
+                </a>
+              )}
               <button
                 onClick={() => setRescheduleOpen(s => ({ ...s, [b.id]: !s[b.id] }))}
                 style={{ ...S.btn, ...S.btnGhost, height:'30px', padding:'0 12px', fontSize:'12px' }}
