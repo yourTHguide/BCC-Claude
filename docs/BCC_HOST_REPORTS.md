@@ -19,3 +19,8 @@ Owner decisions (27 Nov 2026):
 1. Calendar → a past night (e.g. 26 Nov) → assign yourself as host.
 2. Host view → All nights → open it → Expenses: add one with a receipt photo; Report: fill in, add an incident, Submit (incident email arrives at bangkokclubcrawl@gmail.com).
 3. 📝 Reports → the night → approve/reject, Use suggested fee, Mark paid. Host view → My earnings shows the state at each step.
+
+## Report start date and waiving (28 Nov 2026)
+- Reports start with the night of **27 Nov 2026** (`REPORTS_FROM` in `lib/hostPayout.ts`). Earlier nights need no report: the host taps **✓ I hosted** (earnings list or night page) → `host_reports.confirmed_only`, then the owner sets the fee as usual.
+- The owner can **waive** any host's report on the night's review page (`waive_report { hostName }`) → `host_reports.waived_at`; the host is no longer asked, and the fee can be set and paid.
+- Migration `20261206000001_host_confirm_hosted.sql`.
