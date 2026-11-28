@@ -1,5 +1,6 @@
 import { brandFor } from '@/lib/storefrontBrand'
 import { escapeHtml } from '@/lib/hostReports'
+import { bccEmailLogo, BCC_BUTTON_BG } from '@/emails/brandLogo'
 
 // "Your night / van isn't running" emails (Phase 3D). One layout, three kinds:
 //   options  — first email: choose a full refund, a move, or credit
@@ -38,7 +39,7 @@ export function generateOptionsEmail(i: OptionsEmailInput): string {
   const first = (i.guestName ?? '').trim().split(/\s+/)[0] || 'there'
   const amount = `฿${Math.round(i.totalPaid).toLocaleString()}`
   const btn = (label: string, primary: boolean) =>
-    `<a href="${i.link}" style="display:inline-block;margin:6px 6px 0 0;padding:13px 20px;border-radius:10px;font-weight:600;font-size:15px;text-decoration:none;${primary ? 'background:#EA003A;color:#fff' : 'border:1px solid rgba(255,255,255,0.3);color:#fff'}">${label}</a>`
+    `<a href="${i.link}" style="display:inline-block;margin:6px 6px 0 0;padding:13px 20px;border-radius:10px;font-weight:600;font-size:15px;text-decoration:none;${primary ? `${BCC_BUTTON_BG};color:#fff` : 'border:1px solid rgba(255,255,255,0.3);color:#fff'}">${label}</a>`
 
   let body: string
   if (i.kind === 'credited') {
@@ -62,7 +63,7 @@ export function generateOptionsEmail(i: OptionsEmailInput): string {
   return `<!doctype html><html><body style="margin:0;background:#0D000A;font-family:Inter,Arial,sans-serif">
   <div style="max-width:560px;margin:0 auto;padding:28px 20px">
     <div style="background:#1A0015;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:28px 24px;color:rgba(255,255,255,0.85);font-size:15px;line-height:1.6">
-      <p style="margin:0 0 14px;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:#EA003A;font-weight:600">${escapeHtml(brand.name)}</p>
+      ${bccEmailLogo()}
       ${body}
       <p style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:22px">Questions? Reply here or message us on WhatsApp.</p>
     </div>

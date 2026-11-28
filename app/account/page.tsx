@@ -141,6 +141,7 @@ function ChangePanel({ b, onDone, onClose }: { b: Booking; onDone: (msg: string)
 
 function BookingCard({ b, onChanged }: { b: Booking; onChanged?: (msg: string) => void }) {
   const [changing, setChanging] = useState(false)
+  const [showQr, setShowQr] = useState(false)
   const action = b.statusLabel.startsWith('Action')
   const color = action ? '#FBBF24' : b.state === 'cancelled' ? 'rgba(255,255,255,0.45)' : b.state === 'upcoming' ? '#6EE7B7' : 'rgba(255,255,255,0.6)'
   return (
@@ -153,8 +154,21 @@ function BookingCard({ b, onChanged }: { b: Booking; onChanged?: (msg: string) =
       <div style={{ fontSize: '13px', color, marginTop: '6px', fontWeight: 600 }}>{b.statusLabel}</div>
       {(b.ticketUrl || b.choiceUrl) && (
         <div style={{ display: 'flex', gap: '8px', marginTop: '12px', flexWrap: 'wrap' }}>
-          {b.choiceUrl && <a href={b.choiceUrl} style={{ flex: 1, textAlign: 'center', padding: '11px 14px', borderRadius: '10px', background: action ? '#EA003A' : 'transparent', border: action ? 'none' : '1px solid rgba(255,255,255,0.2)', color: '#fff', fontWeight: 600, fontSize: '14px', textDecoration: 'none' }}>{action ? 'Choose refund or new date' : 'See details'}</a>}
-          {b.ticketUrl && <a href={b.ticketUrl} style={{ flex: 1, textAlign: 'center', padding: '11px 14px', borderRadius: '10px', background: 'linear-gradient(135deg,#EA003A,#820065)', color: '#fff', fontWeight: 600, fontSize: '14px', textDecoration: 'none' }}>View ticket & QR</a>}
+          {b.choiceUrl && <a href={b.choiceUrl} style={{ flex: 1, textAlign: 'center', padding: '11px 14px', borderRadius: '10px', background: action ? 'linear-gradient(135deg,#EA003A,#820065)' : 'transparent', border: action ? 'none' : '1px solid rgba(255,255,255,0.2)', color: '#fff', fontWeight: 600, fontSize: '14px', textDecoration: 'none' }}>{action ? 'Choose refund or new date' : 'See details'}</a>}
+          {b.ticketUrl && (
+            <button onClick={() => setShowQr(!showQr)} style={{ flex: 1, padding: '11px 14px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#EA003A,#820065)', color: '#fff', fontWeight: 600, fontSize: '14px', fontFamily: 'inherit', cursor: 'pointer' }}>
+              {showQr ? 'Hide check-in QR' : 'Show check-in QR'}
+            </button>
+          )}
+        </div>
+      )}
+      {b.ticketUrl && showQr && (
+        <div style={{ marginTop: '12px', textAlign: 'center' }}>
+          <div style={{ display: 'inline-block', background: '#fff', borderRadius: '14px', padding: '12px' }}>
+            <img src={`/api/tickets/${b.ticketUrl.split('/').pop()}/qr`} alt="Check-in QR code" width={220} height={220} style={{ display: 'block', width: '220px', height: '220px' }} />
+          </div>
+          <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)', margin: '8px 0 0' }}>Show this to your host at the meeting point{b.quantity > 1 ? ` — one code for all ${b.quantity} tickets` : ''}.</p>
+          <a href={b.ticketUrl} style={{ display: 'inline-block', marginTop: '6px', fontSize: '13px', color: '#fff' }}>Full ticket — meeting point, time & calendar ›</a>
         </div>
       )}
       {b.pendingRequest && <p style={{ fontSize: '13px', color: '#93C5FD', margin: '10px 0 0' }}>⏳ Your request to {b.pendingRequest === 'move' ? 'move this booking' : 'turn this into credit'} is with our team.</p>}

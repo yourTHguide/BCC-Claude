@@ -1,4 +1,5 @@
 import { escapeHtml } from '@/lib/hostReports'
+import { bccEmailLogo, BCC_BUTTON_BG } from '@/emails/brandLogo'
 
 // Review request (owner-approved wording, 28 Nov 2026). Personal, from a small
 // local team. Invites EVERY attending guest to review (no review gating:
@@ -14,11 +15,11 @@ export function reviewSubject(firstName: string | null) {
 export function generateReviewEmail(i: { firstName: string | null; feedbackUrl: string }): string {
   const hi = escapeHtml(i.firstName || 'there')
   const btn = (href: string, label: string, primary: boolean) =>
-    `<a href="${href}" style="display:inline-block;margin:6px 4px;padding:14px 20px;border-radius:10px;font-weight:700;font-size:15px;text-decoration:none;${primary ? 'background:#EA003A;color:#fff' : 'border:1px solid rgba(255,255,255,0.3);color:#fff'}">${label}</a>`
+    `<a href="${href}" style="display:inline-block;margin:6px 4px;padding:14px 20px;border-radius:10px;font-weight:700;font-size:15px;text-decoration:none;${primary ? `${BCC_BUTTON_BG};color:#fff` : 'border:1px solid rgba(255,255,255,0.3);color:#fff'}">${label}</a>`
   return `<!doctype html><html><body style="margin:0;background:#0D000A;font-family:Inter,Arial,sans-serif">
   <div style="max-width:560px;margin:0 auto;padding:28px 20px">
     <div style="background:#1A0015;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:28px 24px;color:rgba(255,255,255,0.85);font-size:15px;line-height:1.65">
-      <p style="margin:0 0 16px;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:#EA003A;font-weight:600">Bangkok Club Crawl</p>
+      ${bccEmailLogo()}
       <p>Hi ${hi},</p>
       <p>Thank you for joining Bangkok Club Crawl last night — we hope you had an amazing time!</p>
       <p>We’re a small, local Bangkok team. Every host you met is part of the crew building this together, night by night. We’re not a big tour company, so every review really helps us keep doing what we love.</p>

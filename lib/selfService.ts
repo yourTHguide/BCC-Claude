@@ -7,6 +7,7 @@ import { sendEmail } from '@/lib/sendEmail'
 import { brandFor, resendFromHeader } from '@/lib/storefrontBrand'
 import { escapeHtml } from '@/lib/hostReports'
 import { getAppUrl } from '@/lib/appUrl'
+import { bccEmailLogo } from '@/emails/brandLogo'
 
 // Self-service changes in My account (owner, 28 Nov 2026).
 // Tickets are non-refundable (unless we cancel the night). A guest can:
@@ -166,7 +167,7 @@ const firstName = (n: string | null) => String(n ?? '').trim().split(/\s+/)[0] |
 
 async function mailGuest(b: any, subject: string, body: string) {
   if (!b.guest_email) return
-  const html = `<!doctype html><html><body style="margin:0;background:#0D000A;font-family:Inter,Arial,sans-serif"><div style="max-width:560px;margin:0 auto;padding:28px 20px"><div style="background:#1A0015;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:28px 24px;color:rgba(255,255,255,0.85);font-size:15px;line-height:1.6"><p style="margin:0 0 14px;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:#EA003A;font-weight:600">Bangkok Club Crawl</p>${body}<p style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:22px">Questions? Reply here or message us on WhatsApp.</p></div></div></body></html>`
+  const html = `<!doctype html><html><body style="margin:0;background:#0D000A;font-family:Inter,Arial,sans-serif"><div style="max-width:560px;margin:0 auto;padding:28px 20px"><div style="background:#1A0015;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:28px 24px;color:rgba(255,255,255,0.85);font-size:15px;line-height:1.6">${bccEmailLogo()}${body}<p style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:22px">Questions? Reply here or message us on WhatsApp.</p></div></div></body></html>`
   const { error } = await sendEmail({ from: resendFromHeader('bcc'), to: b.guest_email, reply_to: brandFor('bcc').supportEmail, subject, html }).catch((e) => ({ error: e }))
   if (error) console.error('self-service email failed', error)
 }
