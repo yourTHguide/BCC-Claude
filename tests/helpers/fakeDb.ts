@@ -21,7 +21,7 @@ export class FakeDb {
     bnt_waitlist: [], bnt_waitlist_announcements: [], bnt_waitlist_deliveries: [],
     bnt_experience_inquiries: [], bnt_contact_messages: [],
     bokun_bookings: [], bokun_sync_runs: [], bokun_sync_log: [], host_invites: [], admin_users: [], booking_attendees: [], product_content: [],
-    host_reports: [], host_expenses: [], expenses: [], van_reminders: [], guests: [], guest_activity: [], booking_options: [], guest_credits: [], guest_login_codes: [], guest_sessions: [], review_requests: [], booking_change_requests: [],
+    host_reports: [], host_expenses: [], expenses: [], van_reminders: [], guests: [], guest_activity: [], booking_options: [], guest_credits: [], guest_login_codes: [], guest_sessions: [], review_requests: [], booking_change_requests: [], night_joins: [],
   }
   failRules: FailRule[] = []
   from(table: string) {
@@ -64,6 +64,7 @@ const DEFAULTS: Record<string, Row> = {
   guest_login_codes: { attempts: 0, used_at: null },
   guest_sessions: { revoked_at: null },
   booking_change_requests: { status: 'pending', resolved_at: null, resolved_note: null },
+  night_joins: { sent_at: null, event_id: null, email: null, checks: 0 },
 }
 
 export class Builder implements PromiseLike<any> {
