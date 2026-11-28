@@ -1098,6 +1098,8 @@ export default function Dashboard() {
   const [rescheduleEvents, setRescheduleEvents] = useState<Record<string,EventDate[]|null>>({})
   const [rescheduleEventId, setRescheduleEventId] = useState<Record<string,string>>({})
   const [rescheduleError, setRescheduleError] = useState<Record<string,string>>({})
+  const [rescheduleMsg, setRescheduleMsg] = useState<Record<string,string>>({})
+  const [proposalSent, setProposalSent] = useState<Record<string,string>>({})
   const [cancelConfirm, setCancelConfirm] = useState<Record<string,boolean>>({})
   const [actionState, setActionState] = useState<Record<string,'idle'|'sending'|'done'|'error'>>({})
 
@@ -1202,6 +1204,25 @@ export default function Dashboard() {
         setActionState(s => ({ ...s, [bookingId]: 'error' }))
       }
     } catch {
+      setActionState(s => ({ ...s, [bookingId]: 'error' }))
+    }
+  }
+
+  // Propose the new night to the guest by email: they accept it, keep it as
+  // credit, or ask for a refund (lib/bookingOptions.ts proposeDate).
+  async function proposeToGuest(bookingId: string) {
+    const newEventId = rescheduleEventId[bookingId]
+    if (!newEventId) return
+    setActionState(s => ({ ...s, [bookingId]: 'sending' }))
+    setRescheduleError(s => ({ ...s, [bookingId]: '' }))
+    const res = await fetch('/api/admin/propose-date', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId, newEventId, message: rescheduleMsg[bookingId] || null }) }).catch(() => null)
+    const data = res ? await res.json().catch(() => ({} as any)) : { error: 'Connection problem' }
+    if (res?.ok) {
+      setActionState(s => ({ ...s, [bookingId]: 'idle' }))
+      setRescheduleOpen(s => ({ ...s, [bookingId]: false }))
+      setProposalSent(s => ({ ...s, [bookingId]: data.email === 'sent' ? '✓ New date sent to the guest — waiting for their answer.' : `Proposal created, but the email didn’t send. Send them this link: ${data.link}` }))
+    } else {
+      setRescheduleError(s => ({ ...s, [bookingId]: data.error || 'Failed — try again' }))
       setActionState(s => ({ ...s, [bookingId]: 'error' }))
     }
   }
@@ -1647,19 +1668,37 @@ export default function Dashboard() {
                           ))}
                         </select>
                       )}
+                      <textarea
+                        rows={2}
+                        value={rescheduleMsg[b.id] || ''}
+                        onChange={e => setRescheduleMsg(s => ({ ...s, [b.id]: e.target.value }))}
+                        placeholder="Message to the guest (optional) — e.g. why we need to move"
+                        maxLength={1000}
+                        style={{ ...S.input, width:'100%', height:'auto', padding:'8px 12px', fontFamily:'Inter, sans-serif' }}
+                      />
                       <button
-                        onClick={() => rescheduleBooking(b.id)}
+                        onClick={() => proposeToGuest(b.id)}
                         disabled={!rescheduleDate[b.id] || !rescheduleEventId[b.id] || actionState[b.id]==='sending'}
                         style={{ ...S.btn, ...S.btnRed }}
                       >
-                        {actionState[b.id]==='sending' ? 'Sending…' : 'Confirm New Date & Notify Guest'}
+                        {actionState[b.id]==='sending' ? 'Sending…' : 'Send new date to guest'}
                       </button>
+                      <button
+                        onClick={() => confirm('Move this booking now? Only do this if the guest already agreed — they’ll get the new ticket by email.') && rescheduleBooking(b.id)}
+                        disabled={!rescheduleDate[b.id] || !rescheduleEventId[b.id] || actionState[b.id]==='sending'}
+                        style={{ ...S.btn, ...S.btnGhost }}
+                      >
+                        Move now (guest agreed)
+                      </button>
+                      <p style={{ width:'100%', margin:0, fontSize:'12px', color:'rgba(255,255,255,0.5)' }}>The guest gets an email to accept the new date, keep it as credit, or ask for a full refund. No answer in 48 h → credit.</p>
                       <button onClick={() => setRescheduleOpen(s => ({ ...s, [b.id]: false }))} style={{ ...S.btn, ...S.btnGhost }}>
                         Never mind
                       </button>
                       {actionState[b.id]==='error' && <p style={{ color:'#EA003A', fontSize:'12px', margin:0 }}>{rescheduleError[b.id] || 'Failed — try again'}</p>}
                     </div>
                   )}
+
+                  {proposalSent[b.id] && <p style={{ width:'100%', margin:'4px 0 0', fontSize:'12px', color:'#6EE7B7', overflowWrap:'anywhere' }}>{proposalSent[b.id]}</p>}
 
                   {cancelConfirm[b.id] && (
                     <div style={{ width:'100%', marginTop:'4px', paddingTop:'14px', borderTop:'1px solid rgba(255,255,255,0.06)', display:'flex', flexWrap:'wrap', gap:'10px', alignItems:'center' }}>

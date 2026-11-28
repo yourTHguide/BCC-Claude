@@ -17,13 +17,14 @@ const card = { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255
 const REASON: Record<string, string> = {
   night_short: 'Not enough guests booked this night to run it, so we can’t go ahead. Sorry about that!',
   van2_short: 'Van 2 didn’t reach the 4 guests it needs, so it won’t run — and Van 1 is full. Sorry about that!',
+  date_proposal: 'We’re sorry — we need to move this night.',
 }
 
 
 export default function MyBookingPage({ params }: { params: { token: string } }) {
   const [d, setD] = useState<any>(null)
   const [error, setError] = useState('')
-  const [choice, setChoice] = useState<'refund' | 'move' | 'credit' | ''>('')
+  const [choice, setChoice] = useState<'refund' | 'move' | 'credit' | 'accept' | ''>('')
   const [night, setNight] = useState('')
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
@@ -46,10 +47,16 @@ export default function MyBookingPage({ params }: { params: { token: string } })
     const j = res ? await res.json().catch(() => ({})) : { error: 'Connection problem. Please try again.' }
     setBusy(false)
     if (!res?.ok) return setError(j.error || 'Could not save.')
+    if (j.done) {
+      // Accepted the new date or chose credit: already done — show the result.
+      const r2 = await fetch(`/api/my-booking/${params.token}`, { cache: 'no-store' }).catch(() => null)
+      if (r2?.ok) setD(await r2.json())
+      return
+    }
     setDone(true)
   }
 
-  const opt = (key: 'refund' | 'move' | 'credit', title: string, sub: string) => (
+  const opt = (key: 'refund' | 'move' | 'credit' | 'accept', title: string, sub: string) => (
     <button type="button" onClick={() => setChoice(key)} disabled={busy}
       style={{ display: 'block', width: '100%', textAlign: 'left', padding: '14px', borderRadius: '12px', marginBottom: '8px', cursor: 'pointer', color: '#fff', fontFamily: 'inherit',
         background: choice === key ? 'rgba(234,0,58,0.16)' : 'transparent', border: `1px solid ${choice === key ? '#EA003A' : 'rgba(255,255,255,0.18)'}` }}>
@@ -101,10 +108,28 @@ export default function MyBookingPage({ params }: { params: { token: string } })
               </div>
             ) : (
               <>
+                {d.reason === 'date_proposal' && d.proposed && (
+                  <div style={{ ...card, borderColor: 'rgba(234,0,58,0.5)' }}>
+                    <div style={{ fontSize: '12px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>New date we’d like to offer</div>
+                    <b style={{ display: 'block', fontSize: '18px', marginTop: '4px' }}>{pretty(d.proposed.date)}</b>
+                    <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.7)' }}>{d.proposed.nightName}</div>
+                    {d.message && <p style={{ fontSize: '14px', margin: '10px 0 0', whiteSpace: 'pre-wrap' }}>{d.message}</p>}
+                  </div>
+                )}
                 <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.75)', margin: '4px 0 10px' }}>What would you like to do?</p>
-                {opt('refund', `Full refund — ${baht(d.booking.totalPaid)}`, 'Back to your card. It can take a few days to show.')}
-                {opt('move', 'Move to another date', 'Pick a night below, or tell us what suits you.')}
-                {opt('credit', 'Keep it as credit', 'For any future night within 12 months — refundable any time before you use it.')}
+                {d.reason === 'date_proposal' ? (
+                  <>
+                    {opt('accept', d.proposed ? `Yes — move me to ${pretty(d.proposed.date)}` : 'Accept the new date', 'You’ll get your new ticket by email straight away.')}
+                    {opt('credit', 'Keep it as credit', 'For any future night within 12 months — refundable any time before you use it.')}
+                    {opt('refund', `Full refund — ${baht(d.booking.totalPaid)}`, 'Back to your card. It can take a few days to show.')}
+                  </>
+                ) : (
+                  <>
+                    {opt('refund', `Full refund — ${baht(d.booking.totalPaid)}`, 'Back to your card. It can take a few days to show.')}
+                    {opt('move', 'Move to another date', 'Pick a night below, or tell us what suits you.')}
+                    {opt('credit', 'Keep it as credit', 'For any future night within 12 months — refundable any time before you use it.')}
+                  </>
+                )}
                 {choice === 'move' && (
                   <div style={{ ...card, marginTop: '4px' }}>
                     <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>Pick a date</div>

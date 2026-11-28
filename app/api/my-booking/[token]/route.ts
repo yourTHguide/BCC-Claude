@@ -20,18 +20,21 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
   const credits = o.guest_id ? ((await db.from('guest_credits').select('amount, used_amount, status, expires_at').eq('guest_id', o.guest_id)).data ?? []) as any[] : []
   // Dates to move to: nights on sale or confirmed with room, plus every
   // Friday/Saturday in the next 3 months.
-  const dates = o.status === 'resolved' ? [] : await moveDates(db, o.event_id, booking?.quantity ?? 1)
+  const dates = o.status === 'resolved' || o.reason === 'date_proposal' ? [] : await moveDates(db, o.event_id, booking?.quantity ?? 1)
+  const { data: prop } = o.proposed_event_id ? await db.from('event_dates').select('event_date, night_name').eq('id', o.proposed_event_id).maybeSingle() : { data: null }
   return NextResponse.json({
     reason: o.reason, status: o.status, choice: o.choice, preferredDate: o.preferred_date, note: o.preference_note, resolution: o.resolution,
     booking: booking ? { guestName: booking.guest_name, nightName: booking.night_name, date: booking.event_date, quantity: booking.quantity, totalPaid: booking.total_paid } : null,
     credit: credits.filter((c) => c.status === 'active').reduce((s, c) => s + c.amount - c.used_amount, 0),
     creditExpires: credits.filter((c) => c.status === 'active').map((c) => c.expires_at).sort()[0] ?? null,
     dates,
+    proposed: prop ? { date: (prop as any).event_date, nightName: (prop as any).night_name } : null,
+    message: o.owner_message ?? null,
   })
 }
 
 export async function POST(req: NextRequest, { params }: { params: { token: string } }) {
   const body = await req.json().catch(() => ({}))
   const r = await chooseOption(getServiceSupabase(), params.token, body)
-  return NextResponse.json(r.status === 200 ? { ok: true } : { error: r.error }, { status: r.status })
+  return NextResponse.json(r.status === 200 ? { ok: true, done: !!(r as any).done } : { error: r.error }, { status: r.status })
 }

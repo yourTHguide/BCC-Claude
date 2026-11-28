@@ -64,16 +64,22 @@ export const CREDIT_AFTER_H = 48
 export const newToken = () => randomBytes(24).toString('base64url')
 export const optionLink = (token: string) => `${getAppUrl('bcc')}/my-booking/${token}`
 
-async function emailOption(db: SupabaseClient, kind: OptionsEmailKind, opt: any, booking: any, creditExpires?: string) {
+async function emailOption(db: SupabaseClient, kind: OptionsEmailKind, opt: any, booking: any, creditExpires?: string, noReply?: boolean) {
   if (!booking.guest_email) return 'no_email'
   const dateLabel = formatEventDateLong(booking.event_date)
+  let proposedLabel: string | undefined
+  if (opt.proposed_event_id) {
+    const { data: p } = await db.from('event_dates').select('event_date, night_name').eq('id', opt.proposed_event_id).maybeSingle()
+    if (p) proposedLabel = `${formatEventDateLong((p as any).event_date)} (${(p as any).night_name})`
+  }
   const html = generateOptionsEmail({
     kind, reason: opt.reason, guestName: booking.guest_name, nightName: booking.night_name, dateLabel,
     quantity: booking.quantity ?? 1, totalPaid: booking.total_paid ?? 0, link: optionLink(opt.token), creditExpires,
+    proposedLabel, ownerMessage: opt.owner_message ?? null, noReply,
   })
   const { error } = await sendEmail({
     from: resendFromHeader('bcc'), to: booking.guest_email, reply_to: brandFor('bcc').supportEmail,
-    subject: optionsEmailSubject({ kind, nightName: booking.night_name, dateLabel }), html,
+    subject: optionsEmailSubject({ kind, nightName: booking.night_name, dateLabel, reason: opt.reason }), html,
   })
   if (error) console.error('options email failed', error)
   return error ? 'failed' : 'sent'
@@ -108,6 +114,35 @@ export async function sendOptions(db: SupabaseClient, eventId: string, reason: O
   return { sent, failed, skipped, ota }
 }
 
+// Propose a new date to one website guest (owner, from the Bookings tab).
+// The guest accepts it (moved at once), keeps it as credit (at once) or asks
+// for a full refund (the owner approves, as with the other options).
+export async function proposeDate(db: SupabaseClient, input: { bookingId: string; targetEventId: string; message?: string | null }) {
+  const { data: bk } = await db.from('bookings').select('*').eq('id', input.bookingId).maybeSingle()
+  const b = bk as any
+  if (!b) return { status: 404, error: 'Booking not found.' }
+  if (b.status !== 'confirmed') return { status: 409, error: 'This booking isn’t active.' }
+  if (!b.guest_email) return { status: 409, error: 'This booking has no email — move it directly instead.' }
+  const { data: ev } = await db.from('event_dates').select('id, event_date, night_name, capacity').eq('id', input.targetEventId).maybeSingle()
+  const target = ev as any
+  if (!target) return { status: 400, error: 'Choose the night to propose.' }
+  if (b.event_id === target.id) return { status: 400, error: 'That’s the night they’re already booked on.' }
+  if (target.event_date <= bangkokNow().date) return { status: 400, error: 'Pick a future night.' }
+  const guestId = b.guest_id ?? (await ensureGuest(db, { email: b.guest_email, name: b.guest_name, phone: b.guest_phone }))
+  if (guestId && !b.guest_id) await db.from('bookings').update({ guest_id: guestId }).eq('id', b.id)
+  const message = String(input.message ?? '').trim().slice(0, 1000) || null
+  const { data: row, error } = await db.from('booking_options').insert({
+    booking_id: b.id, guest_id: guestId, event_id: b.event_id ?? target.id, reason: 'date_proposal', token: newToken(), sent_at: new Date().toISOString(),
+    proposed_event_id: target.id, owner_message: message,
+  }).select('*').single()
+  if (error?.code === '23505') return { status: 409, error: 'This guest already has an open choice waiting — see the night’s Vans box.' }
+  if (error) return { status: 500, error: 'Could not create the proposal.' }
+  const mail = await emailOption(db, 'options', row, b)
+  await logActivity(db, guestId, 'option_sent', b.id, { reason: 'date_proposal', to: target.event_date, email: mail })
+  if (mail !== 'sent') return { status: 200, ok: true, email: mail, link: optionLink((row as any).token) }
+  return { status: 200, ok: true, email: mail, link: optionLink((row as any).token) }
+}
+
 // The guest's choice from their personal page.
 export async function chooseOption(db: SupabaseClient, token: string, input: { choice?: string; preferredDate?: string | null; note?: string }) {
   const { data: opt } = await db.from('booking_options').select('*').eq('token', token).maybeSingle()
@@ -115,7 +150,18 @@ export async function chooseOption(db: SupabaseClient, token: string, input: { c
   if (!o) return { status: 404, error: 'This link is not valid.' }
   if (o.status === 'resolved' || o.status === 'cancelled') return { status: 409, error: 'This booking has already been sorted out.' }
   const choice = String(input.choice ?? '')
-  if (!['refund', 'move', 'credit'].includes(choice)) return { status: 400, error: 'Choose a refund, a new date or credit.' }
+  if (o.reason === 'date_proposal') {
+    // Accept the proposed night or keep it as credit: done at once. Refund: the owner approves.
+    if (!['accept', 'credit', 'refund'].includes(choice)) return { status: 400, error: 'Choose the new date, credit or a refund.' }
+    if (choice === 'accept' || choice === 'credit') {
+      const r = await resolveOption(db, o.id, choice === 'accept'
+        ? { resolution: 'moved', targetEventId: o.proposed_event_id, by: 'guest accepted the new date' }
+        : { resolution: 'credited', by: 'guest chose credit' })
+      if (r.status !== 200) return { status: r.status, error: choice === 'accept' ? 'That night just filled up — please choose credit or a refund, or reply to our email.' : r.error }
+      await logActivity(db, o.guest_id, 'option_chosen', o.booking_id, { choice })
+      return { status: 200, ok: true, done: true }
+    }
+  } else if (!['refund', 'move', 'credit'].includes(choice)) return { status: 400, error: 'Choose a refund, a new date or credit.' }
   const note = String(input.note ?? '').trim().slice(0, 500)
   let preferred: string | null = null
   let preferredDate: string | null = null
@@ -165,7 +211,7 @@ export async function resolveOption(db: SupabaseClient, optionId: string, as: { 
     let target = as.targetEventId ?? o.preferred_event_id
     if (!target && o.preferred_date) target = await nightOn(db, o.preferred_date)
     if (!target) { await undo(); return { status: 400, error: 'Choose the night to move them to.' } }
-    const r = await rescheduleBooking(db as any, { bookingId: b.id, newEventId: target, message: 'As the night didn’t reach the minimum number of guests, we’ve moved your booking as you asked.' })
+    const r = await rescheduleBooking(db as any, { bookingId: b.id, newEventId: target, message: o.reason === 'date_proposal' ? 'Thanks for confirming — here’s your new date.' : 'As the night didn’t reach the minimum number of guests, we’ve moved your booking as you asked.' })
     if (r.status !== 200) { await undo(); return { status: r.status, error: r.body.error } }
     await logActivity(db, o.guest_id, 'moved', b.id, { from: b.event_date, to: r.body.eventDate })
     return { status: 200, ok: true }
@@ -180,7 +226,7 @@ export async function resolveOption(db: SupabaseClient, optionId: string, as: { 
   if (r.status !== 200) { await undo(); return { status: r.status, error: r.body.error } }
   await db.from('guest_credits').insert({ guest_id: guestId, amount, reason: o.reason, source_booking_id: b.id, option_id: o.id, expires_at: expires.toISOString() })
   await logActivity(db, guestId, 'credited', b.id, { amount, expires: expires.toISOString().slice(0, 10) })
-  await emailOption(db, 'credited', o, b, formatEventDateLong(expires.toISOString().slice(0, 10)))
+  await emailOption(db, 'credited', o, b, formatEventDateLong(expires.toISOString().slice(0, 10)), as.by === 'no reply after 48 h')
   return { status: 200, ok: true }
 }
 
