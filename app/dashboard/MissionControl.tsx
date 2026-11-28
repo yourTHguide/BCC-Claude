@@ -161,6 +161,7 @@ export default function MissionControl({ name }: { name?: string | null }) {
           </div>
           <Stat title="Owed" value={baht(n.owed.hostPay + n.owed.commission)} sub={`hosts ${baht(n.owed.hostPay)} · commission ${baht(n.owed.commission)}${n.owed.credit ? ` · guest credit ${baht(n.owed.credit)}` : ''}`} />
         </div>
+        {n.reviews && <p className="mt-3 text-xs text-white/50">⭐ Review emails sent (30 days): {n.reviews.sent}{n.reviews.feedback ? ` · private feedback: ${n.reviews.feedback} (in your inbox)` : ''}</p>}
       </section>
 
       {/* Next 7 nights */}

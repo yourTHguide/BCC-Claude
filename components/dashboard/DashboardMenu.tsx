@@ -18,6 +18,7 @@ const LINKS: [string, string][] = [
   ['/dashboard/leads', '📨 Leads'],
   ['/dashboard/products', '🧩 Products'],
   ['/dashboard/reports', '📝 Reports'],
+  ['/dashboard/requests', '🔁 Requests'],
   ['/dashboard/commissions', '💸 Commission'],
   ['/dashboard/host', '🎤 Host view'],
   ['/dashboard/team', '👥 Team'],
