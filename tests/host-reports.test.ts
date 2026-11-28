@@ -220,3 +220,39 @@ test('two hosts: both see the night, each writes their own report and is paid se
   await call(review.POST, 'POST', { action: 'mark_paid', reportId: ice.id })
   assert.equal(ev.host_payment_status, 'Paid')
 })
+
+test('nights before reports started: no report due, host taps "I hosted", owner can then set the fee', async () => {
+  ev.event_date = '2026-10-23'
+  const e1 = await call(earnings.GET, 'GET')
+  assert.deepEqual(e1.json.nights.map((n: any) => n.state), ['confirm_hosted'])
+  assert.equal(e1.json.totals.reportsDue, 0)
+  const r = await call(report.PATCH, 'PATCH', { action: 'confirm_hosted' })
+  assert.equal(r.status, 200, JSON.stringify(r.json))
+  const rep = db.tables.host_reports[0]
+  assert.deepEqual([rep.status, rep.confirmed_only, rep.host_name], ['submitted', true, 'Ice'])
+  assert.deepEqual((await call(earnings.GET, 'GET')).json.nights.map((n: any) => n.state), ['in_review'])
+  // A night from 27 Nov on still needs the real report.
+  ev.event_date = '2026-11-27'
+  db.tables.host_reports.length = 0
+  assert.equal((await call(report.PATCH, 'PATCH', { action: 'confirm_hosted' })).status, 409)
+})
+
+test('owner waives a host report: no report due any more, fee can be set and paid', async () => {
+  db.insertRow('admin_users', { user_id: 'host-ice', role: 'staff', display_name: 'Ice' })
+  ;(globalThis as any).__admin = { userId: 'owner', role: 'owner', email: 'o@example.test', displayName: 'Guide' }
+  const before = await call(review.GET, 'GET')
+  assert.deepEqual(before.json.canWaive, ['Ice'])
+  assert.equal((await call(review.POST, 'POST', { action: 'waive_report', hostName: 'Nobody' })).status, 400)
+  const w = await call(review.POST, 'POST', { action: 'waive_report', hostName: 'Ice' })
+  assert.equal(w.status, 200, JSON.stringify(w.json))
+  const after = await call(review.GET, 'GET')
+  assert.deepEqual(after.json.canWaive, [])
+  assert.deepEqual([after.json.reports[0].waived, after.json.reports[0].status, after.json.reports[0].payout], [true, 'submitted', 'in_review'])
+  const id = after.json.reports[0].id
+  assert.equal((await call(review.POST, 'POST', { action: 'set_fee', reportId: id, amount: 1500 })).status, 200)
+  assert.equal((await call(review.POST, 'POST', { action: 'mark_paid', reportId: id })).status, 200)
+  // The host sees it as done, not "report to write".
+  ;(globalThis as any).__admin = ICE
+  assert.deepEqual((await call(earnings.GET, 'GET')).json.nights.map((n: any) => n.state), ['paid'])
+  assert.equal((await call(review.POST, 'POST', { action: 'waive_report', hostName: 'Ice' })).status, 403)
+})

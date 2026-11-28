@@ -139,7 +139,7 @@ export default function HostEventDetailPage({ params }: { params: { id: string }
               {!data.event.isOpen && ' · Closed'}
             </p>
 
-            {tab === 'brief' && <HostBrief event={data.event} headcount={data.headcount} onTab={open} expenseCount={data.expenses.length} reportLabel={data.report.status === 'submitted' ? 'Report ✓' : 'Night report'} />}
+            {tab === 'brief' && <HostBrief event={data.event} headcount={data.headcount} onTab={open} expenseCount={data.expenses.length} reportLabel={data.report.status === 'submitted' ? 'Report ✓' : 'Night report'} reportDone={data.report.status === 'submitted'} onChanged={load} />}
 
             {/* Door list: everyone (direct + OTA), one-tap check-in, Scan at the top */}
             {tab === 'guests' && (

@@ -1,5 +1,8 @@
 'use client'
 
+import { useState } from 'react'
+import { needsReport } from '@/lib/hostPayout'
+
 // The host's Brief for one night: what they need before and during the crawl.
 // Every item shows, set or not, so the host can see what is still missing.
 
@@ -19,7 +22,16 @@ function phoneOf(s: string | null) {
   return digits.replace(/\D/g, '').length >= 8 ? digits : null
 }
 
-export default function HostBrief({ event, headcount, onTab, expenseCount = 0, reportLabel = 'Night report' }: { event: any; headcount: { total: number; checkedIn: number }; onTab: (t: 'guests' | 'expenses' | 'report') => void; expenseCount?: number; reportLabel?: string }) {
+export default function HostBrief({ event, headcount, onTab, expenseCount = 0, reportLabel = 'Night report', reportDone = false, onChanged }: { event: any; headcount: { total: number; checkedIn: number }; onTab: (t: 'guests' | 'expenses' | 'report') => void; expenseCount?: number; reportLabel?: string; reportDone?: boolean; onChanged?: () => void }) {
+  const [busy, setBusy] = useState(false)
+  // Nights before reports started: just confirm you hosted (no report).
+  const legacy = !needsReport(event.eventDate)
+  async function confirmHosted() {
+    setBusy(true)
+    await fetch(`/api/admin/host/events/${event.id}/report`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'confirm_hosted' }) }).catch(() => null)
+    setBusy(false)
+    onChanged?.()
+  }
   const route = ['venue1', 'venue2', 'venue3', 'venue4'].map((k) => event.venueRoute?.[k]).filter(Boolean) as string[]
   const phone = phoneOf(event.vanOrTaxiContact)
   const start = time12(event.startTime)
@@ -101,7 +113,11 @@ export default function HostBrief({ event, headcount, onTab, expenseCount = 0, r
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '6px' }}>
         <button onClick={() => onTab('expenses')} style={{ ...btn, border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#fff', cursor: 'pointer' }}>{expenseCount ? `Expenses (${expenseCount}) ›` : '+ Add expense'}</button>
-        <button onClick={() => onTab('report')} style={{ ...btn, border: 'none', background: 'linear-gradient(135deg,#EA003A,#820065)', color: '#fff', cursor: 'pointer' }}>📝 {reportLabel}</button>
+        {legacy ? (
+          <button onClick={confirmHosted} disabled={busy || reportDone} style={{ ...btn, border: '1px solid rgba(110,231,183,0.5)', background: 'transparent', color: '#6EE7B7', cursor: reportDone ? 'default' : 'pointer' }}>{reportDone ? '✓ Hosted' : busy ? 'Saving…' : '✓ I hosted this night'}</button>
+        ) : (
+          <button onClick={() => onTab('report')} style={{ ...btn, border: 'none', background: 'linear-gradient(135deg,#EA003A,#820065)', color: '#fff', cursor: 'pointer' }}>📝 {reportLabel}</button>
+        )}
       </div>
     </div>
   )

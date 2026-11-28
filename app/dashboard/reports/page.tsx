@@ -7,7 +7,7 @@ import Link from 'next/link'
 // approval and payout state. Tap a night to review it.
 
 const PAYOUT: Record<string, [string, string]> = {
-  report_due: ['Report due', 'text-amber-300'], in_review: ['To review', 'text-sky-300'],
+  confirm_hosted: ['Host to confirm', 'text-white/60'], report_due: ['Report due', 'text-amber-300'], in_review: ['To review', 'text-sky-300'],
   ready_to_pay: ['Ready to pay', 'text-emerald-300'], paid: ['Paid', 'text-white/50'],
 }
 function pretty(date: string) {

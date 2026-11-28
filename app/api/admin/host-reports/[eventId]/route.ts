@@ -14,6 +14,8 @@ export const dynamic = 'force-dynamic'
 // POST { action }:
 //   approve_expense { id } | reject_expense { id, note? }
 //   set_fee   { reportId, amount } → that host's fee
+//   waive_report { hostName }     → no report needed from that host (the owner
+//                                   hosted with them, or it's too late to ask)
 //   mark_paid { reportId }          → only once their report is in, the fee is
 //                                     set and none of their expenses is waiting
 // The night's totals (host_fee_final / host_payment_status, used by Closeout
@@ -47,6 +49,7 @@ export async function GET(_req: NextRequest, { params }: { params: { eventId: st
     const pay = hostPay(r, d.ev, pending)
     return {
       id: r.id, hostUserId: r.host_user_id, hostName: r.host_name, status: r.status, submittedAt: r.submitted_at,
+      confirmedOnly: !!r.confirmed_only, waived: !!r.waived_at,
       vibe: r.vibe, guests: r.guests, venues: r.venues, incidents: r.incidents,
       fee: pay.fee, paid: pay.paid, payout: pay.state, pendingExpenses: pending,
       approvedExpenses: d.expenses.filter((e) => e.host_user_id === r.host_user_id && e.status === 'approved').reduce((s, e) => s + e.amount, 0),
@@ -59,6 +62,7 @@ export async function GET(_req: NextRequest, { params }: { params: { eventId: st
     suggestedFee: Math.round(suggestedHostFee(checkedIn) / Math.max(1, hosts.length)),
     reports,
     waitingFor: hosts.filter((h) => !d.reports.some((r) => r.host_name === h)),
+    canWaive: hosts.filter((h) => !d.reports.some((r) => r.host_name === h && r.status === 'submitted')),
     expenses: d.expenses.map((e) => ({ id: e.id, hostName: e.host_name, category: e.category, note: e.note, amount: e.amount, status: e.status, reviewNote: e.review_note, hasReceipt: !!e.receipt_path, createdAt: e.created_at })),
   })
 }
@@ -98,6 +102,28 @@ export async function POST(req: NextRequest, { params }: { params: { eventId: st
     }
     await db.from('host_expenses').update({ expense_id: (led as any).id }).eq('id', exp.id)
     console.log(`[host-report] ${who} approved ฿${exp.amount} (${exp.host_name}, ${d.ev.event_date})`)
+    return NextResponse.json({ ok: true })
+  }
+
+  if (body.action === 'waive_report') {
+    const name = String(body.hostName ?? '')
+    const hosts = [d.ev.host_assigned, d.ev.host_assigned_2].filter(Boolean)
+    if (!hosts.includes(name)) return NextResponse.json({ error: 'That host isn’t on this night.' }, { status: 400 })
+    const existing = d.reports.find((r) => r.host_name === name)
+    if (existing?.status === 'submitted') return NextResponse.json({ error: `${name} already submitted the report.` }, { status: 409 })
+    const now = new Date().toISOString()
+    let res
+    if (existing) {
+      res = await db.from('host_reports').update({ status: 'submitted', submitted_at: now, updated_at: now, waived_at: now }).eq('id', existing.id).eq('status', 'draft').select('id')
+    } else {
+      // The host's login (a host account first if the name is shared with the owner's).
+      const { data: users } = await db.from('admin_users').select('user_id, role').eq('display_name', name)
+      const u = ((users ?? []) as any[]).sort((a, b) => Number(b.role === 'staff') - Number(a.role === 'staff'))[0]
+      if (!u) return NextResponse.json({ error: `${name} has no host login, so there’s no report to waive.` }, { status: 409 })
+      res = await db.from('host_reports').insert({ event_id: d.ev.id, host_user_id: u.user_id, host_name: name, status: 'submitted', submitted_at: now, updated_at: now, waived_at: now }).select('id')
+    }
+    if (res.error || !res.data?.length) return NextResponse.json({ error: 'Could not save. Reload and try again.' }, { status: res.error?.code === '23505' ? 409 : 500 })
+    console.log(`[host-report] ${who} waived ${name}'s report for ${d.ev.event_date}`)
     return NextResponse.json({ ok: true })
   }
 

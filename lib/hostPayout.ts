@@ -1,7 +1,13 @@
 // Where a hosted night's payout stands (Nov 2026). The owner sets the fee
 // after reviewing check-ins and approving expenses; pay is only ready once the
 // host has submitted the report.
-export type PayoutState = 'report_due' | 'in_review' | 'ready_to_pay' | 'paid'
+export type PayoutState = 'confirm_hosted' | 'report_due' | 'in_review' | 'ready_to_pay' | 'paid'
+
+// Reports start with the night of 27 Nov 2026 (owner, 28 Nov 2026). Earlier
+// nights need no report: the host just confirms they hosted it. The owner can
+// also waive any host's report (e.g. they hosted the night together).
+export const REPORTS_FROM = '2026-11-27'
+export const needsReport = (eventDate: string | null | undefined) => !eventDate || eventDate >= REPORTS_FROM
 
 export function payoutState(reportStatus: string | null | undefined, hostPaymentStatus: string | null | undefined, pendingExpenses: number): PayoutState {
   if (hostPaymentStatus === 'Paid') return 'paid'
@@ -14,13 +20,13 @@ export function payoutState(reportStatus: string | null | undefined, hostPayment
 // their own report and fee). Nights paid before per-host fees existed keep
 // the night-level fee for their single host.
 export function hostPay(rep: { status?: string | null; fee_thb?: number | null; paid_at?: string | null } | null | undefined,
-  night: { host_assigned_2?: string | null; host_fee_final?: number | null; host_payment_status?: string | null }, pendingExpenses: number) {
+  night: { event_date?: string | null; host_assigned_2?: string | null; host_fee_final?: number | null; host_payment_status?: string | null }, pendingExpenses: number) {
   const legacy = !night.host_assigned_2 && rep?.fee_thb == null && (night.host_payment_status === 'Calculated' || night.host_payment_status === 'Paid')
   const fee = rep?.fee_thb ?? (legacy ? night.host_fee_final ?? 0 : null)
   const paid = !!rep?.paid_at || (legacy && night.host_payment_status === 'Paid')
   let state: PayoutState
   if (paid) state = 'paid'
-  else if (rep?.status !== 'submitted') state = 'report_due'
+  else if (rep?.status !== 'submitted') state = needsReport(night.event_date) ? 'report_due' : 'confirm_hosted'
   else if (fee != null && pendingExpenses === 0) state = 'ready_to_pay'
   else state = 'in_review'
   return { fee, paid, state }
@@ -42,6 +48,7 @@ export async function syncNightHostPay(db: any, eventId: string) {
 }
 
 export const PAYOUT_LABEL: Record<PayoutState, string> = {
+  confirm_hosted: 'Confirm you hosted',
   report_due: 'Report due',
   in_review: 'Report in — owner reviewing',
   ready_to_pay: 'Ready to pay',

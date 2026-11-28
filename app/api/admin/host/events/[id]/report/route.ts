@@ -4,6 +4,7 @@ import { getServiceSupabase } from '@/lib/supabase'
 import { loadDoorGuests } from '@/lib/doorList'
 import { bangkokToday, formatEventDateLong } from '@/lib/dates'
 import { sendEmail } from '@/lib/sendEmail'
+import { needsReport } from '@/lib/hostPayout'
 import { INCIDENT_TYPES, blankReport, canWorkNight, cleanReport, escapeHtml, routeVenues, submitProblems, type ReportBody } from '@/lib/hostReports'
 
 export const dynamic = 'force-dynamic'
@@ -92,6 +93,26 @@ async function save(req: NextRequest, params: { id: string }, submit: boolean) {
     else await c.db.from('host_reports').update({ incident_alert_sent_at: new Date().toISOString() }).eq('id', reportId)
   }
   return NextResponse.json({ ok: true, status: submit ? 'submitted' : 'draft' })
+}
+
+// PATCH { action: 'confirm_hosted' } → for nights before reports started:
+// the host just confirms they hosted it (no report), so the owner can pay.
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await requireAdmin()
+  if ('response' in auth) return auth.response
+  const c = await context(params.id, auth.admin)
+  if ('res' in c) return c.res
+  const input = await req.json().catch(() => ({}))
+  if (input.action !== 'confirm_hosted') return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
+  if (needsReport(c.ev.event_date)) return NextResponse.json({ error: 'This night needs a report.' }, { status: 409 })
+  if (c.report?.status === 'submitted') return NextResponse.json({ ok: true })
+  const now = new Date().toISOString()
+  const row = { event_id: c.ev.id, host_user_id: auth.admin.userId, host_name: auth.admin.displayName ?? auth.admin.email ?? 'Host', status: 'submitted', submitted_at: now, updated_at: now, confirmed_only: true }
+  const res = c.report
+    ? await c.db.from('host_reports').update(row).eq('id', c.report.id).eq('status', 'draft').select('id')
+    : await c.db.from('host_reports').insert(row).select('id')
+  if (res.error && res.error.code !== '23505') return NextResponse.json({ error: 'Could not save. Try again.' }, { status: 500 })
+  return NextResponse.json({ ok: true })
 }
 
 export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
