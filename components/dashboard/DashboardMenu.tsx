@@ -19,6 +19,7 @@ const LINKS: [string, string][] = [
   ['/dashboard/products', '🧩 Products'],
   ['/dashboard/reports', '📝 Reports'],
   ['/dashboard/requests', '🔁 Requests'],
+  ['/dashboard/whatsapp', '📲 WhatsApp list'],
   ['/dashboard/commissions', '💸 Commission'],
   ['/dashboard/host', '🎤 Host view'],
   ['/dashboard/team', '👥 Team'],

@@ -55,3 +55,13 @@ SELECT cron.schedule('review-requests', '0 7 * * *', $job$
     body    := '{}'::jsonb, timeout_milliseconds := 55000)
   WHERE EXISTS (SELECT 1 FROM vault.decrypted_secrets WHERE name = 'ops_cron_secret');
 $job$);
+
+-- Every 15 minutes, only while /night entries wait for a match: re-check them (reads Bókun live).
+SELECT cron.schedule('night-joins-recheck', '*/15 * * * *', $job$
+  SELECT net.http_post(
+    url     := replace((SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'van_reminder_url'), '/van-reminders', '/night-joins'),
+    headers := jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'ops_cron_secret')),
+    body    := '{}'::jsonb, timeout_milliseconds := 55000)
+  WHERE EXISTS (SELECT 1 FROM vault.decrypted_secrets WHERE name = 'ops_cron_secret')
+    AND EXISTS (SELECT 1 FROM public.night_joins WHERE status = 'pending' AND event_date >= (now() AT TIME ZONE 'Asia/Bangkok')::date);
+$job$);

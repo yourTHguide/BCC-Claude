@@ -8,7 +8,7 @@ import { bccEmailLogo, BCC_BUTTON_BG } from '@/emails/brandLogo'
 //   credited — 48 h without a choice: the money is kept as credit
 // Plain, warm, no pressure; credit is always refundable on request.
 
-export type OptionsReason = 'night_short' | 'van2_short'
+export type OptionsReason = 'night_short' | 'van2_short' | 'date_proposal'
 export type OptionsEmailKind = 'options' | 'reminder' | 'credited'
 
 export interface OptionsEmailInput {
@@ -21,15 +21,20 @@ export interface OptionsEmailInput {
   totalPaid: number
   link: string
   creditExpires?: string
+  proposedLabel?: string   // date_proposal: the night we'd like to move them to
+  ownerMessage?: string | null
+  noReply?: boolean         // credited: because they didn't answer in 48 h
 }
 
 const REASON: Record<OptionsReason, string> = {
   night_short: 'Not enough guests booked for this night to run it, so we can’t go ahead.',
   van2_short: 'Van 2 didn’t reach the 4 guests it needs, so it won’t run. Van 1 is going ahead, but it’s full.',
+  date_proposal: 'We need to move this night.',
 }
 
-export function optionsEmailSubject(i: Pick<OptionsEmailInput, 'kind' | 'nightName' | 'dateLabel'>): string {
+export function optionsEmailSubject(i: Pick<OptionsEmailInput, 'kind' | 'nightName' | 'dateLabel'> & { reason?: OptionsReason }): string {
   if (i.kind === 'credited') return `Your credit for ${i.nightName} is ready`
+  if (i.reason === 'date_proposal') return i.kind === 'reminder' ? `Reminder: please confirm your new date — ${i.nightName}` : `A new date for your booking: ${i.nightName}`
   if (i.kind === 'reminder') return `Reminder: choose a refund or a new date — ${i.nightName}`
   return `Change to your booking: ${i.nightName}, ${i.dateLabel}`
 }
@@ -44,9 +49,23 @@ export function generateOptionsEmail(i: OptionsEmailInput): string {
   let body: string
   if (i.kind === 'credited') {
     body = `<p>Hi ${escapeHtml(first)},</p>
-      <p>We didn’t hear back about your booking for <strong>${escapeHtml(i.nightName)}</strong> on ${escapeHtml(i.dateLabel)}, so we’ve kept your <strong>${amount}</strong> as credit for your next night with us${i.creditExpires ? ` (valid until ${escapeHtml(i.creditExpires)})` : ''}.</p>
+      <p>${i.noReply === false ? 'As you chose, your booking for' : 'We didn’t hear back about your booking for'} <strong>${escapeHtml(i.nightName)}</strong> on ${escapeHtml(i.dateLabel)}${i.noReply === false ? ' is now' : ', so we’ve kept your'} <strong>${amount}</strong>${i.noReply === false ? '' : ''} as credit for your next night with us${i.creditExpires ? ` (valid until ${escapeHtml(i.creditExpires)})` : ''}.</p>
       <p>Prefer your money back? No problem — a full refund is still available until you use the credit.</p>
       ${btn('See my booking', true)}`
+  } else if (i.reason === 'date_proposal') {
+    body = `<p>Hi ${escapeHtml(first)},</p>
+      ${i.kind === 'reminder' ? '<p>Just a reminder — we still need your answer for this booking.</p>' : ''}
+      <p>We’re sorry — we need to move your <strong>${escapeHtml(i.nightName)}</strong> on ${escapeHtml(i.dateLabel)} (${i.quantity} ticket${i.quantity === 1 ? '' : 's'}).</p>
+      <p>We’d love to have you on <strong>${escapeHtml(i.proposedLabel ?? 'another night')}</strong> instead.</p>
+      ${i.ownerMessage ? `<p style="padding:12px 14px;border-radius:10px;background:rgba(255,255,255,0.06)">${escapeHtml(i.ownerMessage)}</p>` : ''}
+      <p>Please choose what works for you:</p>
+      <ul style="padding-left:18px;margin:8px 0">
+        <li><strong>Accept the new date</strong></li>
+        <li><strong>Keep it as credit</strong> for any future night (12 months)</li>
+        <li><strong>Full refund</strong> of ${amount}</li>
+      </ul>
+      ${btn('Choose my option', true)}
+      <p style="font-size:13px;margin-top:16px">Or just reply to this email. If we don’t hear from you within 48 hours, we’ll keep your ${amount} as credit for your next night (still refundable any time before you use it).</p>`
   } else {
     body = `<p>Hi ${escapeHtml(first)},</p>
       ${i.kind === 'reminder' ? '<p>Just a reminder — we still need your choice for this booking.</p>' : ''}

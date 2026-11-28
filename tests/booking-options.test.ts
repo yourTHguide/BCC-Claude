@@ -148,3 +148,49 @@ test('a new paid booking creates or reuses the guest record and logs it', async 
   assert.equal(db.tables.guests.length, 1, 'reused, not duplicated')
   assert.ok(db.tables.guest_activity.some((a) => a.kind === 'booked' && a.booking_id === b.id))
 })
+
+test('owner proposes a new date: guest accepts → moved at once', async () => {
+  const propose = await import('../app/api/admin/propose-date/route.ts')
+  ;(globalThis as any).__admin = { userId: 'o', role: 'owner', email: 'o@example.test', displayName: 'Guide' }
+  db.tables.bookings.find((b) => b.id === 'b2')!.event_id = night.id
+  const r = await call(propose.POST, 'POST', { bookingId: 'b2', newEventId: other.id, message: 'Venue closed for a private event.' })
+  assert.equal(r.status, 200, JSON.stringify(r.json))
+  const m = (globalThis as any).__mail.sent.at(-1)
+  assert.match(m.subject, /A new date for your booking/)
+  assert.match(m.html, /Venue closed for a private event/)
+  assert.match(m.html, /Signature Night/)
+  // A second proposal while one is open is refused.
+  assert.equal((await call(propose.POST, 'POST', { bookingId: 'b2', newEventId: other.id })).status, 409)
+  const page = await call(mine.GET, 'GET', undefined, { params: { token: tok('b2') } })
+  assert.deepEqual([page.json.reason, page.json.proposed.date], ['date_proposal', other.event_date])
+  const a = await call(mine.POST, 'POST', { choice: 'accept' }, { params: { token: tok('b2') } })
+  assert.equal(a.status, 200, JSON.stringify(a.json))
+  assert.equal(a.json.done, true)
+  const b = db.tables.bookings.find((x) => x.id === 'b2')!
+  assert.deepEqual([b.event_id, b.event_date, b.booking_status], [other.id, other.event_date, 'rescheduled'])
+  assert.equal(db.tables.booking_options.find((o) => o.booking_id === 'b2').resolution, 'moved')
+})
+
+test('proposal: credit is at once; refund waits for the owner', async () => {
+  const propose = await import('../app/api/admin/propose-date/route.ts')
+  ;(globalThis as any).__admin = { userId: 'o', role: 'owner', email: 'o@example.test', displayName: 'Guide' }
+  await call(propose.POST, 'POST', { bookingId: 'b2', newEventId: other.id })
+  await call(propose.POST, 'POST', { bookingId: 'b3', newEventId: other.id })
+  assert.equal((await call(mine.POST, 'POST', { choice: 'credit' }, { params: { token: tok('b2') } })).status, 200)
+  assert.equal(db.tables.bookings.find((x) => x.id === 'b2')!.status, 'cancelled')
+  assert.equal(db.tables.guest_credits.find((c) => c.source_booking_id === 'b2').amount, 2400)
+  const credited = (globalThis as any).__mail.sent.at(-1)
+  assert.match(credited.html, /As you chose/)
+  assert.equal((await call(mine.POST, 'POST', { choice: 'refund' }, { params: { token: tok('b3') } })).status, 200)
+  const o3 = db.tables.booking_options.find((o) => o.booking_id === 'b3')
+  assert.deepEqual([o3.status, o3.choice], ['chosen', 'refund'])
+  assert.equal((globalThis as any).__stripe.refunds.length, 0, 'no refund until the owner approves')
+  // Old choices aren't offered on a proposal.
+  assert.equal((await call(mine.POST, 'POST', { choice: 'move' }, { params: { token: tok('b3') } })).status, 400)
+})
+
+test('proposal needs the owner; host cannot propose', async () => {
+  const propose = await import('../app/api/admin/propose-date/route.ts')
+  ;(globalThis as any).__admin = { userId: 'h', role: 'staff', email: 'h@example.test', displayName: 'Ice' }
+  assert.equal((await call(propose.POST, 'POST', { bookingId: 'b2', newEventId: other.id })).status, 403)
+})

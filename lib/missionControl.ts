@@ -1,3 +1,4 @@
+import { joinTodos } from '@/lib/nightJoin'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { BCC_PRODUCT_SLUG, bangkokNow, isCancelledEvent } from '@/lib/bookingAvailability'
 import { addDaysISO } from '@/lib/dates'
@@ -201,6 +202,13 @@ export async function buildMissionControl(db: SupabaseClient, now = new Date()) 
         todo.push({ id: `req-${r.id}`, level: 'orange', title: `${b?.guest_name ?? 'A guest'} asks to ${r.kind === 'move' ? 'move their booking' : 'keep it as credit'}`, detail: b ? `${b.night_name}, ${dateLabel(b.event_date)}` : undefined, href: '/dashboard/requests', action: 'Review' })
       }
     }
+  } catch { /* table not on this database yet */ }
+
+  // /night page: numbers still unmatched by 5 PM, and matched guests waiting for the group link.
+  try {
+    const j = await joinTodos(db, now)
+    if (j.toSend) todo.push({ id: 'night-send', level: 'orange', title: `Send tonight’s group link to ${j.toSend} guest${j.toSend === 1 ? '' : 's'}`, detail: 'They left their WhatsApp on /night', href: `/dashboard/whatsapp?date=${j.today}`, action: 'Send' })
+    if (j.pending) todo.push({ id: 'night-check', level: 'orange', title: `${j.pending} WhatsApp number${j.pending === 1 ? '' : 's'} to check for tonight`, detail: 'Didn’t match a booking — match or ignore', href: `/dashboard/whatsapp?date=${j.today}`, action: 'Check' })
   } catch { /* table not on this database yet */ }
 
   // Review emails (last 30 days) and private feedback received.
